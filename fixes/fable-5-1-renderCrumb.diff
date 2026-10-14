@@ -1,0 +1,11 @@
+--- claude-fable-5-1.orig.html	2026-10-15 02:20:50
++++ claude-fable-5-1.html	2026-10-15 02:20:50
+@@ -542,7 +542,7 @@
+   document.getElementById('tree').innerHTML='<ul>'+rec(TREE)+'</ul>';
+ }
+ function renderCrumb(){
+-  const path=[]; let n=NODES[state.node]; while(n){path.unshift(n); n=n.parent;}
++  const path=[]; let c=NODES[state.node]; while(c){path.unshift(c); c=c.parent;}
+   document.getElementById('crumb').innerHTML = path.map((n,i)=>`${i?'<i>›</i>':''}<span class="${n.id===state.node?'cur':''}" ${n.id!==state.node?`onclick="navigate('${n.id}')"`:''}>${n.name}</span>`).join('')
+     + `<span class="lvl" style="border:0;background:none;cursor:default;margin-left:6px">粒度レベル L${NODES[state.node].depth} / 4</span>`;
+   const n=NODES[state.node];
