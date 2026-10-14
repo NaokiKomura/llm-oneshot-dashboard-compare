@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TopicScope — ゲーム発話分析ダッシュボード</title>
+<style>
+:root{
+  --bg:#f4f6fb;--card:#fff;--ink:#202a42;--muted:#7a8499;
+  --line:#e9edf5;--primary:#6058e8;--primary-soft:#f0efff;
+  --positive:#23b59b;--neutral:#a1adc6;--negative:#f08b8f;
+  --shadow:0 5px 22px rgba(32,42,66,.035);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.5}
+button,input,select{outline-offset:3px}
+button:focus-visible,a:focus-visible{outline:3px solid #ada8ff}
+button{color:inherit}
+.sidebar{position:fixed;inset:0 auto 0 0;width:224px;background:#fff;border-right:1px solid var(--line);padding:28px 18px;display:flex;flex-direction:column;z-index:5}
+.brand{display:flex;gap:11px;align-items:center;font-size:21px;font-weight:800;letter-spacing:-.7px;padding:0 10px}
+.brand-icon{display:grid;place-items:center;width:34px;height:34px;background:var(--primary);color:white;border-radius:11px;font-size:22px}
+.brand small{font-size:10px;font-weight:600;letter-spacing:1.8px;display:block;color:var(--muted);margin-top:-4px}
+.nav-label{font-size:10px;letter-spacing:1.8px;color:#9da6b8;font-weight:700;margin:35px 12px 12px}
+.nav-item{width:100%;border:0;background:none;text-align:left;padding:12px;border-radius:9px;display:flex;align-items:center;gap:10px;font-weight:600}
+.nav-item.active{background:var(--primary-soft);color:var(--primary)}
+.scope-nav{display:flex;flex-direction:column;gap:6px}
+.scope-nav button{border:0;background:none;border-radius:8px;padding:9px 12px;text-align:left;font-size:12px;color:#737e95}
+.scope-nav button:hover,.scope-nav button.active{background:#f6f5ff;color:var(--primary)}
+.scope-nav .indent{padding-left:24px}
+.scope-nav .indent2{padding-left:36px}
+.side-note{margin-top:auto;background:#f8f9fc;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:11px;color:var(--muted)}
+.side-note strong{display:block;color:var(--ink);font-size:12px;margin-bottom:6px}
+.main{margin-left:224px}
+.topbar{height:72px;padding:0 34px;background:#ffffffd9;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.topbar-left{font-size:12px;color:var(--muted)}
+.topbar-left strong{color:var(--ink);font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:13px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:#fff5dc;color:#987423;font-size:10px;font-weight:700;letter-spacing:.5px}
+.avatar{width:31px;height:31px;border-radius:50%;background:#e9e7ff;display:grid;place-items:center;color:var(--primary);font-size:11px;font-weight:700}
+.content{max-width:1540px;margin:auto;padding:28px 34px 35px}
+.heading{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:20px}
+.eyebrow{font-size:10px;color:var(--primary);letter-spacing:1.8px;font-weight:800}
+h1{font-size:26px;letter-spacing:-.7px;margin:4px 0}
+.subtitle{color:var(--muted);font-size:12px;margin:0}
+.btn{border:1px solid #dfe3ed;background:white;border-radius:8px;padding:9px 13px;font-size:12px;white-space:nowrap}
+.btn:hover{background:#f8f8ff;border-color:#bcb7ff}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:white}
+.btn.small{padding:5px 9px;font-size:11px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px;background:white;border:1px solid var(--line);border-radius:12px;margin-bottom:18px}
+.field{display:flex;gap:9px;align-items:center}
+.field label{font-size:11px;color:var(--muted);white-space:nowrap}
+select,input{border:1px solid #e3e7f0;border-radius:7px;background:#fff;padding:7px 9px;color:var(--ink);font-size:12px}
+input{width:220px}
+.search{margin-left:auto}
+.filter-summary{font-size:11px;color:var(--muted)}
+.scope-box{background:linear-gradient(115deg,#f0eeff,#f7f8ff);border:1px solid #e4e1fb;border-radius:12px;padding:17px 19px;margin-bottom:20px}
+.scope-head{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.scope-caption{font-size:10px;color:var(--primary);letter-spacing:1px;font-weight:700}
+.breadcrumb{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px}
+.breadcrumb button{background:none;border:0;padding:2px 0;font-size:12px;color:#77748f}
+.breadcrumb button.current{font-size:14px;font-weight:700;color:var(--primary)}
+.breadcrumb span{color:#b2aecb;font-size:11px}
+.scope-description{font-size:11px;color:#86819d;margin-top:6px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);min-width:0}
+.kpi{padding:19px 20px}
+.kpi-label{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:5px}
+.kpi-icon{color:#938ded;background:#f4f2ff;border-radius:5px;padding:0 6px;font-size:12px}
+.kpi-value{font-size:30px;font-weight:750;letter-spacing:-1px;line-height:1.25;margin:10px 0 8px}
+.kpi-value small{font-size:12px;letter-spacing:0;font-weight:500;margin-left:5px;color:var(--muted)}
+.kpi-foot{font-size:10px;color:var(--muted)}
+.delta{color:var(--primary);font-weight:700;margin-right:5px}
+.grid-main{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(280px,1fr);gap:20px;margin-bottom:20px}
+.card-head{padding:20px 22px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h2{font-size:14px;margin:0;font-weight:700}
+.card-sub{font-size:10px;color:var(--muted);margin-top:4px}
+.legend{display:flex;gap:13px;flex-wrap:wrap;font-size:10px;color:var(--muted);align-items:center}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}
+.trend-wrap{padding:8px 15px 0;overflow:hidden}
+.trend-wrap svg{width:100%;height:auto;display:block}
+.chart-footer{margin:0 22px 18px;padding-top:11px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;font-size:10px;color:var(--muted)}
+.chart-footer strong{color:var(--ink)}
+.sentiment-layout{display:flex;align-items:center;justify-content:center;gap:18px;padding:18px 16px 8px}
+.donut{width:152px;flex-shrink:0}
+.sentiment-list{flex:1;max-width:180px}
+.sentiment-row{width:100%;border:0;border-radius:7px;background:none;display:flex;justify-content:space-between;align-items:center;padding:7px;font-size:11px;text-align:left;gap:8px}
+.sentiment-row:hover{background:#f5f6fa}
+.sentiment-row.active{background:var(--primary-soft)}
+.sentiment-row strong{font-size:13px}
+.sentiment-note{margin:5px 22px 20px;font-size:10px;color:var(--muted);background:#f8f9fc;border-radius:7px;padding:10px}
+.insights-section{margin-bottom:22px}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px}
+.section-head h2{font-size:15px}
+.section-head span{font-size:10px;color:var(--muted)}
+.insights{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+.insight{padding:17px 18px;border-top:3px solid #938cf3}
+.insight:nth-child(2){border-top-color:var(--positive)}
+.insight:nth-child(3){border-top-color:#eeb36f}
+.insight-tag{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--primary);margin-bottom:7px}
+.insight:nth-child(2) .insight-tag{color:#199d88}
+.insight:nth-child(3) .insight-tag{color:#b98747}
+.insight h3{font-size:13px;margin:0 0 7px}
+.insight p{font-size:11px;color:#7a8499;margin:0;line-height:1.85}
+.insight-action{border:0;background:none;padding:10px 0 0;color:var(--primary);font-size:10px}
+.table-wrap{padding:12px 20px 17px;overflow:auto}
+table{width:100%;border-collapse:collapse;text-align:left;font-size:11px;white-space:nowrap}
+th{color:#929aae;font-size:10px;font-weight:500;padding:9px 8px;border-bottom:1px solid var(--line)}
+td{padding:12px 8px;border-bottom:1px solid #f0f2f7}
+tr:last-child td{border-bottom:0}
+td.number,th.number{text-align:right}
+.topic-button{border:0;background:none;padding:0;color:var(--ink);text-align:left;font-weight:600;font-size:11px}
+.topic-button:hover{color:var(--primary)}
+.topic-button small{display:block;font-size:9px;font-weight:400;color:var(--muted);margin-top:2px}
+.mini-bar{width:85px;height:5px;background:#f0eefb;border-radius:5px;margin-top:5px;overflow:hidden}
+.mini-bar i{display:block;background:#8f88ef;height:100%;border-radius:5px}
+.rate{font-size:9px;color:var(--muted)}
+.arrow{color:var(--primary);font-size:13px}
+.aspects{padding:14px 22px 20px}
+.aspect-row{margin-bottom:13px}
+.aspect-label{display:flex;justify-content:space-between;gap:10px;font-size:11px;margin-bottom:5px}
+.aspect-label button{border:0;padding:0;background:none;font-size:11px}
+.aspect-label button:hover{color:var(--primary)}
+.aspect-label span{font-size:10px;color:var(--muted)}
+.aspect-track{height:8px;background:#f2f4f8;border-radius:5px;overflow:hidden;display:flex}
+.aspect-track i{display:block;height:100%}
+.keyword-strip{border-top:1px solid var(--line);padding-top:12px;margin-top:16px}
+.keyword-strip p{font-size:10px;color:var(--muted);margin:0 0 8px}
+.tag{border:1px solid #eceaf8;background:#faf9ff;color:#766fab;border-radius:5px;font-size:10px;padding:4px 7px;margin:0 4px 5px 0}
+.tag.active{background:var(--primary);border-color:var(--primary);color:white}
+.posts-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.posts{padding:8px 22px 5px}
+.post{padding:16px 0;border-bottom:1px solid var(--line);display:flex;gap:12px}
+.post:last-child{border:0}
+.post-avatar{width:33px;height:33px;border-radius:10px;flex-shrink:0;display:grid;place-items:center;font-size:11px;font-weight:700;background:#eae7ff;color:#7a6bdd}
+.post-content{min-width:0;flex:1}
+.post-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px;color:var(--muted)}
+.post-meta strong{color:var(--ink);font-size:11px}
+.pill{font-size:9px;border-radius:4px;padding:2px 6px}
+.pill.positive{background:#e8f8f3;color:#1a9d85}
+.pill.neutral{background:#f0f3f8;color:#7a89a6}
+.pill.negative{background:#fff0f0;color:#d6757e}
+.post p{font-size:12px;line-height:1.9;margin:7px 0}
+.post-bottom{display:flex;gap:13px;flex-wrap:wrap;color:#9aa2b4;font-size:10px}
+.post-bottom .path{margin-left:auto;color:#837abb}
+.pager{padding:14px 22px 18px;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:10px;gap:10px}
+.pager-actions{display:flex;gap:7px;align-items:center}
+.empty{color:var(--muted);font-size:12px;text-align:center;padding:45px 10px}
+.footer{margin-top:22px;font-size:10px;color:#939cb0;display:flex;justify-content:space-between;gap:14px}
+.toast{position:fixed;right:25px;bottom:25px;background:#252b43;color:white;padding:11px 18px;border-radius:9px;box-shadow:0 8px 30px #0002;font-size:12px;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1;transform:translateY(0)}
+.mobile-brand{display:none}
+@media(min-width:1450px){.trend-wrap{padding-top:16px}.sentiment-layout{padding-top:30px}}
+@media(max-width:1180px){
+  .sidebar{width:190px;padding-left:12px;padding-right:12px}.main{margin-left:190px}
+  .content{padding:23px}.topbar{padding:0 23px}
+  .grid-main{grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr)}
+  .sentiment-layout{gap:5px;padding-left:8px;padding-right:8px}.donut{width:125px}
+  .kpi{padding:16px}.kpi-value{font-size:26px}
+  .search{margin-left:0}
+}
+@media(max-width:940px){
+  .sidebar{display:none}.main{margin-left:0}.mobile-brand{display:inline;color:var(--primary);font-weight:800;margin-right:10px}
+  .grid-main{grid-template-columns:1fr}.insights{gap:10px}
+  .sentiment-layout{padding-top:12px;gap:35px}.donut{width:160px}
+}
+@media(max-width:640px){
+  .content{padding:18px 14px}.topbar{padding:0 15px;height:58px}.topbar-left{font-size:10px}
+  .topbar-right .avatar{display:none}.heading{align-items:flex-start;gap:8px}
+  h1{font-size:21px}.heading .btn{font-size:10px;padding:8px}
+  .subtitle{font-size:10px}.filters{padding:12px;gap:10px}.field{flex:1}
+  .field select{width:100%}.search{flex-basis:100%}.search input{width:100%}
+  .filter-summary{width:100%;font-size:10px}
+  .scope-box{padding:13px}.scope-head{align-items:flex-start}.scope-description{font-size:10px}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:10px}.kpi{padding:14px}.kpi-value{font-size:25px}
+  .insights{grid-template-columns:1fr}.section-head{align-items:flex-start}
+  .card-head{padding:17px 16px 0}.card-head h2{font-size:13px}
+  .legend{gap:7px;font-size:9px}.table-wrap{padding:10px}
+  .posts{padding:8px 15px}.posts-head{align-items:flex-start}
+  .post-bottom .path{margin-left:0;width:100%}.pager{padding:12px 15px}
+  .footer{flex-direction:column;gap:5px}.topbar-right{gap:0}
+}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">◈</div>
+    <div>TopicScope<small>SOCIAL INTELLIGENCE</small></div>
+  </div>
+  <div class="nav-label">WORKSPACE</div>
+  <button class="nav-item active" data-go="game">▦ &nbsp; 発話トピック分析</button>
+  <div class="nav-label">TOPIC SHORTCUTS</div>
+  <nav class="scope-nav" aria-label="トピックのショートカット">
+    <button data-go="game">◉ ゲーム全体</button>
+    <button class="indent" data-go="console">↳ コンシューマーゲーム</button>
+    <button class="indent2" data-go="switch">↳ スイッチ系</button>
+    <button class="indent2" data-go="mario">↳ マリオカート ワールド</button>
+    <button class="indent" data-go="mobile">↳ モバイルゲーム</button>
+    <button class="indent" data-go="pc">↳ PCゲーム</button>
+  </nav>
+  <div class="side-note">
+    <strong>◌ Synthetic data workspace</strong>
+    投稿・ユーザー・反応数はすべて架空です。トピックと感情は生成時のラベルであり、実際のX投稿やAI分類結果ではありません。
+  </div>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left"><span class="mobile-brand">◈ TopicScope</span>ワークスペース <span aria-hidden="true"> / </span> <strong>ゲーム市場リサーチ</strong></div>
+    <div class="topbar-right"><span class="badge">● DEMO DATA</span><div class="avatar">TS</div></div>
+  </header>
+
+  <div class="content">
+    <section class="heading">
+      <div>
+        <div class="eyebrow">TOPIC EXPLORER</div>
+        <h1>会話の全体像から、インサイトへ。</h1>
+        <p class="subtitle">発話トピックを掘り下げ、盛り上がり・評価・関心の理由を探索</p>
+      </div>
+      <button class="btn" id="exportBtn">↓ CSV出力</button>
+    </section>
+
+    <section class="filters" aria-label="分析条件">
+      <div class="field">
+        <label for="period">期間</label>
+        <select id="period">
+          <option value="7">直近7日間</option>
+          <option value="14" selected>直近14日間</option>
+          <option value="30">直近30日間</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sentiment">感情</label>
+        <select id="sentiment">
+          <option value="all">すべて</option>
+          <option value="positive">ポジティブ</option>
+          <option value="neutral">ニュートラル</option>
+          <option value="negative">ネガティブ</option>
+        </select>
+      </div>
+      <div class="field search">
+        <label for="search">検索</label>
+        <input id="search" type="search" placeholder="投稿本文・論点を検索" autocomplete="off">
+      </div>
+      <button class="btn small" id="resetBtn">リセット</button>
+      <span class="filter-summary" id="rangeLabel"></span>
+    </section>
+
+    <section class="scope-box">
+      <div class="scope-head">
+        <div>
+          <div class="scope-caption">ANALYSIS SCOPE <span id="levelLabel"></span></div>
+          <nav class="breadcrumb" id="breadcrumb" aria-label="現在の分析階層"></nav>
+        </div>
+        <button class="btn small" id="upBtn">↑ 上の階層へ</button>
+      </div>
+      <div class="scope-description" id="scopeDescription"></div>
+    </section>
+
+    <section class="kpis" id="kpis" aria-label="主要指標"></section>
+
+    <div class="grid-main">
+      <section class="card">
+        <div class="card-head">
+          <div><h2>発話量の推移</h2><div class="card-sub">日別投稿数 × 感情構成 / 破線は直前の同日数期間</div></div>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--positive)"></i>Positive</span>
+            <span><i class="dot" style="background:var(--neutral)"></i>Neutral</span>
+            <span><i class="dot" style="background:var(--negative)"></i>Negative</span>
+          </div>
+        </div>
+        <div class="trend-wrap" id="trend"></div>
+        <div class="chart-footer" id="trendFooter"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div><h2>センチメント構成</h2><div class="card-sub">生成時に付与した感情ラベルの分布</div></div>
+          <button class="btn small" id="clearSentiment">解除</button>
+        </div>
+        <div class="sentiment-layout">
+          <div class="donut" id="donut"></div>
+          <div class="sentiment-list" id="sentimentList"></div>
+        </div>
+        <div class="sentiment-note" id="sentimentNote"></div>
+      </section>
+    </div>
+
+    <section class="insights-section">
+      <div class="section-head">
+        <h2>✧ データから見えること</h2>
+        <span>ルールベースの自動要約 · 因果関係を示すものではありません</span>
+      </div>
+      <div class="insights" id="insights"></div>
+    </section>
+
+    <div class="grid-main">
+      <section class="card">
+        <div class="card-head">
+          <div><h2 id="topicTableTitle">トピック別の比較</h2><div class="card-sub" id="topicTableSub"></div></div>
+          <span class="badge" style="background:var(--primary-soft);color:var(--primary)">DRILL DOWN</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th id="topicColumn">トピック</th>
+                <th class="number">投稿数 / 構成比</th>
+                <th class="number">前期比</th>
+                <th class="number">Positive</th>
+                <th class="number">平均反応</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="topicRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div><h2>何について話している？</h2><div class="card-sub">主論点の構成比 × 感情 / クリックで本文検索</div></div>
+        </div>
+        <div class="aspects" id="aspects"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head posts-head">
+        <div><h2>会話をミクロに見る</h2><div class="card-sub" id="postCount"></div></div>
+        <div class="field">
+          <label for="sort">並び順</label>
+          <select id="sort">
+            <option value="engagement">反応数が多い順</option>
+            <option value="recent">新しい順</option>
+          </select>
+        </div>
+      </div>
+      <div class="posts" id="posts"></div>
+      <div class="pager">
+        <span id="pageLabel"></span>
+        <div class="pager-actions">
+          <button class="btn small" id="prevPage">← 前へ</button>
+          <button class="btn small" id="nextPage">次へ →</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span id="datasetInfo"></span>
+      <span>反応数 = いいね + リポスト + 返信 · 投稿は排他的な主トピック / 主論点に分類</span>
+    </footer>
+  </div>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+
+/* -------------------------------------------------------
+   データ定義
+   2026/06/01〜07/30の60日間。固定シードで再現可能。
+   実際のイベント・投稿・製品評価を表すものではない。
+------------------------------------------------------- */
+const DAY = 86400000;
+const START = Date.UTC(2026,5,1);
+const END_DAY = 59;
+const SENTIMENTS = ["positive","neutral","negative"];
+const SENTIMENT_NAMES = {
+  positive:"ポジティブ",neutral:"ニュートラル",negative:"ネガティブ"
+};
+const COLORS = {
+  positive:"#23b59b",neutral:"#a1adc6",negative:"#f08b8f"
+};
+const tree = {
+  game:{name:"ゲーム",children:["console","mobile","pc"]},
+  console:{name:"コンシューマーゲーム",parent:"game",children:["switch","playstation"]},
+  switch:{name:"ニンテンドースイッチ系",parent:"console",children:["mario","splatoon","zelda"]},
+  playstation:{name:"PlayStation",parent:"console",children:["monster","astro"]},
+  mobile:{name:"モバイルゲーム",parent:"game",children:["pocket","puzzle","star"]},
+  pc:{name:"PCゲーム",parent:"game",children:["valorant","minecraft"]},
+  mario:{name:"マリオカート ワールド",parent:"switch"},
+  splatoon:{name:"スプラトゥーン3",parent:"switch"},
+  zelda:{name:"ゼルダの伝説 ティアーズ オブ ザ キングダム",parent:"switch"},
+  monster:{name:"モンスターハンターワイルズ",parent:"playstation"},
+  astro:{name:"アストロボット",parent:"playstation"},
+  pocket:{name:"Pokémon Trading Card Game Pocket",parent:"mobile"},
+  puzzle:{name:"パズルクエスト（架空）",parent:"mobile"},
+  star:{name:"スターアリーナ（架空）",parent:"mobile"},
+  valorant:{name:"VALORANT",parent:"pc"},
+  minecraft:{name:"Minecraft",parent:"pc"}
+};
+const gameConfig = [
+  ["mario",21],["splatoon",14],["zelda",10],["monster",17],["astro",8],
+  ["pocket",20],["puzzle",12],["star",12],["valorant",17],["minecraft",15]
+];
+const aspects = ["プレイ体験","オンライン","価格","新要素","攻略","コミュニティ"];
+const aspectKeywords = {
+  "プレイ体験":["操作感","没入感","遊びやすさ"],
+  "オンライン":["マッチング","通信","対戦"],
+  "価格":["購入","コスパ","セール"],
+  "新要素":["新モード","追加要素","アップデート"],
+  "攻略":["コツ","練習","初心者"],
+  "コミュニティ":["フレンド","配信","交流"]
+};
+const phrases = {
+  "プレイ体験":{
+    positive:["操作感が気持ちよくて、ついもう一回遊びたくなる。","遊びやすさがいい。短時間でもしっかり楽しめた。"],
+    neutral:["操作感と遊びやすさをひと通り確認中。","プレイ体験のメモを残して、次回に比較してみる。"],
+    negative:["操作感にまだ慣れなくて、思ったように動かせない。","長時間だと少し疲れる。遊びやすさの調整がほしい。"]
+  },
+  "オンライン":{
+    positive:["オンラインのマッチングがスムーズで、フレンドとも楽しめた。","通信が安定していて、オンラインで遊ぶのが楽しい。"],
+    neutral:["オンラインのマッチング時間をいくつかの時間帯で確認したい。","オンラインの通信設定を確認中。週末にも試す予定。"],
+    negative:["オンラインのマッチング待ちが長く感じる。改善に期待。","オンラインで通信が途切れてしまった。今日は様子見。"]
+  },
+  "価格":{
+    positive:["この内容なら価格にも納得。購入してよかった。","価格と遊べる時間を考えると、コスパは満足。"],
+    neutral:["価格を比較中。購入するか、もう少し情報を集めたい。","価格と追加コンテンツの条件を確認している。"],
+    negative:["気になるけど価格が悩ましい。セールを待つかも。","価格を考えると、購入はもう少し慎重に決めたい。"]
+  },
+  "新要素":{
+    positive:["新要素を触ってみたら予想以上に楽しい。遊び方が広がった。","追加要素がいい感じ。新要素をフレンドにも紹介したい。"],
+    neutral:["新要素の説明を読んでいる。前の遊び方と比較したい。","新要素の情報を整理中。具体的な違いを確認したい。"],
+    negative:["新要素は気になるけど、説明が少なくて分かりづらい。","新要素より、まず既存部分の調整がほしかった。"]
+  },
+  "攻略":{
+    positive:["攻略のコツがつかめてきた。練習の成果が出ると嬉しい。","初心者向け攻略を参考にしたら、かなり遊びやすくなった。"],
+    neutral:["攻略メモを整理中。次は違う進め方で試してみる。","初心者向けの攻略情報を探している。おすすめを知りたい。"],
+    negative:["攻略を見ても難しいところで止まってしまう。","攻略の情報が多すぎて、初心者にはどれが合うか分からない。"]
+  },
+  "コミュニティ":{
+    positive:["コミュニティでフレンドが増えて、遊ぶ時間がもっと楽しくなった。","配信きっかけでコミュニティに参加。交流できるのがいい。"],
+    neutral:["コミュニティの配信や交流イベントをチェック中。","フレンドと予定を合わせて、コミュニティで遊ぶつもり。"],
+    negative:["コミュニティの話題についていけず、入りづらく感じる。","コミュニティで初参加の人向けの案内がもう少しほしい。"]
+  }
+};
+
+let seed = 42617;
+function random(){
+  seed |= 0;
+  seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+function pick(array){return array[Math.floor(random()*array.length)];}
+function chooseWeighted(values,weights){
+  let r=random()*weights.reduce((a,b)=>a+b,0);
+  for(let i=0;i<values.length;i++){r-=weights[i];if(r<0)return values[i];}
+  return values[values.length-1];
+}
+function pathOf(id){
+  const result=[];
+  while(id){result.unshift(id);id=tree[id].parent;}
+  return result;
+}
+function isUnder(leaf,id){return pathOf(leaf).includes(id);}
+function reaction(p){return p.likes+p.reposts+p.replies;}
+
+const posts=[];
+let serial=1;
+for(let day=0;day<=END_DAY;day++){
+  const weekday=new Date(START+day*DAY).getUTCDay();
+  const weekend=(weekday===0||weekday===6)?1.2:1;
+  for(const [leaf,base] of gameConfig){
+    const pulse=leaf==="mario"
+      ? 1+1.65*Math.exp(-Math.pow((day-52)/3,2))+(day>44?.25:0)
+      : leaf==="pocket" ? 1+.65*Math.exp(-Math.pow((day-47)/3,2)) : 1;
+    const count=Math.round(base*weekend*pulse*(.8+random()*.4)*(1+day*.003));
+    for(let i=0;i<count;i++){
+      const weights=leaf==="mario"&&day>=48&&day<=55
+        ? [19,25,8,32,10,6] : [26,17,12,15,18,12];
+      const aspect=chooseWeighted(aspects,weights);
+      const sentWeights=aspect==="オンライン"
+        ? [35,29,36] : aspect==="価格" ? [27,40,33]
+        : aspect==="攻略" ? [48,43,9] : [65,24,11];
+      const sentiment=chooseWeighted(SENTIMENTS,sentWeights);
+      const boost=aspect==="新要素"?1.5:aspect==="コミュニティ"?1.3:1;
+      const likes=Math.floor(Math.pow(random(),3)*180*boost);
+      const reposts=Math.floor(random()*likes*.3);
+      const replies=Math.floor(random()*18);
+      const user=1+Math.floor(random()*1800);
+      const text=`${tree[leaf].name}。${pick(phrases[aspect][sentiment])} #ゲーム`;
+      posts.push({
+        id:"DEMO-"+String(serial++).padStart(5,"0"),
+        day,leaf,aspect,sentiment,text,user,likes,reposts,replies,
+        timestamp:START+day*DAY+Math.floor(random()*DAY)
+      });
+    }
+  }
+}
+const state={scope:"game",days:14,sentiment:"all",query:"",sort:"engagement",page:0};
+const PAGE_SIZE=5;
+let current=[],previous=[];
+const $=id=>document.getElementById(id);
+const nf=new Intl.NumberFormat("ja-JP");
+const fmt=n=>nf.format(n);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const percent=(a,b)=>b?(a/b*100).toFixed(1):"0.0";
+function dayLabel(day,year=false){
+  const d=new Date(START+day*DAY);
+  return `${year?d.getUTCFullYear()+"/":""}${String(d.getUTCMonth()+1).padStart(2,"0")}/${String(d.getUTCDate()).padStart(2,"0")}`;
+}
+function timeLabel(timestamp){
+  const d=new Date(timestamp);
+  return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
+}
+function delta(a,b){
+  if(!b)return a?"新規":"—";
+  const p=(a-b)/b*100;
+  return `${p>0?"+":""}${p.toFixed(1)}%`;
+}
+function summary(data){
+  const counts={positive:0,neutral:0,negative:0};
+  let reactions=0;
+  const users=new Set();
+  data.forEach(p=>{counts[p.sentiment]++;reactions+=reaction(p);users.add(p.user);});
+  return {n:data.length,counts,reactions,users:users.size,avg:data.length?reactions/data.length:0};
+}
+function matches(p){
+  return isUnder(p.leaf,state.scope)
+    &&(state.sentiment==="all"||p.sentiment===state.sentiment)
+    &&(!state.query||`${p.text} ${p.aspect}`.toLowerCase().includes(state.query.toLowerCase()));
+}
+function getData(){
+  const start=END_DAY-state.days+1;
+  current=posts.filter(p=>p.day>=start&&p.day<=END_DAY&&matches(p));
+  previous=posts.filter(p=>p.day>=start-state.days&&p.day<start&&matches(p));
+}
+function groupRows(){
+  const children=tree[state.scope].children;
+  return (children||aspects).map(key=>{
+    const test=p=>children?isUnder(p.leaf,key):p.aspect===key;
+    const data=current.filter(test);
+    return {key,name:children?tree[key].name:key,data,now:summary(data),
+      before:summary(previous.filter(test)),isTopic:!!children};
+  }).sort((a,b)=>b.now.n-a.now.n);
+}
+function setScope(id){
+  if(!tree[id])return;
+  state.scope=id;state.page=0;render();
+}
+function setQuery(q){
+  state.query=q;state.page=0;$("search").value=q;render();
+}
+function render(){
+  getData();
+  renderScope();
+  renderKpis();
+  renderTrend();
+  renderSentiment();
+  renderInsights();
+  renderTopics();
+  renderAspects();
+  renderPosts();
+  document.querySelectorAll(".scope-nav [data-go]").forEach(b=>{
+    b.classList.toggle("active",b.dataset.go===state.scope);
+  });
+  $("rangeLabel").textContent=`${dayLabel(END_DAY-state.days+1,true)} – ${dayLabel(END_DAY)} UTC`;
+  $("datasetInfo").textContent=`固定デモデータ：${dayLabel(0,true)} – ${dayLabel(END_DAY)} / 全${fmt(posts.length)}投稿`;
+}
+
+function renderScope(){
+  const path=pathOf(state.scope);
+  $("breadcrumb").innerHTML=path.map((id,i)=>
+    `${i?'<span aria-hidden="true">›</span>':""}<button data-go="${id}" class="${i===path.length-1?"current":""}" ${i===path.length-1?'aria-current="page"':""}>${esc(tree[id].name)}</button>`
+  ).join("");
+  $("levelLabel").textContent=` / LEVEL ${path.length}`;
+  $("upBtn").disabled=!tree[state.scope].parent;
+  $("scopeDescription").textContent=tree[state.scope].children
+    ? "下のトピック名をクリックすると、全パネルがその粒度のデータに切り替わります。期間・感情・検索条件は引き継ぎます。"
+    : "最小トピックを表示中。論点ごとの比較や個別ポストから、会話の具体的な文脈を確認できます。";
+  if(state.scope==="switch"||state.scope==="mario"){
+    $("scopeDescription").textContent+=" ※スイッチ系はSwitch / Switch 2を含む分析上の分類です。";
+  }
+}
+function renderKpis(){
+  const a=summary(current),b=summary(previous);
+  const posA=a.n?a.counts.positive/a.n*100:0;
+  const posB=b.n?b.counts.positive/b.n*100:0;
+  const pp=a.n&&b.n?`${posA-posB>0?"+":""}${(posA-posB).toFixed(1)}pt`:"—";
+  const cards=[
+    ["投稿数",fmt(a.n),"件",delta(a.n,b.n),"直前同日数期間比","↗"],
+    ["ユニーク投稿者",fmt(a.users),"人",delta(a.users,b.users),"期間内の重複を除外","◎"],
+    ["ポジティブ比率",a.n?posA.toFixed(1):"—",a.n?"%":"",pp,"構成比の差分","♡"],
+    ["平均エンゲージメント",a.n?a.avg.toFixed(1):"—",a.n?"件/投稿":"",a.n&&b.n?delta(a.avg,b.avg):"—","いいね・リポスト・返信の合計","⚡"]
+  ];
+  $("kpis").innerHTML=cards.map(([label,value,unit,d,foot,icon])=>`
+    <article class="card kpi">
+      <div class="kpi-label">${label}<span class="kpi-icon">${icon}</span></div>
+      <div class="kpi-value">${value}<small>${unit}</small></div>
+      <div class="kpi-foot"><span class="delta">${d}</span>${foot}</div>
+    </article>`).join("");
+}
+
+function renderTrend(){
+  const n=state.days,start=END_DAY-n+1;
+  const bins=Array.from({length:n},()=>({positive:0,neutral:0,negative:0,total:0}));
+  const prevBins=Array(n).fill(0);
+  current.forEach(p=>{const b=bins[p.day-start];b[p.sentiment]++;b.total++;});
+  previous.forEach(p=>prevBins[p.day-(start-n)]++);
+  const W=760,H=262,L=49,R=18,T=22,B=38;
+  const cw=W-L-R,ch=H-T-B,slot=cw/n;
+  const max=Math.max(1,...bins.map(b=>b.total),...prevBins);
+  const ymax=Math.max(4,Math.ceil(max/4)*4);
+  const y=v=>T+ch-v/ymax*ch;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="日別投稿数と直前期間の比較。積み上げ棒の色は感情分類。"><text x="12" y="14" fill="#98a1b5" font-size="9">投稿数</text>`;
+  for(let i=0;i<=4;i++){
+    const val=ymax*i/4,yy=y(val);
+    svg+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#edf0f6"/>
+      <text x="${L-10}" y="${yy+3}" text-anchor="end" fill="#98a1b5" font-size="10">${fmt(val)}</text>`;
+  }
+  const peak=Math.max(...bins.map(b=>b.total));
+  bins.forEach((b,i)=>{
+    const x=L+i*slot+slot*.17,w=slot*.66;
+    let sum=0;
+    SENTIMENTS.forEach(s=>{
+      const value=b[s],height=value/ymax*ch;
+      svg+=`<rect x="${x.toFixed(2)}" y="${y(sum+value).toFixed(2)}" width="${w.toFixed(2)}" height="${height.toFixed(2)}" fill="${COLORS[s]}" opacity=".88"><title>${dayLabel(start+i)} ${SENTIMENT_NAMES[s]}：${value}件 / 合計${b.total}件</title></rect>`;
+      sum+=value;
+    });
+    if(b.total===peak&&peak>0){
+      svg+=`<text x="${x+w/2}" y="${y(b.total)-7}" text-anchor="middle" fill="#6058e8" font-size="10" font-weight="700">${b.total}</text>`;
+    }
+    if(i%Math.max(1,Math.ceil(n/7))===0||i===n-1){
+      svg+=`<text x="${x+w/2}" y="${H-13}" text-anchor="middle" fill="#98a1b5" font-size="10">${dayLabel(start+i)}</text>`;
+    }
+  });
+  const line=prevBins.map((v,i)=>`${i?"L":"M"}${(L+(i+.5)*slot).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+  svg+=`<path d="${line}" fill="none" stroke="#837cc8" stroke-width="1.8" stroke-dasharray="4 4" opacity=".7"><title>直前同日数期間の投稿数。左から同じ相対日で対応。</title></path>`;
+  if(!current.length)svg+=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#7a8499" font-size="13">現在の条件に一致する投稿はありません</text>`;
+  svg+="</svg>";
+  $("trend").innerHTML=svg;
+  const peakIndex=bins.findIndex(b=>b.total===peak);
+  $("trendFooter").innerHTML=current.length
+    ? `<span style="color:var(--primary)">↗</span><span>最多日 <strong>${dayLabel(start+peakIndex)} · ${fmt(peak)}件</strong> / 日平均 <strong>${(current.length/n).toFixed(1)}件</strong>。破線：${dayLabel(start-n)}–${dayLabel(start-1)} を相対日で比較。</span>`
+    : `<span>感情・検索条件を変更するか、上位トピックに戻ってください。</span>`;
+}
+
+function renderSentiment(){
+  const s=summary(current),r=56,c=2*Math.PI*r;
+  let offset=0;
+  let svg=`<svg viewBox="0 0 160 160" role="img" aria-label="感情構成：ポジティブ${s.counts.positive}件、ニュートラル${s.counts.neutral}件、ネガティブ${s.counts.negative}件"><circle cx="80" cy="80" r="${r}" fill="none" stroke="#f1f3f8" stroke-width="15"/>`;
+  SENTIMENTS.forEach(key=>{
+    const length=s.n?s.counts[key]/s.n*c:0;
+    svg+=`<circle cx="80" cy="80" r="${r}" fill="none" stroke="${COLORS[key]}" stroke-width="15" stroke-dasharray="${length} ${c-length}" stroke-dashoffset="${-offset}" transform="rotate(-90 80 80)"/>`;
+    offset+=length;
+  });
+  svg+=`<text x="80" y="73" text-anchor="middle" font-size="9" fill="#8a93a9">TOTAL POSTS</text>
+    <text x="80" y="96" text-anchor="middle" font-size="23" font-weight="700" fill="#202a42">${fmt(s.n)}</text></svg>`;
+  $("donut").innerHTML=svg;
+  $("sentimentList").innerHTML=SENTIMENTS.map(key=>`
+    <button class="sentiment-row ${state.sentiment===key?"active":""}" data-sentiment="${key}" aria-pressed="${state.sentiment===key}">
+      <span><i class="dot" style="background:${COLORS[key]}"></i>${SENTIMENT_NAMES[key]}<br><span style="margin-left:11px;color:var(--muted);font-size:9px">${fmt(s.counts[key])}件</span></span>
+      <strong>${percent(s.counts[key],s.n)}<small style="font-weight:400;font-size:9px">%</small></strong>
+    </button>`).join("");
+  $("clearSentiment").disabled=state.sentiment==="all";
+  $("sentimentNote").textContent=state.sentiment==="all"
+    ? "感情名をクリックすると、全パネルをその感情の投稿に絞り込めます。比率は現在の分析対象内の構成比です。"
+    : `現在は「${SENTIMENT_NAMES[state.sentiment]}」だけを表示中。ほかの感情を比較する場合は「解除」してください。`;
+}
+
+function renderInsights(){
+  if(!current.length){
+    $("insights").innerHTML=`<article class="card insight" style="grid-column:1/-1"><div class="insight-tag">NO DATA</div><h3>一致する投稿がありません</h3><p>検索条件・感情フィルターを解除すると、より広い会話を確認できます。</p></article>`;
+    return;
+  }
+  const rows=groupRows(),top=rows[0];
+  const byAspect=aspects.map(name=>({name,data:current.filter(p=>p.aspect===name)}))
+    .filter(x=>x.data.length).map(x=>({...x,stats:summary(x.data)}));
+  const negative=byAspect.slice().sort((a,b)=>b.stats.counts.negative-a.stats.counts.negative)[0];
+  const engaging=byAspect.slice().sort((a,b)=>b.stats.avg-a.stats.avg)[0];
+  const all=summary(current);
+  const negativeN=negative.stats.counts.negative;
+  const actionAttr=top.isTopic?`data-go="${top.key}"`:`data-query="${esc(top.name)}"`;
+  $("insights").innerHTML=`
+    <article class="card insight">
+      <div class="insight-tag">01 / CONVERSATION SHARE</div>
+      <h3>「${esc(top.name)}」が投稿量の中心</h3>
+      <p>${fmt(top.now.n)}件で全体の${percent(top.now.n,all.n)}%。直前期間比は${delta(top.now.n,top.before.n)}。${top.isTopic?"下位トピック":"個別投稿"}を確認し、話題の内訳を把握できます。</p>
+      <button class="insight-action" ${actionAttr}>この${top.isTopic?"トピック":"論点"}を確認 →</button>
+    </article>
+    <article class="card insight">
+      <div class="insight-tag">02 / AUDIENCE VOICE</div>
+      <h3>${negativeN?`否定的な声は「${esc(negative.name)}」に最多`:"現在の条件では否定的な声は0件"}</h3>
+      <p>${negativeN
+        ? `${negativeN}件のネガティブ投稿があり、同論点内の${percent(negativeN,negative.stats.n)}%。改善仮説を立てる前に、個別の文脈確認が必要です。`
+        : "感情フィルターによる偏りの可能性があります。全感情に戻すと、評価の分布を比較できます。"}</p>
+      ${negativeN
+        ? `<button class="insight-action" data-query="${esc(negative.name)}">発話の文脈を見る →</button>`
+        : '<button class="insight-action" data-sentiment="all">全感情で確認 →</button>'}
+    </article>
+    <article class="card insight">
+      <div class="insight-tag">03 / ENGAGEMENT SIGNAL</div>
+      <h3>「${esc(engaging.name)}」の平均反応が最多</h3>
+      <p>平均${engaging.stats.avg.toFixed(1)}件 / 投稿（n=${fmt(engaging.stats.n)}）。全体平均${all.avg.toFixed(1)}件と比較し、反応が集まる表現を探索できます。反応数は好意度とは別の指標です。</p>
+      <button class="insight-action" data-query="${esc(engaging.name)}">反応を集めた投稿を見る →</button>
+    </article>`;
+}
+
+function renderTopics(){
+  const children=tree[state.scope].children;
+  $("topicTableTitle").textContent=children?"下位トピックを比較する":"論点別に会話を分解する";
+  $("topicTableSub").textContent=children
+    ?"投稿数順 / トピック名をクリックして、もう一段深い分析へ"
+    :"最小トピックのため、主論点を比較 / 論点名をクリックして本文検索";
+  $("topicColumn").textContent=children?"トピック":"主論点";
+  $("topicRows").innerHTML=groupRows().map(row=>{
+    const a=row.now,b=row.before,share=percent(a.n,current.length);
+    return `<tr>
+      <td><button class="topic-button" ${row.isTopic?`data-go="${row.key}"`:`data-query="${esc(row.name)}"`}>
+        ${esc(row.name)}
+        <small>${row.isTopic?(tree[row.key].children?tree[row.key].children.length+"下位トピック":"個別タイトル"):"論点で検索"}</small>
+      </button></td>
+      <td class="number"><strong>${fmt(a.n)}</strong> <span class="rate">/ ${share}%</span>
+        <div class="mini-bar" style="margin-left:auto"><i style="width:${share}%"></i></div>
+      </td>
+      <td class="number" style="color:${a.n>=b.n?"#6058e8":"#8b95aa"}">${delta(a.n,b.n)}</td>
+      <td class="number">${a.n?percent(a.counts.positive,a.n)+"%":"—"}</td>
+      <td class="number">${a.n?a.avg.toFixed(1):"—"}</td>
+      <td class="arrow">›</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderAspects(){
+  const rows=aspects.map(name=>({name,stats:summary(current.filter(p=>p.aspect===name))}))
+    .sort((a,b)=>b.stats.n-a.stats.n);
+  const html=rows.map(({name,stats})=>{
+    return `<div class="aspect-row">
+      <div class="aspect-label"><button data-query="${esc(name)}">${esc(name)}</button><span>${fmt(stats.n)}件 · ${percent(stats.n,current.length)}%</span></div>
+      <div class="aspect-track" role="img" aria-label="${name}：${SENTIMENTS.map(s=>SENTIMENT_NAMES[s]+stats.counts[s]+"件").join("、")}">
+        ${SENTIMENTS.map(s=>`<i style="width:${percent(stats.counts[s],current.length)}%;background:${COLORS[s]}" title="${SENTIMENT_NAMES[s]} ${stats.counts[s]}件"></i>`).join("")}
+      </div>
+    </div>`;
+  }).join("");
+  // 検索候補は、辞書語の本文出現数を計数。自然言語抽出ではない。
+  const keywords=Object.values(aspectKeywords).flat().map(word=>({
+    word,n:current.filter(p=>p.text.includes(word)).length
+  })).filter(x=>x.n).sort((a,b)=>b.n-a.n).slice(0,6);
+  $("aspects").innerHTML=html+`<div class="keyword-strip">
+    <p>注目ワード <span style="font-size:9px">/ 辞書語の本文出現数・重複あり</span></p>
+    ${keywords.length?keywords.map(({word,n})=>`<button class="tag ${state.query===word?"active":""}" data-query="${esc(word)}">${esc(word)} <span style="opacity:.6">${n}</span></button>`).join(""):"<span class='rate'>該当なし</span>"}
+  </div>`;
+}
+
+function renderPosts(){
+  const sorted=current.slice().sort(state.sort==="recent"
+    ?(a,b)=>b.timestamp-a.timestamp
+    :(a,b)=>reaction(b)-reaction(a)||b.timestamp-a.timestamp);
+  const pages=Math.max(1,Math.ceil(sorted.length/PAGE_SIZE));
+  state.page=Math.max(0,Math.min(state.page,pages-1));
+  const from=state.page*PAGE_SIZE,shown=sorted.slice(from,from+PAGE_SIZE);
+  $("postCount").textContent=`条件に一致する ${fmt(current.length)}件 / 架空の投稿・アカウント・反応数 / 時刻はUTC`;
+  $("posts").innerHTML=shown.length?shown.map(p=>`
+    <article class="post">
+      <div class="post-avatar" style="background:${p.user%2?"#ece8ff":"#e3f3f1"};color:${p.user%2?"#8977d6":"#55a89b"}">${String(p.user).slice(-2).padStart(2,"0")}</div>
+      <div class="post-content">
+        <div class="post-meta">
+          <strong>デモユーザー ${String(p.user).padStart(4,"0")}</strong>
+          <span>@demo_${String(p.user).padStart(4,"0")}</span><span>· ${timeLabel(p.timestamp)}</span>
+          <span class="pill ${p.sentiment}">${SENTIMENT_NAMES[p.sentiment]}</span>
+          <span class="pill" style="background:#f3f1fc;color:#8b80b6">${esc(p.aspect)}</span>
+        </div>
+        <p>${esc(p.text)}</p>
+        <div class="post-bottom">
+          <span>♡ ${fmt(p.likes)}</span><span>↻ ${fmt(p.reposts)}</span><span>↳ ${fmt(p.replies)}</span>
+          <span>合計 ${fmt(reaction(p))}反応</span>
+          <span class="path">${esc(tree[p.leaf].name)}</span>
+        </div>
+      </div>
+    </article>`).join(""):'<div class="empty">一致する投稿がありません。検索条件を変更してください。</div>';
+  $("pageLabel").textContent=sorted.length
+    ?`${fmt(from+1)}–${fmt(Math.min(from+PAGE_SIZE,sorted.length))} / ${fmt(sorted.length)}件`
+    :"0件";
+  $("prevPage").disabled=state.page===0;
+  $("nextPage").disabled=state.page>=pages-1;
+}
+
+let toastTimer;
+function toast(text){
+  $("toast").textContent=text;$("toast").classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>$("toast").classList.remove("show"),2500);
+}
+function exportCSV(){
+  if(!current.length){toast("出力対象の投稿がありません");return;}
+  const headers=["投稿ID","日時_UTC","主トピック階層","主論点","感情","ダミーユーザー","本文","いいね","リポスト","返信","反応合計"];
+  const rows=current.map(p=>[
+    p.id,new Date(p.timestamp).toISOString(),
+    pathOf(p.leaf).map(id=>tree[id].name).join(" > "),
+    p.aspect,SENTIMENT_NAMES[p.sentiment],`demo_${String(p.user).padStart(4,"0")}`,
+    p.text,p.likes,p.reposts,p.replies,reaction(p)
+  ]);
+  const csvCell=v=>{
+    let s=String(v);
+    if(/^[=+\-@\t\r]/.test(s))s="'"+s;
+    return '"'+s.replace(/"/g,'""')+'"';
+  };
+  const csv="\uFEFF"+[headers,...rows].map(row=>row.map(csvCell).join(",")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`topicscope_demo_${state.scope}_${state.days}days.csv`;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  toast(`${fmt(current.length)}件のダミーポストをCSV出力しました`);
+}
+
+/* すべてのパネルで同じ分析条件・比較期間を利用 */
+document.addEventListener("click",event=>{
+  const go=event.target.closest("[data-go]");
+  if(go){setScope(go.dataset.go);return;}
+  const query=event.target.closest("[data-query]");
+  if(query){setQuery(query.dataset.query);return;}
+  const sentiment=event.target.closest("[data-sentiment]");
+  if(sentiment){
+    state.sentiment=sentiment.dataset.sentiment;state.page=0;
+    $("sentiment").value=state.sentiment;render();
+  }
+});
+$("period").addEventListener("change",e=>{
+  state.days=Number(e.target.value);state.page=0;render();
+});
+$("sentiment").addEventListener("change",e=>{
+  state.sentiment=e.target.value;state.page=0;render();
+});
+$("search").addEventListener("input",e=>{
+  state.query=e.target.value.trim();state.page=0;render();
+});
+$("sort").addEventListener("change",e=>{
+  state.sort=e.target.value;state.page=0;renderPosts();
+});
+$("upBtn").addEventListener("click",()=>setScope(tree[state.scope].parent));
+$("clearSentiment").addEventListener("click",()=>{
+  state.sentiment="all";state.page=0;$("sentiment").value="all";render();
+});
+$("resetBtn").addEventListener("click",()=>{
+  Object.assign(state,{scope:"game",days:14,sentiment:"all",query:"",sort:"engagement",page:0});
+  $("period").value="14";$("sentiment").value="all";$("search").value="";$("sort").value="engagement";
+  render();toast("分析条件を初期状態に戻しました");
+});
+$("prevPage").addEventListener("click",()=>{state.page--;renderPosts();});
+$("nextPage").addEventListener("click",()=>{state.page++;renderPosts();});
+$("exportBtn").addEventListener("click",exportCSV);
+render();
+</script>
+</body>
+</html>

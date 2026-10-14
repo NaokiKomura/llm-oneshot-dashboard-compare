@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X Post Topic & Insight Analytics Dashboard — ゲーム領域マクロ〜ミクロ多面分析</title>
+<style>
+  :root {
+    --bg-main: #0b0f19;
+    --bg-card: #131a2a;
+    --bg-card-hover: #192236;
+    --bg-elevated: #1e293b;
+    --border-color: #26334d;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent-primary: #6366f1;
+    --accent-secondary: #ec4899;
+    --accent-switch: #ef4444;
+    --pos-color: #10b981;
+    --neu-color: #38bdf8;
+    --neg-color: #f43f5e;
+    --warn-color: #f59e0b;
+    --font-sans: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    font-size: 14px;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .top-header {
+    background: linear-gradient(90deg, #0f172a 0%, #1e1b4b 55%, #0f172a 100%);
+    border-bottom: 1px solid var(--border-color);
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  }
+  .brand-area { display: flex; align-items: center; gap: 12px; }
+  .x-logo-badge {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: #000; border: 1px solid #334155;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 18px; color: #fff;
+  }
+  .brand-title h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+  .brand-title p { font-size: 11.5px; color: var(--text-muted); }
+
+  .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .period-badge {
+    background: rgba(99, 102, 241, 0.14);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #c7d2fe;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .btn-action {
+    background: var(--bg-elevated);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 6px 13px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-action:hover { background: #334155; border-color: #64748b; }
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border-color: #6366f1;
+    color: #fff;
+  }
+  .btn-primary:hover { opacity: 0.92; }
+
+  /* Quick Granularity Stepper Bar */
+  .granularity-bar {
+    background: #101726;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .breadcrumb-wrap {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .bc-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-right: 4px; }
+  .bc-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 4px 11px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+  }
+  .bc-item:hover { border-color: var(--accent-primary); background: var(--bg-card-hover); }
+  .bc-item.active {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: #ef4444;
+    color: #fca5a5;
+    font-weight: 700;
+  }
+  .bc-lvl-tag {
+    font-size: 10px; padding: 1px 5px; border-radius: 4px;
+    background: rgba(255,255,255,0.1); color: #cbd5e1;
+  }
+  .bc-arrow { color: #64748b; font-size: 12px; }
+
+  .demo-flow-group {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .demo-flow-label { font-size: 11.5px; color: #a5b4fc; font-weight: 600; }
+  .step-pill {
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #334155;
+    background: #162033;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .step-pill:hover { border-color: #818cf8; color: #fff; }
+  .step-pill.current-step {
+    background: linear-gradient(90deg, #ef4444, #f97316);
+    border-color: #f87171;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 0 12px rgba(239,68,68,0.4);
+  }
+
+  /* Main Layout */
+  .dashboard-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: calc(100vh - 108px);
+  }
+  @media (max-width: 1024px) {
+    .dashboard-layout { grid-template-columns: 1fr; }
+  }
+
+  /* Left Sidebar Hierarchy Tree */
+  .sidebar {
+    background: #0e1422;
+    border-right: 1px solid var(--border-color);
+    padding: 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .sidebar-section-title {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tree-container { display: flex; flex-direction: column; gap: 4px; }
+  .tree-node {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    font-size: 12.5px;
+  }
+  .tree-node:hover { background: var(--bg-card-hover); border-color: #334155; }
+  .tree-node.selected {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: #6366f1;
+    color: #fff;
+    font-weight: 700;
+  }
+  .tree-node-left { display: flex; align-items: center; gap: 7px; overflow: hidden; }
+  .lvl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .lvl-1 { margin-left: 0px; }
+  .lvl-2 { margin-left: 12px; }
+  .lvl-3 { margin-left: 24px; }
+  .lvl-4 { margin-left: 36px; }
+  .tree-vol { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  .granularity-guide-box {
+    background: rgba(30, 41, 59, 0.55);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 12px;
+    color: #cbd5e1;
+  }
+  .granularity-guide-box h4 {
+    font-size: 12px; color: #93c5fd; margin-bottom: 6px;
+  }
+  .guide-step {
+    display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start;
+  }
+  .guide-badge {
+    font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+    background: #334155; color: #f8fafc; flex-shrink: 0; margin-top: 2px;
+  }
+
+  /* Main Content Area */
+  .main-content {
+    padding: 20px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Current Topic Hero Banner */
+  .topic-hero {
+    background: linear-gradient(135deg, #161f33 0%, #1a1c3b 100%);
+    border: 1px solid #313d5a;
+    border-radius: 12px;
+    padding: 18px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .hero-left { max-width: 760px; }
+  .hero-level-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    margin-bottom: 6px;
+  }
+  .hero-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .hero-desc { font-size: 13px; color: #cbd5e1; }
+  .hero-nav-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 1200px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .kpi-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+  .kpi-val { font-size: 22px; font-weight: 800; color: #fff; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+  .kpi-sub { font-size: 11.5px; display: flex; align-items: center; gap: 6px; }
+  .tag-up { color: #34d399; font-weight: 700; }
+  .sentiment-mini-bar {
+    height: 7px; width: 100%; border-radius: 999px; overflow: hidden;
+    display: flex; margin-top: 6px; background: #1e293b;
+  }
+
+  /* Grid Rows for Charts */
+  .chart-grid-2col {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 18px;
+  }
+  .chart-grid-equal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 1100px) {
+    .chart-grid-2col, .chart-grid-equal { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 10px;
+  }
+  .card-title { font-size: 15px; font-weight: 700; color: #f8fafc; }
+  .card-subtitle { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Subtopic Drilldown Bars */
+  .subtopic-list { display: flex; flex-direction: column; gap: 11px; }
+  .subtopic-item {
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    padding: 11px 13px;
+    cursor: pointer;
+    transition: all 0.16s;
+  }
+  .subtopic-item:hover {
+    background: var(--bg-card-hover);
+    border-color: #6366f1;
+    transform: translateX(3px);
+  }
+  .subtopic-top {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+  }
+  .subtopic-name { font-weight: 700; font-size: 13.5px; color: #fff; display: flex; align-items: center; gap: 7px; }
+  .subtopic-metrics { font-size: 12px; color: #cbd5e1; display: flex; gap: 10px; align-items: center; }
+  .progress-track {
+    height: 8px; width: 100%; background: #0f172a; border-radius: 999px; overflow: hidden; margin-bottom: 6px;
+  }
+  .progress-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+  .subtopic-desc { font-size: 11.5px; color: var(--text-muted); display: flex; justify-content: space-between; }
+
+  /* Topic Drivers Table */
+  .driver-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .driver-table th {
+    text-align: left; padding: 8px 10px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color); font-size: 11.5px;
+  }
+  .driver-table td {
+    padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle;
+  }
+  .driver-table tr:hover { background: rgba(255,255,255,0.02); }
+  .sent-stack {
+    display: flex; height: 8px; width: 110px; border-radius: 4px; overflow: hidden;
+  }
+
+  /* Insights Grid */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+  }
+  .insight-card {
+    background: linear-gradient(145deg, #162035, #111827);
+    border: 1px solid #2e3f63;
+    border-left: 4px solid #6366f1;
+    border-radius: 10px;
+    padding: 15px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .insight-type {
+    font-size: 11px; font-weight: 700; color: #a5b4fc;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .insight-title { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; }
+  .insight-body { font-size: 12.5px; color: #cbd5e1; }
+  .insight-action {
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255,255,255,0.12);
+    font-size: 12px;
+    color: #6ee7b7;
+  }
+
+  /* Dummy X Posts Feed */
+  .post-filters {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .filter-chip {
+    padding: 5px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    background: #1e293b; border: 1px solid var(--border-color); color: #cbd5e1;
+  }
+  .filter-chip.active {
+    background: #6366f1; border-color: #818cf8; color: #fff; font-weight: 700;
+  }
+  .search-input {
+    background: #0f172a; border: 1px solid var(--border-color); color: #fff;
+    padding: 6px 12px; border-radius: 8px; font-size: 12.5px; min-width: 220px;
+  }
+  .posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+  }
+  .x-post-card {
+    background: #0f1523;
+    border: 1px solid #26334d;
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .x-post-header { display: flex; justify-content: space-between; align-items: center; }
+  .x-user-info { display: flex; align-items: center; gap: 8px; }
+  .x-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #ec4899);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff;
+  }
+  .x-handle { font-weight: 700; font-size: 13px; color: #f8fafc; }
+  .x-userid { font-size: 11.5px; color: var(--text-muted); }
+  .sent-badge {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  }
+  .sent-positive { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
+  .sent-neutral { background: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56,189,248,0.35); }
+  .sent-negative { background: rgba(244, 63, 94, 0.16); color: #fb7185; border: 1px solid rgba(244,63,94,0.35); }
+  .x-post-text { font-size: 13px; color: #e2e8f0; line-height: 1.5; }
+  .x-post-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px; color: var(--text-muted); margin-top: auto; padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .svg-container { width: 100%; overflow: hidden; }
+</style>
+</head>
+
+<body>
+
+  <!-- Top Header -->
+  <header class="top-header">
+    <div class="brand-area">
+      <div class="x-logo-badge">𝕏</div>
+      <div class="brand-title">
+        <h1>X Post Multi-Granularity Topic & Insight Dashboard</h1>
+        <p>マクロ〜ミクロ階層ドリルダウン発話分析モック（分析対象領域：ゲームトレンド）</p>
+      </div>
+    </div>
+    <div class="header-controls">
+      <span class="period-badge">📅 分析対象期間: 2026/10/01 〜 2026/10/14 (14日間・ダミーデータ)</span>
+      <button class="btn-action" onclick="exportCurrentCSV()">⬇ 現在粒度のポストCSV出力</button>
+      <button class="btn-action btn-primary" onclick="selectNode('title_mariokart_world')">🎯 『マリオカート ワールド』ミクロ分析へ直行</button>
+    </div>
+  </header>
+
+  <!-- Breadcrumb & Quick Granularity Demo Stepper -->
+  <div class="granularity-bar">
+    <div class="breadcrumb-wrap" id="breadcrumbContainer"></div>
+    <div class="demo-flow-group">
+      <span class="demo-flow-label">⚡ 例示シナリオ粒度遷移（クリックで切替）:</span>
+      <button class="step-pill" id="step_root_game" onclick="selectNode('root_game')">L1: ゲーム全体</button>
+      <span class="bc-arrow">→</span>
+      <button class="step-pill" id="step_cat_console" onclick="selectNode('cat_console')">L2: コンシューマーゲーム</button>
+      <span class="bc-arrow">→</span>
+      <button class="step-pill" id="step_plat_switch" onclick="selectNode('plat_switch')">L3: 任天堂スイッチ</button>
+      <span class="bc-arrow">→</span>
+      <button class="step-pill" id="step_title_mariokart_world" onclick="selectNode('title_mariokart_world')">L4: マリオカート ワールド</button>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="dashboard-layout">
+    <!-- Sidebar Tree -->
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-section-title">
+          <span>🗂 トピック粒度ツリー (L1〜L4)</span>
+        </div>
+        <div class="tree-container" id="hierarchyTree"></div>
+      </div>
+
+      <div class="granularity-guide-box">
+        <h4>💡 粒度別分析のアプローチ</h4>
+        <div class="guide-step">
+          <span class="guide-badge">L1 マクロ</span>
+          <span>市場全体の盛り上がり周期とプラットフォーム間シェアを把握</span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-badge">L2 セミマクロ</span>
+          <span>コンシューマー vs スマホ等の機材特性・購買ドライバーを比較</span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-badge">L3 セミミクロ</span>
+          <span>任天堂スイッチ等のハード固有機能（ボイチャ・抽選）と牽引ソフトを特定</span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-badge">L4 ミクロ</span>
+          <span>『マリオカート ワールド』等の個別要素（24人対戦・ウシ参戦・同梱版）の熱狂要因を解剖</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Dashboard Content -->
+    <main class="main-content">
+      <!-- Hero Banner -->
+      <section class="topic-hero">
+        <div class="hero-left">
+          <span class="hero-level-badge" id="heroLevelBadge">L1: マクロ領域</span>
+          <div class="hero-title">
+            <span id="heroTitle">ゲーム全体</span>
+          </div>
+          <p class="hero-desc" id="heroDesc"></p>
+        </div>
+        <div class="hero-nav-buttons" id="heroNavButtons"></div>
+      </section>
+
+      <!-- KPI Cards -->
+      <section class="kpi-grid" id="kpiGrid"></section>
+
+      <!-- Row 1: Time Series + Subtopic Drilldown -->
+      <section class="chart-grid-2col">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📈 発話量・ポジネガ感情推移とバースト要因（14日間）</div>
+              <div class="card-subtitle">総発話数（折れ線）とポジティブ/中立/ネガティブ内訳、および急増イベントの自動アノテーション</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-action" id="tsModeTotal" onclick="setTsMode('all')">全感情レイヤー表示</button>
+              <button class="btn-action" id="tsModePosNeg" onclick="setTsMode('posneg')">ポジ/ネガ比較</button>
+            </div>
+          </div>
+          <div class="svg-container" id="timeSeriesChart"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🔍 サブトピック構成比＆ドリルダウン遷移</div>
+              <div class="card-subtitle">各バーをクリックすると下位粒度へ遷移（L4では該当トピックのポストをフィルタ）</div>
+            </div>
+          </div>
+          <div class="subtopic-list" id="subtopicList"></div>
+        </div>
+      </section>
+
+      <!-- Row 2: Topic Sentiment Matrix + Co-occurrence & Radar -->
+      <section class="chart-grid-2col">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">💬 主要発話トピック別の感情バランス＆ドライバー分析</div>
+              <div class="card-subtitle"> 現在の粒度における具体的な議論テーマ、発話ボリューム、好意/懸念の背景</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="driver-table" id="driverTable"></table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🕸 共起キーワードネットワーク ＆ 6軸発話特性</div>
+              <div class="card-subtitle">同時出現しやすいハッシュタグ/語彙の繋がりと、業界平均（点線）に対する発話の質的特徴</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-action" id="vizTabNet" onclick="setVizTab('network')">共起ネットワーク図</button>
+              <button class="btn-action" id="vizTabRadar" onclick="setVizTab('radar')">6軸発話特性レーダー</button>
+            </div>
+          </div>
+          <div class="svg-container" id="networkOrRadarContainer"></div>
+        </div>
+      </section>
+
+      <!-- Row 3: Multi-faceted Insights -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">💡 発話データから導出された多面的インサイト・マーケティング示唆</div>
+            <div class="card-subtitle">現在の分析粒度（<span id="insightScopeName"></span>）における構造的発見とネクストアクション提案</div>
+          </div>
+        </div>
+        <div class="insights-grid" id="insightsGrid"></div>
+      </section>
+
+      <!-- Row 4: Representative Dummy X Posts -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">𝕏 代表的な発話ポスト一覧（ダミーデータ・リアルタイム検索/感情フィルタ）</div>
+            <div class="card-subtitle">選択中の粒度および下位階層に含まれる代表的なXポストとエンゲージメント指標</div>
+          </div>
+          <div class="post-filters">
+            <span class="filter-chip active" data-sent="all" onclick="setPostSentimentFilter('all', this)">すべて</span>
+            <span class="filter-chip" data-sent="positive" onclick="setPostSentimentFilter('positive', this)">🟢 ポジティブ</span>
+            <span class="filter-chip" data-sent="neutral" onclick="setPostSentimentFilter('neutral', this)">🔵 中立・考察</span>
+            <span class="filter-chip" data-sent="negative" onclick="setPostSentimentFilter('negative', this)">🔴 ネガティブ・懸念</span>
+            <input type="text" id="postSearchInput" class="search-input" placeholder="キーワードやトピックで絞り込み..." oninput="renderPosts()">
+          </div>
+        </div>
+        <div class="posts-grid" id="postsGrid"></div>
+      </section>
+    </main>
+  </div>
+
+<script>
+const DASHBOARD_DATA = {"dates": ["10/01", "10/02", "10/03", "10/04", "10/05", "10/06", "10/07", "10/08", "10/09", "10/10", "10/11", "10/12", "10/13", "10/14"], "nodes": {"root_game": {"id": "root_game", "name": "ゲーム全体", "level": 1, "levelLabel": "L1: マクロ領域（業界全体）", "parent": null, "children": ["cat_console", "cat_mobile", "cat_pc", "cat_esports"], "description": "X（旧Twitter）上のゲーム関連全発話データ。ハードウェア発表、新作タイトル、ガチャ更新、eスポーツ大会など多面的なトレンドを網羅。", "kpis": {"totalPosts": "1,482,900", "growthRate": "+24.8%", "engagement": "18,420,500", "uniqueUsers": "642,100", "posRatio": 64, "neuRatio": 23, "negRatio": 13, "burstIndex": "High (3.4x)"}, "timeSeries": {"total": [88000, 91000, 112000, 125000, 98000, 89000, 94000, 168000, 142000, 115000, 108000, 95000, 78000, 79900], "positive": [54000, 56000, 72000, 81000, 62000, 55000, 59000, 118000, 96000, 75000, 69000, 61000, 49000, 51000], "neutral": [22000, 23000, 26000, 29000, 23000, 22000, 23000, 32000, 29000, 25000, 25000, 22000, 19000, 19000], "negative": [12000, 12000, 14000, 15000, 13000, 12000, 12000, 18000, 17000, 15000, 14000, 12000, 10000, 9900], "annotations": [{"index": 3, "date": "10/04", "label": "週末大型大会＆秋イベント開幕", "delta": "+37%"}, {"index": 7, "date": "10/08", "label": "Nintendo Direct / 次世代タイトル映像公開", "delta": "+78%"}]}, "subtopics": [{"id": "cat_console", "name": "コンシューマーゲーム", "share": 44.2, "volume": "655,400", "sentiment": 69, "growth": "+38.2%", "color": "#6366f1", "desc": "Switch次世代機・PS5大型タイトルへの期待が牽引"}, {"id": "cat_mobile", "name": "モバイル・スマホゲーム", "share": 28.5, "volume": "422,600", "sentiment": 56, "growth": "+11.4%", "color": "#ec4899", "desc": "周年ガチャ・コラボイベントが週末に集中"}, {"id": "cat_pc", "name": "PC・Steamゲーム", "share": 16.8, "volume": "249,100", "sentiment": 67, "growth": "+19.5%", "color": "#14b8a6", "desc": "Steam Nextフェス・インディー協力ゲームが話題"}, {"id": "cat_esports", "name": "eスポーツ・配信・VTuber", "share": 10.5, "volume": "155,800", "sentiment": 61, "growth": "+15.0%", "color": "#f59e0b", "desc": "ストリーマー主催大会の同時視聴・実況ポストが急増"}], "topicDrivers": [{"topic": "新作発表・トレーラー考察", "volume": 412000, "pos": 78, "neu": 16, "neg": 6, "insight": "10/08の映像公開直後3時間で11万ポスト。コース演出や新システムへの驚きが中心。"}, {"topic": "マルチプレイ募集・フレンド共有", "volume": 328000, "pos": 71, "neu": 24, "neg": 5, "insight": "21時〜24時のプライム帯にクリップ動画付きの投稿が集中し、リポスト拡散率が高い。"}, {"topic": "ハード供給・価格・スペック議論", "volume": 289000, "pos": 48, "neu": 30, "neg": 22, "insight": "本体価格や抽選倍率、周辺機器の互換性に対する懸念がネガティブ/中立発話を形成。"}, {"topic": "ガチャ確率・課金バランス・メンテ", "volume": 245000, "pos": 39, "neu": 28, "neg": 33, "insight": "スマホゲーム領域での天井到達報告や緊急メンテ延長への不満が主なネガティブ要因。"}, {"topic": "実況切り抜き・大会ハイライト", "volume": 208900, "pos": 74, "neu": 19, "neg": 7, "insight": "人気配信者の神プレイ切り抜きがライト層へ波及し、休眠プレイヤーの復帰意欲を刺激。"}], "cooccurrence": {"nodes": [{"id": "n1", "label": "ゲーム", "group": "core", "size": 34, "x": 260, "y": 150}, {"id": "n2", "label": "Switch", "group": "console", "size": 28, "x": 145, "y": 85}, {"id": "n3", "label": "マリオカートワールド", "group": "console", "size": 26, "x": 80, "y": 160}, {"id": "n4", "label": "PS5", "group": "console", "size": 23, "x": 165, "y": 235}, {"id": "n5", "label": "モンハン", "group": "console", "size": 21, "x": 95, "y": 255}, {"id": "n6", "label": "ガチャ", "group": "mobile", "size": 24, "x": 385, "y": 80}, {"id": "n7", "label": "周年コラボ", "group": "mobile", "size": 19, "x": 445, "y": 140}, {"id": "n8", "label": "Steam", "group": "pc", "size": 21, "x": 370, "y": 235}, {"id": "n9", "label": "インディー", "group": "pc", "size": 17, "x": 450, "y": 225}, {"id": "n10", "label": "配信切り抜き", "group": "esports", "size": 20, "x": 275, "y": 55}], "links": [{"source": "n1", "target": "n2", "weight": 5}, {"source": "n2", "target": "n3", "weight": 5}, {"source": "n1", "target": "n4", "weight": 4}, {"source": "n4", "target": "n5", "weight": 4}, {"source": "n1", "target": "n6", "weight": 4}, {"source": "n6", "target": "n7", "weight": 3}, {"source": "n1", "target": "n8", "weight": 3}, {"source": "n8", "target": "n9", "weight": 3}, {"source": "n1", "target": "n10", "weight": 3}, {"source": "n3", "target": "n10", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [86, 78, 82, 74, 88, 84], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "構造的トレンド", "title": "「コンシューマー新作発表」×「配信者リアクション」の二段ロケット拡散", "body": "公式発表（10/08）の一次ピークの後、翌日に配信者の同時視聴切り抜きが拡散されることで二次ピークが形成され、減衰率が従来比で35%緩やかになっています。", "action": "公式トレーラー公開から24時間以内に、クリエイター向けの公認切り抜きガイドラインと高画質素材キットを配布することで二次拡散を最大化できます。"}, {"type": "センチメント構造", "title": "ゲーム体験への高評価（+78%）と購入ハードル懸念（-22%）の二極化", "body": "コンテンツ内容（グラフィック、オープンワールド化、新モード）への満足度は極めて高い一方、ネガティブ発話の約7割が「抽選倍率」「周辺機器価格」「サーバー負荷」に集中しています。", "action": "予約受付・抽選スケジュールの透明化アナウンスと、既存コントローラー互換性FAQのピン留め投稿がネガティブ抑制に直結します。"}, {"type": "時間帯・フォーマット示唆", "title": "15〜30秒の縦型/短尺プレイクリップがエンゲージメント率3.2倍を記録", "body": "テキストのみの感想ポストと比較して、プレイ中のハプニングや新ギミックを収めた短尺動画付きポストは平均ブックマーク数が4.1倍に達しています。", "action": "ゲーム内の「ワンボタン30秒クリップ共有機能」を活用したハッシュタグキャンペーンが最も費用対効果の高い施策となります。"}], "posts": [{"id": "p_root_1", "user": "@game_trend_jp", "handle": "ゲーム速報アナリスト", "time": "10/08 23:15", "sentiment": "positive", "topic": "新作発表・トレーラー考察", "text": "今週のXゲームトレンド完全に任天堂スイッチ界隈が持っていったな…！特に『マリオカート ワールド』の大陸横断オープンコース発表でタイムラインが一気に祭り状態🔥 #NintendoSwitch #マリオカートワールド", "likes": 14200, "retweets": 4890, "Segment": "コンシューマーゲーム"}, {"id": "p_root_2", "user": "@indie_steam_lab", "handle": "Steamインディー発掘隊", "time": "10/10 21:40", "sentiment": "positive", "topic": "マルチプレイ募集・フレンド共有", "text": "週末にフレンド4人で遊べる協力型ローグライクがSteamで大当たりしてる。クリップ動画見ただけで絶対笑うやつ。今夜22時から固定メンツ募集！ #Steam #インディーゲーム", "likes": 3420, "retweets": 810, "Segment": "PC・Steamゲーム"}, {"id": "p_root_3", "user": "@gacha_senshi_99", "handle": "ソシャゲ課金記録帳", "time": "10/05 18:20", "sentiment": "negative", "topic": "ガチャ確率・課金バランス・メンテ", "text": "周年限定ピックアップ200連してすり抜け4回はさすがにメンタル削れる…石配布量は増えたけど天井までの要求数もうちょっと緩和してほしい😭", "likes": 2150, "retweets": 390, "Segment": "モバイル・スマホゲーム"}, {"id": "p_root_4", "user": "@ hardware_watcher", "handle": "ガジェット＆ハード考察", "time": "10/09 12:05", "sentiment": "neutral", "topic": "ハード供給・価格・スペック議論", "text": "次世代コンシューマー機のスペック比較まとめ。DLSS対応とロード時間短縮は確実視されてるけど、初回出荷台数がどれだけ確保されるかが最大の焦点になりそう。", "likes": 5600, "retweets": 1420, "Segment": "コンシューマーゲーム"}]}, "cat_console": {"id": "cat_console", "name": "コンシューマーゲーム", "level": 2, "levelLabel": "L2: プラットフォーム区分（セミマクロ）", "parent": "root_game", "children": ["plat_switch", "plat_ps5", "plat_xbox"], "description": "家庭用ゲーム機（Nintendo Switch系、PlayStation 5、Xbox Series X|S）に関する発話分析。ハードウェア供給、独占タイトル、オンラインマルチプレイが主要論点。", "kpis": {"totalPosts": "655,400", "growthRate": "+38.2%", "engagement": "9,840,200", "uniqueUsers": "312,500", "posRatio": 69, "neuRatio": 20, "negRatio": 11, "burstIndex": "Very High (4.2x)"}, "timeSeries": {"total": [34000, 35000, 44000, 52000, 39000, 36000, 38000, 92000, 76000, 54000, 48000, 41000, 33000, 33400], "positive": [22000, 23000, 30000, 36000, 26000, 24000, 25000, 68000, 55000, 38000, 33000, 28000, 22000, 22400], "neutral": [8000, 8000, 9500, 11000, 8500, 8000, 8500, 15000, 13000, 10000, 9500, 8500, 7000, 7000], "negative": [4000, 4000, 4500, 5000, 4500, 4000, 4500, 9000, 8000, 6000, 5500, 4500, 4000, 4000], "annotations": [{"index": 3, "date": "10/04", "label": "PS5大型タイトル試遊会レポート拡散", "delta": "+48%"}, {"index": 7, "date": "10/08", "label": "任天堂スイッチ新作ラインナップ＆マリカワールド発表", "delta": "+142%"}]}, "subtopics": [{"id": "plat_switch", "name": "任天堂スイッチ (Switch系)", "share": 62.4, "volume": "408,970", "sentiment": 73, "growth": "+52.1%", "color": "#ef4444", "desc": "『マリオカート ワールド』等の看板タイトル発表で圧倒的シェア"}, {"id": "plat_ps5", "name": "PlayStation 5", "share": 31.1, "volume": "203,830", "sentiment": 63, "growth": "+19.8%", "color": "#3b82f6", "desc": "モンハンワイルズ・FF系高画質タイトルのフレームレート議論が活発"}, {"id": "plat_xbox", "name": "Xbox Series X|S / Game Pass", "share": 6.5, "volume": "42,600", "sentiment": 65, "growth": "+12.3%", "color": "#10b981", "desc": "Day1配信タイトルのコスパ評価とクラウドプレイ言及が中心"}], "topicDrivers": [{"topic": "ファーストパーティ独占新作への熱狂", "volume": 248000, "pos": 82, "neu": 13, "neg": 5, "insight": "任天堂スイッチ向けの看板シリーズ最新作（特にマリオカートワールド）が家族・友人層まで広くリーチ。"}, {"topic": "次世代グラフィック・60fps安定性", "volume": 142000, "pos": 64, "neu": 24, "neg": 12, "insight": "オープンワールド化に伴う描画負荷や携帯モード時のバッテリー持続時間への関心が高い。"}, {"topic": "オンライン対戦環境・クロスプレイ", "volume": 118000, "pos": 68, "neu": 20, "neg": 12, "insight": "最大同時接続人数の拡大（24人対戦など）への期待と、回線ラグ対策への要望がセットで語られる。"}, {"topic": "本体抽選・マイニンテンドーストア予約条件", "volume": 92400, "pos": 45, "neu": 31, "neg": 24, "insight": "転売対策としてのプレイ時間条件・有料会員歴条件の採用を歓迎する声が多数。"}, {"topic": "パッケージ版 vs DL版・容量問題", "volume": 55000, "pos": 58, "neu": 30, "neg": 12, "insight": "SD Expressカード等のストレージ拡張コストに関する情報交換が活発。"}], "cooccurrence": {"nodes": [{"id": "c1", "label": "コンシューマー", "group": "core", "size": 32, "x": 250, "y": 150}, {"id": "c2", "label": "任天堂スイッチ", "group": "switch", "size": 30, "x": 140, "y": 95}, {"id": "c3", "label": "マリオカートワールド", "group": "switch", "size": 27, "x": 75, "y": 175}, {"id": "c4", "label": "予約抽選", "group": "switch", "size": 21, "x": 155, "y": 240}, {"id": "c5", "label": "PS5 Pro", "group": "ps5", "size": 23, "x": 370, "y": 90}, {"id": "c6", "label": "モンハンワイルズ", "group": "ps5", "size": 24, "x": 430, "y": 175}, {"id": "c7", "label": "60fps", "group": "ps5", "size": 18, "x": 355, "y": 245}, {"id": "c8", "label": "クロスプレイ", "group": "core", "size": 19, "x": 265, "y": 60}], "links": [{"source": "c1", "target": "c2", "weight": 5}, {"source": "c2", "target": "c3", "weight": 5}, {"source": "c2", "target": "c4", "weight": 4}, {"source": "c1", "target": "c5", "weight": 4}, {"source": "c5", "target": "c6", "weight": 4}, {"source": "c6", "target": "c7", "weight": 3}, {"source": "c6", "target": "c8", "weight": 3}, {"source": "c3", "target": "c4", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [92, 89, 85, 79, 90, 88], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "プラットフォーム覇権インサイト", "title": "任天堂スイッチ系がコンシューマー発話の62.4%を占め、ライト層〜コア層を統合", "body": "PS5が「ハイエンド画質・コアゲーマー」中心の発話構造であるのに対し、スイッチ系は「家族・友人・配信者・ソロ」の全クラスタで同時発話が起きています。", "action": "ドリルダウンで「任天堂スイッチ」を選択し、タイトル別の牽引要因（特に『マリオカート ワールド』）を深掘りすることを推奨します。"}, {"type": "購買転換シグナル", "title": "「本体同梱版」「プレイ履歴優遇抽選」への言及が購買意欲スコアを大幅押し上げ", "body": "単なる「面白そう」だけでなく、「マイニンテンドーストアの抽選条件クリアしてた！」「同梱版予約する」という具体的な購買行動ポストが全体の18%を占めています。", "action": "予約開始日リマインド投稿と、既存アカウント連携手順の図解インフォグラフィック展開が有効です。"}], "posts": [{"id": "p_con_1", "user": "@switch_fan_club", "handle": "スイッチ情報局", "time": "10/08 23:42", "sentiment": "positive", "topic": "ファーストパーティ独占新作への熱狂", "text": "任天堂スイッチのキラータイトルとして『マリオカート ワールド』持ってきたの完璧すぎる。コース間をシームレスに走るオープンワールド要素、絶対みんなで盛り上がれるやつ！", "likes": 9820, "retweets": 3120, "Segment": "任天堂スイッチ (Switch系)"}, {"id": "p_con_2", "user": "@ps5_hunter_g", "handle": "ハンター生活ログ", "time": "10/09 19:15", "sentiment": "positive", "topic": "次世代グラフィック・60fps安定性", "text": "PS5のモンハンワイルズ実機プレイ映像、天候変化のエフェクトとモンスターの群れAIが凄まじい。クロスプレイ対応でハードの垣根なくなるのも神対応。", "likes": 4510, "retweets": 1150, "Segment": "PlayStation 5"}, {"id": "p_con_3", "user": "@resale_buster", "handle": "ゲーム予約ウォッチャー", "time": "10/10 10:30", "sentiment": "neutral", "topic": "本体抽選・マイニンテンドーストア予約条件", "text": "公式ストアの抽選に「過去のソフトプレイ時間」と「オンライン加入期間」が条件に入ったの、転売ヤー対策として過去最高に機能しそう。一般店頭分がどうなるかだけ注視。", "likes": 6300, "retweets": 1890, "Segment": "任天堂スイッチ (Switch系)"}]}, "cat_mobile": {"id": "cat_mobile", "name": "モバイル・スマホゲーム", "level": 2, "levelLabel": "L2: プラットフォーム区分（セミマクロ）", "parent": "root_game", "children": ["plat_switch"], "description": "iOS / Android向けアプリゲームの発話分析。周年イベント、コラボガチャ、日課・周回効率、キャラクターファンアートが発話の中心。", "kpis": {"totalPosts": "422,600", "growthRate": "+11.4%", "engagement": "4,920,000", "uniqueUsers": "198,400", "posRatio": 56, "neuRatio": 25, "negRatio": 19, "burstIndex": "Medium (2.1x)"}, "timeSeries": {"total": [29000, 30000, 38000, 42000, 32000, 28000, 29000, 35000, 31000, 30000, 29000, 26000, 21000, 22600], "positive": [16000, 17000, 22000, 25000, 18000, 15000, 16000, 20000, 17000, 17000, 16000, 15000, 12000, 13000], "neutral": [7500, 7500, 9000, 9500, 8000, 7500, 7500, 8500, 8000, 7500, 7500, 6500, 5500, 5600], "negative": [5500, 5500, 7000, 7500, 6000, 5500, 5500, 6500, 6000, 5500, 5500, 4500, 3500, 4000], "annotations": [{"index": 3, "date": "10/04", "label": "主要タイトル周年ガチャ＆生放送トレンド入り", "delta": "+40%"}]}, "subtopics": [{"id": "plat_switch", "name": "クロスプラットフォームRPG（コンシューマー比較へ遷移）", "share": 48.0, "volume": "202,800", "sentiment": 61, "growth": "+16.2%", "color": "#ec4899", "desc": "スマホ・家庭用機の両方で遊べるオープンワールドRPG群"}, {"id": "plat_ps5", "name": "ハイエンド3DアクションRPG", "share": 32.0, "volume": "135,200", "sentiment": 54, "growth": "+9.1%", "color": "#a855f7", "desc": "端末発熱・容量問題と高クオリティ演出が同時に議論"}, {"id": "plat_xbox", "name": "カジュアル・パズル・位置情報", "share": 20.0, "volume": "84,600", "sentiment": 52, "growth": "+5.4%", "color": "#f43f5e", "desc": "秋の外出イベント・リアル店舗コラボが話題"}], "topicDrivers": [{"topic": "限定ガチャ結果報告・神引きスクショ", "volume": 168000, "pos": 52, "neu": 20, "neg": 28, "insight": "10連スクショ投稿がトレンド入りを牽引する一方、爆死報告によるネガティブ比率も高め。"}, {"topic": "キャラ考察・ファンアート投稿", "volume": 132000, "pos": 88, "neu": 10, "neg": 2, "insight": "イラストレーターによる二次創作が圧倒的ないいね数を獲得し、好意度を底上げ。"}, {"topic": "アプリ容量・バッテリー消費・発熱", "volume": 74600, "pos": 25, "neu": 35, "neg": 40, "insight": "30GB超えのストレージ圧迫から「コンシューマー機（Switch/PS5）で遊びたい」という流出意向も観測。"}, {"topic": "日課スキップ・QoLアップデート評価", "volume": 48000, "pos": 76, "neu": 18, "neg": 6, "insight": "周回短縮機能の実装に対する運営への感謝ポストが急増。"}], "cooccurrence": {"nodes": [{"id": "m1", "label": "スマホゲーム", "group": "core", "size": 30, "x": 250, "y": 150}, {"id": "m2", "label": "ガチャ天井", "group": "mobile", "size": 26, "x": 140, "y": 100}, {"id": "m3", "label": "周年イベント", "group": "mobile", "size": 25, "x": 360, "y": 95}, {"id": "m4", "label": "容量不足", "group": "neg", "size": 20, "x": 150, "y": 220}, {"id": "m5", "label": "ファンアート", "group": "pos", "size": 22, "x": 360, "y": 220}], "links": [{"source": "m1", "target": "m2", "weight": 5}, {"source": "m1", "target": "m3", "weight": 5}, {"source": "m1", "target": "m4", "weight": 3}, {"source": "m1", "target": "m5", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [80, 68, 75, 85, 82, 79], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "クロスデバイス示唆", "title": "スマホの容量・発熱課題がコンシューマー機への回帰ニーズを喚起", "body": "スマホゲームの3Dリッチ化に伴い、「スマホが熱すぎるのでSwitch版やPS5版にデータ連携して遊びたい」という発話が前月比+29%増加しています。", "action": "クロスセーブ対応の訴求や、コンシューマー機での快適プレイ比較動画の提示が効果的です。"}], "posts": [{"id": "p_mob_1", "user": "@app_gamer_miku", "handle": "みく＠ソシャゲ掛け持ち", "time": "10/04 20:10", "sentiment": "positive", "topic": "キャラ考察・ファンアート投稿", "text": "周年生放送で発表された新衣装イラストが神すぎて語彙力消えた…！！実装されたら絶対引きますありがとう運営さん🙏✨", "likes": 5400, "retweets": 1280, "Segment": "モバイル・スマホゲーム"}, {"id": "p_mob_2", "user": "@phone_storage_0", "handle": "容量ギリギリ民", "time": "10/07 14:22", "sentiment": "negative", "topic": "アプリ容量・バッテリー消費・発熱", "text": "大型アプデでさらに8GB追加はスマホの容量が限界突破する…こういうオープンワールド系はもうSwitchとかコンシューマー機で腰据えてやる方が快適だなぁ。", "likes": 1890, "retweets": 340, "Segment": "モバイル・スマホゲーム"}]}, "cat_pc": {"id": "cat_pc", "name": "PC・Steamゲーム", "level": 2, "levelLabel": "L2: プラットフォーム区分（セミマクロ）", "parent": "root_game", "children": ["plat_switch", "plat_ps5"], "description": "Steam、PCゲーミング、インディーゲーム、MODコミュニティに関する発話分析。", "kpis": {"totalPosts": "249,100", "growthRate": "+19.5%", "engagement": "2,310,000", "uniqueUsers": "94,200", "posRatio": 67, "neuRatio": 23, "negRatio": 10, "burstIndex": "Medium-High (2.5x)"}, "timeSeries": {"total": [16000, 17000, 19000, 20000, 17000, 16000, 17000, 24000, 21000, 19000, 19000, 17000, 14000, 13100], "positive": [10500, 11000, 13000, 13500, 11500, 10500, 11500, 16500, 14500, 13000, 13000, 11500, 9500, 8900], "neutral": [3900, 4200, 4200, 4500, 3900, 3900, 3900, 5200, 4500, 4200, 4200, 3900, 3200, 3000], "negative": [1600, 1800, 1800, 2000, 1600, 1600, 1600, 2300, 2000, 1800, 1800, 1600, 1300, 1200], "annotations": [{"index": 7, "date": "10/08", "label": "Steam秋セール＆体験版フェス話題化", "delta": "+41%"}]}, "subtopics": [{"id": "plat_switch", "name": "Switch / Steamマルチ展開インディー（Switch系へ遷移）", "share": 55.0, "volume": "137,000", "sentiment": 72, "growth": "+24.0%", "color": "#14b8a6", "desc": "「Steamで流行→Switch版も欲しい/出た」という相互波及トレンド"}, {"id": "plat_ps5", "name": "ハイスペックPC・グラボ要求議論", "share": 45.0, "volume": "112,100", "sentiment": 61, "growth": "+14.2%", "color": "#0ea5e9", "desc": "RTX系GPU設定や最適化パッチに関するコア層の発話"}], "topicDrivers": [{"topic": "インディー神ゲー発掘・口コミ拡散", "volume": 124000, "pos": 81, "neu": 15, "neg": 4, "insight": "1,000〜2,000円台のアイデア勝負タイトルが個人開発者ポストきっかけでバズる傾向。"}, {"topic": "Switch携帯機でのプレイ要望", "volume": 72000, "pos": 69, "neu": 25, "neg": 6, "insight": "「これ寝転がってSwitchでやりたい」という発話が定型フォーマット化。"}, {"topic": "PC最適化・クラッシュ報告", "volume": 53100, "pos": 38, "neu": 32, "neg": 30, "insight": "発売初日のシェーダーコンパイルカクつきに対する指摘。"}], "cooccurrence": {"nodes": [{"id": "pc1", "label": "Steam", "group": "core", "size": 30, "x": 250, "y": 150}, {"id": "pc2", "label": "インディー", "group": "pc", "size": 25, "x": 140, "y": 110}, {"id": "pc3", "label": "Switch移植希望", "group": "switch", "size": 22, "x": 360, "y": 110}, {"id": "pc4", "label": "協力マルチ", "group": "pos", "size": 23, "x": 250, "y": 240}], "links": [{"source": "pc1", "target": "pc2", "weight": 5}, {"source": "pc2", "target": "pc3", "weight": 4}, {"source": "pc1", "target": "pc4", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [72, 76, 84, 78, 86, 62], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "プラットフォーム還流", "title": "Steam発のバズタイトルに対する「Switch版で遊びたい」コールが定番化", "body": "PC配信者の実況で知名度を得たタイトルに対し、ライト層から「任天堂スイッチに出たら即買いする」というリプライが平均18%付与されています。", "action": "コンシューマー移植発表時のティザー告知はXの短尺動画広告との相性が抜群です。"}], "posts": [{"id": "p_pc_1", "user": "@steam_curator_k", "handle": "Steamおすすめ紹介", "time": "10/08 21:00", "sentiment": "positive", "topic": "インディー神ゲー発掘・口コミ拡散", "text": "1,500円で買える新作協力アクション、物理演算がカオスすぎて腹筋崩壊したw Switch版も同時発売されるらしいからクロスプレイでぜひ遊んでほしい！", "likes": 4120, "retweets": 980, "Segment": "PC・Steamゲーム"}]}, "cat_esports": {"id": "cat_esports", "name": "eスポーツ・配信・VTuber", "level": 2, "levelLabel": "L2: プラットフォーム区分（セミマクロ）", "parent": "root_game", "children": ["plat_switch"], "description": "ストリーマー大会、VTuberコラボ配信、競技シーンの実況・切り抜きに関する発話分析。", "kpis": {"totalPosts": "155,800", "growthRate": "+15.0%", "engagement": "1,350,300", "uniqueUsers": "88,900", "posRatio": 61, "neuRatio": 27, "negRatio": 12, "burstIndex": "High (3.1x)"}, "timeSeries": {"total": [9000, 9000, 11000, 11000, 10000, 9000, 10000, 17000, 14000, 12000, 12000, 11000, 10000, 10800], "positive": [5500, 5000, 7000, 6500, 6500, 5500, 6500, 13500, 9500, 7000, 7000, 6500, 5500, 6700], "neutral": [2600, 3300, 3300, 4000, 2600, 2600, 2600, 3300, 3500, 3300, 3300, 3100, 3300, 3400], "negative": [900, 700, 700, 500, 900, 900, 900, 200, 1000, 1700, 1700, 1400, 1200, 700], "annotations": [{"index": 7, "date": "10/08", "label": "大型配信者によるマリカワールド同時視聴＆カスタム大会告知", "delta": "+70%"}]}, "subtopics": [{"id": "plat_switch", "name": "パーティー＆レース系配信企画（Switch系へ遷移）", "share": 68.0, "volume": "105,900", "sentiment": 76, "growth": "+34.0%", "color": "#f59e0b", "desc": "『マリオカート ワールド』24人カスタム大会への期待が沸騰"}, {"id": "plat_ps5", "name": "FPS・格闘ゲーム競技大会", "share": 32.0, "volume": "49,900", "sentiment": 58, "growth": "+8.5%", "color": "#8b5cf6", "desc": "プロリーグ秋スプリットおよびオフライン観戦レポート"}], "topicDrivers": [{"topic": "24人大型コラボ・カスタム杯への期待", "volume": 92000, "pos": 84, "neu": 13, "neg": 3, "insight": "『マリオカート ワールド』の24人対戦仕様が「箱企画・ストリーマー杯に最適すぎる」と絶賛。"}, {"topic": "同時視聴リアクション切り抜き", "volume": 63800, "pos": 72, "neu": 20, "neg": 8, "insight": "推しの反応を見るために複数枠を同時視聴するファン層の動きが活発。"}], "cooccurrence": {"nodes": [{"id": "e1", "label": "配信企画", "group": "core", "size": 30, "x": 250, "y": 150}, {"id": "e2", "label": "マリカ杯24人", "group": "switch", "size": 27, "x": 145, "y": 105}, {"id": "e3", "label": "同時視聴", "group": "esports", "size": 24, "x": 355, "y": 105}, {"id": "e4", "label": "切り抜き動画", "group": "pos", "size": 22, "x": 250, "y": 235}], "links": [{"source": "e1", "target": "e2", "weight": 5}, {"source": "e1", "target": "e3", "weight": 4}, {"source": "e2", "target": "e4", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [89, 64, 78, 91, 93, 85], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "コミュニティ波及インサイト", "title": "「観るゲーム」としての『マリオカート ワールド』が配信界隈で主役に", "body": "従来の12人対戦から24人対戦・大陸横断サバイバルへ拡張されたことで、「大型VTuber箱企画やストリーマー大会が2倍豪華になる」という期待が爆発しています。", "action": "大会主催者向けの観戦カメラモード・カスタムルーム機能の先行紹介動画がコミュニティ熱量をさらに高めます。"}], "posts": [{"id": "p_esp_1", "user": "@vtuber_clip_ch", "handle": "V切り抜き速報", "time": "10/08 23:55", "sentiment": "positive", "topic": "24人大型コラボ・カスタム杯への期待", "text": "マリオカートワールド24人対戦ってことは、年末のマリカ杯が1レース24人の大混戦サバイバルになるってこと！？配信映えが次元違いすぎる…！", "likes": 11200, "retweets": 3450, "Segment": "eスポーツ・配信・VTuber"}]}, "plat_switch": {"id": "plat_switch", "name": "任天堂スイッチ", "level": 3, "levelLabel": "L3: ハードウェア・エコシステム（セミミクロ）", "parent": "cat_console", "children": ["title_mariokart_world", "title_zelda_new", "title_splatoon_fes"], "description": "任天堂スイッチ（次世代Switch 2含むエコシステム全体）に関する発話分析。看板タイトル『マリオカート ワールド』の発表を機に、ハード性能・後方互換性・家族/フレンド通信の議論が急騰。", "kpis": {"totalPosts": "408,970", "growthRate": "+52.1%", "engagement": "6,710,400", "uniqueUsers": "214,800", "posRatio": 73, "neuRatio": 18, "negRatio": 9, "burstIndex": "Extreme (5.1x)"}, "timeSeries": {"total": [19000, 19500, 24000, 29000, 22000, 20000, 21500, 68000, 54000, 36000, 31000, 26000, 19000, 19970], "positive": [13000, 13500, 17000, 21000, 15500, 14000, 15000, 52000, 41000, 26500, 22500, 19000, 13500, 14470], "neutral": [4200, 4200, 4800, 5400, 4300, 4000, 4300, 10500, 8500, 6200, 5500, 4600, 3800, 3800], "negative": [1800, 1800, 2200, 2600, 2200, 2000, 2200, 5500, 4500, 3300, 3000, 2400, 1700, 1700], "annotations": [{"index": 3, "date": "10/04", "label": "秋のオンラインフェス＆フレンド募集トレンド", "delta": "+45%"}, {"index": 7, "date": "10/08", "label": "『マリオカート ワールド』＆本体同梱セット発表", "delta": "+216%"}]}, "subtopics": [{"id": "title_mariokart_world", "name": "マリオカート ワールド", "share": 58.4, "volume": "238,840", "sentiment": 79, "growth": "+184.5%", "color": "#ef4444", "desc": "オープンワールド大陸横断・24人対戦・天候変化ギミックに熱狂"}, {"id": "title_zelda_new", "name": "ゼルダの伝説・アクションADV群", "share": 23.2, "volume": "94,880", "sentiment": 75, "growth": "+22.4%", "color": "#10b981", "desc": "高解像度パッチ・ロード時間爆速化の比較動画が拡散"}, {"id": "title_splatoon_fes", "name": "スプラトゥーン・パーティーマルチ群", "share": 18.4, "volume": "75,250", "sentiment": 64, "growth": "+14.8%", "color": "#f59e0b", "desc": "ゲームチャット機能（画面共有・ボイチャ標準搭載）への評価"}], "topicDrivers": [{"topic": "『マリオカート ワールド』同梱版＆新作衝撃", "volume": 172000, "pos": 84, "neu": 12, "neg": 4, "insight": "「マリオカートのために本体ごと買う」という層が全体の4割超を占め、最強のハード牽引役に。"}, {"topic": "標準搭載ボイスチャット＆画面共有（Cボタン）", "volume": 86400, "pos": 76, "neu": 18, "neg": 6, "insight": "スマホアプリ不要でフレンドのプレイ画面をワイプ表示できる機能に「神進化」との声。"}, {"topic": "マイニンテンドーストア抽選条件・転売対策", "volume": 68500, "pos": 58, "neu": 24, "neg": 18, "insight": "歴代Switchプレイ時間条件は現役ユーザーから圧倒的支持。一方ライト層は一般販売枠を模索。"}, {"topic": "既存Switchソフトの後方互換＆アップグレード", "volume": 48000, "pos": 71, "neu": 22, "neg": 7, "insight": "手持ちの資産がそのまま遊べてフレームレートが向上する点に安心感が広がる。"}, {"topic": "周辺機器・microSD Express・価格議論", "volume": 34070, "pos": 41, "neu": 34, "neg": 25, "insight": "新しい規格のmicroSDカードやProコントローラー買い替えコストが唯一の懸念点。"}], "cooccurrence": {"nodes": [{"id": "sw1", "label": "任天堂スイッチ", "group": "core", "size": 34, "x": 255, "y": 150}, {"id": "sw2", "label": "マリオカートワールド", "group": "switch", "size": 31, "x": 115, "y": 90}, {"id": "sw3", "label": "本体同梱版", "group": "switch", "size": 25, "x": 95, "y": 195}, {"id": "sw4", "label": "24人対戦", "group": "pos", "size": 24, "x": 185, "y": 250}, {"id": "sw5", "label": "ゲームチャット", "group": "pos", "size": 23, "x": 380, "y": 85}, {"id": "sw6", "label": "後方互換", "group": "core", "size": 21, "x": 420, "y": 175}, {"id": "sw7", "label": "抽選条件", "group": "neg", "size": 22, "x": 345, "y": 245}, {"id": "sw8", "label": "ゼルダ高画質", "group": "pos", "size": 19, "x": 255, "y": 55}], "links": [{"source": "sw1", "target": "sw2", "weight": 5}, {"source": "sw2", "target": "sw3", "weight": 5}, {"source": "sw2", "target": "sw4", "weight": 5}, {"source": "sw1", "target": "sw5", "weight": 4}, {"source": "sw1", "target": "sw6", "weight": 4}, {"source": "sw1", "target": "sw7", "weight": 4}, {"source": "sw3", "target": "sw7", "weight": 4}, {"source": "sw1", "target": "sw8", "weight": 3}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [95, 93, 88, 83, 92, 94], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "キラータイトル牽引構造", "title": "発話全体の58.4%が『マリオカート ワールド』関連に集中し、ハード購買の決定打に", "body": "「スイッチ本体」単独のスペック議論よりも、「マリオカートワールドを遊ぶためにスイッチを確保したい」という目的駆動型の発話が3.2倍多く発生しています。", "action": "さらにミクロ粒度（L4: マリオカート ワールド）へ遷移し、どの新要素（大陸横断・24人対戦・新アイテム）が最も刺さっているかを特定してください。"}, {"type": "ソーシャル機能インサイト", "title": "「ゲームチャット（画面共有ワイプ）」×「オープンワールドドライブ」の相乗効果", "body": "ハード側の新機能である画面共有ボイスチャットについて、「マリカワールドで友達の画面を見ながら大陸ドライブしたら絶対楽しい」という具体的な利用シーン想起が急増しています。", "action": "4人フレンドがワイプ画面を表示しながらドライブ・レースを楽しむ実写＋ゲーム画面のWeb CM展開が極めて有効です。"}], "posts": [{"id": "p_sw_1", "user": "@nintendo_life_jp", "handle": "ニンテンドーファン通信", "time": "10/08 23:30", "sentiment": "positive", "topic": "『マリオカート ワールド』同梱版＆新作衝撃", "text": "任天堂スイッチの『マリオカート ワールド』セット、これは間違いなく争奪戦になるぞ…！前作から10年ぶりの完全新作がオープンワールド×24人対戦とか進化幅がエグい！", "likes": 15400, "retweets": 5210, "Segment": "マリオカート ワールド"}, {"id": "p_sw_2", "user": "@spla_ika_chan", "handle": "いかちゃん＠スプラ＆マリカ", "time": "10/09 00:15", "sentiment": "positive", "topic": "標準搭載ボイスチャット＆画面共有（Cボタン）", "text": "地味に一番嬉しいのがスイッチ本体だけでボイチャと画面共有ができるゲームチャット機能！友達がどこ走ってるか画面ワイプで見ながらマリカできるの最高じゃん😭✨", "likes": 8320, "retweets": 2190, "Segment": "スプラトゥーン・パーティーマルチ群"}, {"id": "p_sw_3", "user": "@gadget_papa_3", "handle": "パパゲーマーの日常", "time": "10/09 08:45", "sentiment": "neutral", "topic": "周辺機器・microSD Express・価格議論", "text": "子どもの誕生日プレゼントにマリオカート同梱版を狙いたいけど、microSDカードがExpress規格必須になるなら今のうちに容量と価格チェックしておかないとな。", "likes": 1950, "retweets": 410, "Segment": "マリオカート ワールド"}]}, "plat_ps5": {"id": "plat_ps5", "name": "PlayStation 5", "level": 3, "levelLabel": "L3: ハードウェア・エコシステム（セミミクロ）", "parent": "cat_console", "children": ["title_mhwilds"], "description": "PlayStation 5 / PS5 Proに関する発話分析。高画質AAAタイトル、フレームレート、狩猟マルチプレイが中心。", "kpis": {"totalPosts": "203,830", "growthRate": "+19.8%", "engagement": "2,680,000", "uniqueUsers": "98,200", "posRatio": 63, "neuRatio": 23, "negRatio": 14, "burstIndex": "Medium-High (2.8x)"}, "timeSeries": {"total": [12000, 12500, 16500, 19500, 14000, 13000, 13500, 19000, 17500, 15000, 14000, 12500, 12000, 12830], "positive": [7500, 7800, 10800, 12800, 8800, 8200, 8500, 12500, 11200, 9500, 8800, 7800, 7500, 8130], "neutral": [2800, 2900, 3700, 4400, 3200, 3000, 3100, 4000, 3900, 3500, 3300, 3000, 2800, 2900], "negative": [1700, 1800, 2000, 2300, 2000, 1800, 1900, 2500, 2400, 2000, 1900, 1700, 1700, 1800], "annotations": [{"index": 3, "date": "10/04", "label": "モンハンワイルズオープンベータ日程告知", "delta": "+52%"}]}, "subtopics": [{"id": "title_mhwilds", "name": "モンスターハンターワイルズ", "share": 64.5, "volume": "131,470", "sentiment": 71, "growth": "+31.0%", "color": "#3b82f6", "desc": "シームレス狩猟とクロスプレイ対応への高評価"}, {"id": "title_mariokart_world", "name": "コンシューマー競合比較（マリカワールドとの比較発話）", "share": 35.5, "volume": "72,360", "sentiment": 58, "growth": "+14.0%", "color": "#6366f1", "desc": "「今年はPS5でモンハン、Switchでマリカワールド」の2台持ち議論"}], "topicDrivers": [{"topic": "モンハンワイルズ体験版・ベンチマーク", "volume": 98000, "pos": 74, "neu": 18, "neg": 8, "insight": "武器アクション調整とセクレト騎乗の快適さに称賛が集まる。"}, {"topic": "Switchとの2台持ち・年末予算配分", "volume": 62000, "pos": 61, "neu": 27, "neg": 12, "insight": "コアゲーマー層でも「マリカワールドは外せない」として両方購入を検討する声が多数。"}], "cooccurrence": {"nodes": [{"id": "ps1", "label": "PS5", "group": "core", "size": 30, "x": 250, "y": 150}, {"id": "ps2", "label": "モンハンワイルズ", "group": "ps5", "size": 28, "x": 140, "y": 100}, {"id": "ps3", "label": "2台持ち", "group": "switch", "size": 22, "x": 360, "y": 110}, {"id": "ps4", "label": "クロスプレイ", "group": "pos", "size": 23, "x": 250, "y": 235}], "links": [{"source": "ps1", "target": "ps2", "weight": 5}, {"source": "ps1", "target": "ps3", "weight": 4}, {"source": "ps2", "target": "ps4", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [82, 81, 86, 80, 85, 64], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "併用トレンド", "title": "「PS5＋任天堂スイッチ」の2台持ち肯定派がコアゲーマー層の68%に到達", "body": "かつてのハード間対立構造は薄れ、「フォトリアル狩猟はPS5、パーティー＆オープンワールドレースはSwitchのマリカワールド」という住み分け発話が主流です。", "action": "ジャンル横断のゲーマー層に向けた訴求が有効です。"}], "posts": [{"id": "p_ps_1", "user": "@core_gamer_jin", "handle": "ジン＠PS5＆Switch", "time": "10/09 18:00", "sentiment": "positive", "topic": "Switchとの2台持ち・年末予算配分", "text": "モンハンワイルズでPS5フル稼働させつつ、マリオカートワールドでSwitchも遊ぶのが今年の正解ムーブすぎる。ゲーマーとして幸せな悲鳴だわ。", "likes": 3100, "retweets": 640, "Segment": "PlayStation 5"}]}, "plat_xbox": {"id": "plat_xbox", "name": "Xbox Series X|S / Game Pass", "level": 3, "levelLabel": "L3: ハードウェア・エコシステム（セミミクロ）", "parent": "cat_console", "children": ["title_mariokart_world"], "description": "Xboxエコシステムおよびサブスクリプション比較に関する発話分析。", "kpis": {"totalPosts": "42,600", "growthRate": "+12.3%", "engagement": "450,000", "uniqueUsers": "24,100", "posRatio": 65, "neuRatio": 25, "negRatio": 10, "burstIndex": "Low-Med (1.7x)"}, "timeSeries": {"total": [3000, 3000, 3500, 3500, 3000, 3000, 3000, 5000, 4500, 3000, 3000, 2500, 2000, 600], "positive": [2000, 2000, 2300, 2300, 2000, 2000, 2000, 3500, 3000, 2000, 2000, 1600, 1300, 400], "neutral": [700, 700, 800, 800, 700, 700, 700, 1000, 1000, 700, 700, 600, 500, 150], "negative": [300, 300, 400, 400, 300, 300, 300, 500, 500, 300, 300, 300, 200, 50], "annotations": [{"index": 7, "date": "10/08", "label": "Forza Horizon系オープンワールド比較言及", "delta": "+66%"}]}, "subtopics": [{"id": "title_mariokart_world", "name": "オープンワールドレース比較（マリオカート ワールドへ遷移）", "share": 100.0, "volume": "42,600", "sentiment": 68, "growth": "+18.0%", "color": "#10b981", "desc": "Forza Horizonファンからも『マリオカート ワールド』の大陸横断仕様に注目が集まる"}], "topicDrivers": [{"topic": "Forza Horizon的なフリーローム要素への共感", "volume": 28000, "pos": 75, "neu": 20, "neg": 5, "insight": "「マリオカートがForza Horizonみたいにコース外も自由に走れるようになるとは！」とレースゲームファンが好意的反応。"}], "cooccurrence": {"nodes": [{"id": "xb1", "label": "オープンワールドレース", "group": "core", "size": 28, "x": 250, "y": 150}, {"id": "xb2", "label": "マリオカートワールド", "group": "switch", "size": 26, "x": 140, "y": 110}, {"id": "xb3", "label": "フリーローム", "group": "pos", "size": 24, "x": 360, "y": 110}], "links": [{"source": "xb1", "target": "xb2", "weight": 5}, {"source": "xb1", "target": "xb3", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [68, 70, 79, 72, 76, 60], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "ジャンル横断インサイト", "title": "本格オープンワールドレース層も『マリオカート ワールド』のフリーロームに高関心", "body": "コース間の移動自体がレースになる設計に対し、既存のオープンワールドドライビングゲームのファン層から高い技術的・ゲームデザイン的評価が寄せられています。", "action": "フリーローム探索の自由度を見せる長尺ゲームプレイ映像がコアなレース好きにも刺さります。"}], "posts": [{"id": "p_xb_1", "user": "@horizon_driver_jp", "handle": "オープンワールド走り屋", "time": "10/08 23:50", "sentiment": "positive", "topic": "Forza Horizon的なフリーローム要素への共感", "text": "普段Forza Horizonばっかりやってるけど、マリオカートワールドの大陸シームレス横断＆フリードライブは純粋に神ゲーの予感しかしない。友達とただドライブするだけでも絶対楽しい。", "likes": 2800, "retweets": 590, "Segment": "Xbox Series X|S / Game Pass"}]}, "title_mariokart_world": {"id": "title_mariokart_world", "name": "マリオカート ワールド", "level": 4, "levelLabel": "L4: 個別タイトル深掘り（ミクロ粒度）", "parent": "plat_switch", "children": [], "description": "『マリオカート ワールド』（任天堂スイッチ）のミクロ発話分析。大陸横断オープンワールド、24人サバイバルレース、ダイナミック天候変化、キャラクター衣装・新アイテム、フレンド画面共有ドライブなど、発話インサイトを徹底解剖。", "kpis": {"totalPosts": "238,840", "growthRate": "+184.5%", "engagement": "4,892,100", "uniqueUsers": "146,300", "posRatio": 79, "neuRatio": 15, "negRatio": 6, "burstIndex": "Max Viral (6.8x)"}, "timeSeries": {"total": [6200, 6500, 8400, 10200, 7800, 7100, 8200, 52000, 41500, 26800, 22400, 18200, 11500, 12040], "positive": [4500, 4800, 6300, 7800, 5800, 5200, 6100, 42500, 33800, 21200, 17500, 14200, 8900, 9440], "neutral": [1200, 1200, 1500, 1700, 1400, 1300, 1500, 6800, 5400, 3900, 3500, 2900, 1900, 1900], "negative": [500, 500, 600, 700, 600, 600, 600, 2700, 2300, 1700, 1400, 1100, 700, 700], "annotations": [{"index": 3, "date": "10/04", "label": "ティザー予告・旧作8DX振り返り企画", "delta": "+56%"}, {"index": 7, "date": "10/08", "label": "『マリオカート ワールド』大陸横断＆24人サバイバル初公開", "delta": "+534%"}, {"index": 9, "date": "10/10", "label": "試遊会プレイ動画・ショートカット考察拡散", "delta": "+182%"}]}, "subtopics": [{"id": "micro_openworld", "name": "オープンワールド・フリードライブ探索", "share": 34.2, "volume": "81,680", "sentiment": 86, "growth": "+240.0%", "color": "#ef4444", "desc": "コースの壁を越えて大陸中を自由に走れる「フリーローム」とフォトモードに歓喜"}, {"id": "micro_survival24", "name": "24人対戦＆大陸横断サバイバルモード", "share": 28.6, "volume": "68,310", "sentiment": 82, "growth": "+210.5%", "color": "#f97316", "desc": "チェックポイントごとに下位が脱落する24人ノンストップ大陸縦断ルールが配信映え抜群と話題"}, {"id": "micro_mechanics", "name": "天候・時間変化＆新アクション（レールライド・壁走り）", "share": 17.8, "volume": "42,510", "sentiment": 77, "growth": "+145.2%", "color": "#eab308", "desc": "砂嵐や吹雪による路面変化、グラインドやウォールランによる新ショートカット開拓"}, {"id": "micro_chars_costumes", "name": "新キャラ・ご当地コスチューム・フード変身", "share": 11.4, "volume": "27,230", "sentiment": 88, "growth": "+160.8%", "color": "#ec4899", "desc": "ドライブスルー形式で食べ物を取ると衣装が変わる演出やウシ・クリボー参戦がバズ"}, {"id": "micro_price_bundle", "name": "ソフト価格・本体同梱セット・通信環境懸念", "share": 8.0, "volume": "19,110", "sentiment": 42, "growth": "+95.0%", "color": "#64748b", "desc": "単品価格と本体同梱版の5,000円お得差額、および24人同期の回線負荷への懸念"}], "topicDrivers": [{"topic": "コース間シームレス接続＆フリードライブ", "volume": 81680, "pos": 86, "neu": 11, "neg": 3, "insight": "「次のコースまで自走で向かう」「友達と目的もなくドライブして記念撮影できる」体験がライト層・カップル・家族層に猛烈に刺さっている。"}, {"topic": "24人サバイバルモード（大陸横断ノックアウト）", "volume": 68310, "pos": 82, "neu": 13, "neg": 5, "insight": "「アイテム24人分飛び交うカオス感」「VTuber・ストリーマーの大型大会でドラマが生まれそう」と観戦・配信文脈での期待値が最高潮。"}, {"topic": "レールグラインド＆壁走りショートカット", "volume": 42510, "pos": 77, "neu": 17, "neg": 6, "insight": "競技勢・タイムアタック勢がトレーラーをコマ送り解析し、「電線レール乗り継ぎ」「トラック荷台ジャンプ」などの技術介入要素を歓迎。"}, {"topic": "ご当地フード衣装チェンジ＆まさかの新キャラ参戦", "volume": 27230, "pos": 88, "neu": 10, "neg": 2, "insight": "ヨッシーのドライブスルーでハンバーガーを食べると衣装が変化するギミックや、「モーモーカントリーのウシ」プレイアブル化がXでミーム化。"}, {"topic": "単品ソフト価格 vs 同梱版のお得感・回線ラグ不安", "volume": 19110, "pos": 42, "neu": 30, "neg": 28, "insight": "「パッケージ単品は高めだが本体同梱版なら実質かなりお得」という計算ポストが拡散。一部で24人同時通信時のラグを心配する声。"}], "cooccurrence": {"nodes": [{"id": "mk1", "label": "マリオカートワールド", "group": "core", "size": 36, "x": 255, "y": 150}, {"id": "mk2", "label": "オープンワールド", "group": "switch", "size": 30, "x": 115, "y": 75}, {"id": "mk3", "label": "フリードライブ", "group": "pos", "size": 26, "x": 65, "y": 160}, {"id": "mk4", "label": "24人サバイバル", "group": "switch", "size": 29, "x": 135, "y": 240}, {"id": "mk5", "label": "ウシ参戦", "group": "pos", "size": 23, "x": 390, "y": 70}, {"id": "mk6", "label": "衣装チェンジ", "group": "pos", "size": 22, "x": 445, "y": 150}, {"id": "mk7", "label": "レールライド", "group": "core", "size": 21, "x": 385, "y": 235}, {"id": "mk8", "label": "同梱版お得", "group": "neg", "size": 24, "x": 260, "y": 260}, {"id": "mk9", "label": "画面共有ドライブ", "group": "pos", "size": 23, "x": 255, "y": 45}], "links": [{"source": "mk1", "target": "mk2", "weight": 5}, {"source": "mk2", "target": "mk3", "weight": 5}, {"source": "mk1", "target": "mk4", "weight": 5}, {"source": "mk1", "target": "mk5", "weight": 4}, {"source": "mk5", "target": "mk6", "weight": 4}, {"source": "mk1", "target": "mk7", "weight": 4}, {"source": "mk1", "target": "mk8", "weight": 4}, {"source": "mk3", "target": "mk9", "weight": 4}, {"source": "mk4", "target": "mk7", "weight": 3}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [98, 96, 91, 94, 97, 96], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "コア体験パラダイムシフト", "title": "「勝敗を競うレース」から「友達と集まるオープンワールド空間」への意味変容（ポジティブ率86%）", "body": "これまで勝敗ストレスで離脱していたライト層から、「順位を気にせずフレンドとカメラ通話しながら大陸をドライブ・写真撮影できるのが最高」という発話が大量発生しており、ターゲット層が従来の1.6倍に拡大しています。", "action": "プロモーション軸を「ガチ対戦（24人サバイバル）」と「ゆるドライブ（フリーローム＆ご当地衣装集め）」の2軸に明確に分けて訴求することで、コア層とライト層の両取りが可能です。"}, {"type": "バイラル・ミーム要因", "title": "「ウシ参戦」「ドライブスルー衣装変身」など3秒で伝わる視覚ネタが爆発的拡散を牽引", "body": "「モーモーカントリーの牛がカートを運転している画像」や「ハンバーガーを食べて即座にコスチュームが変わるGIF」が1万RP超えを連発し、普段ゲーム情報を追わない一般層への認知突破口となっています。", "action": "公式Xアカウントから毎週「ご当地フード＆変身コスチューム図鑑」や「珍プレイアブルキャラ紹介」の15秒ショート動画を定期投下することで、発売まで高い発話熱量を維持できます。"}, {"type": "価格・購買インサイト", "title": "「単品価格への驚き」が「本体同梱セットの圧倒的お得感」へ転換する文脈構造", "body": "ソフト単体価格に対するネガティブ/中立反応（全体の8%）は、直後に「本体同梱版なら差額約4,000〜5,000円でマリカワールドが付いてくる！」という比較ポストによってポジティブな購買意欲へと反転しています。", "action": "店頭・ECバナーにおいて「本体＋マリオカート ワールド セット」の価格メリットを最前面に打ち出し、初回購入層の同梱版選択率を高める誘導が効果的です。"}], "posts": [{"id": "p_mk_1", "user": "@mariokart_mania", "handle": "マリカ8DXガチ勢→ワールド待機", "time": "10/08 23:22", "sentiment": "positive", "topic": "コース間シームレス接続＆フリードライブ", "text": "『マリオカート ワールド』、コースの概念を超えて世界全体が1つの巨大な大陸で繋がってるのヤバすぎる！！レースの合間に友達とフリードライブして夕日見に行けるとか夢のゲームじゃん…😭✨ #マリオカートワールド", "likes": 28400, "retweets": 9120, "Segment": "オープンワールド・フリードライブ探索"}, {"id": "p_mk_2", "user": "@cow_main_mkw", "handle": "モーモーカントリーの牛使い", "time": "10/09 00:08", "sentiment": "positive", "topic": "ご当地フード衣装チェンジ＆まさかの新キャラ参戦", "text": "ちょっと待って、マリオカートワールドでずっと邪魔キャラだった「モーモーカントリーのウシ」がプレイアブル参戦してるんだけどwwww しかもドライブスルーでバーガー食べたら衣装変わるの可愛すぎる🐄🍔", "likes": 42100, "retweets": 14500, "Segment": "新キャラ・ご当地コスチューム・フード変身"}, {"id": "p_mk_3", "user": "@streamer_cup_info", "handle": "配信イベントチェッカー", "time": "10/09 12:30", "sentiment": "positive", "topic": "24人サバイバルモード（大陸横断ノックアウト）", "text": "新モードの24人大陸横断サバイバル、チェックポイント通過するたびに下位4人が脱落していくノンストップルール熱すぎる！これ大型VTuber大会やストリーマー杯でやったら同接記録塗り替えるぞ🔥", "likes": 16800, "retweets": 4320, "Segment": "24人対戦＆大陸横断サバイバルモード"}, {"id": "p_mk_4", "user": "@ta_runner_mk", "handle": "TA勢・ショートカット研究所", "time": "10/10 15:45", "sentiment": "positive", "topic": "レールグラインド＆壁走りショートカット", "text": "試遊映像を0.25倍速で解析したけど、今作はガードレール上のグラインド走行と壁走りジャンプがあるから、ショートカットの自由度が歴代最高レベル。タイムアタック勢の血が騒ぐ…！", "likes": 7450, "retweets": 1820, "Segment": "天候・時間変化＆新アクション（レールライド・壁走り）"}, {"id": "p_mk_5", "user": "@cospa_gamer_x", "handle": "コスパ重視ゲーマー", "time": "10/09 19:05", "sentiment": "neutral", "topic": "単品ソフト価格 vs 同梱版のお得感・回線ラグ不安", "text": "マリオカートワールド単体だと結構いいお値段するけど、スイッチ本体同梱セットで買うと実質めちゃくちゃ安く手に入る計算になるな。ただ24人同時対戦で回線ラグが出ないかだけちょっと気になる。", "likes": 5120, "retweets": 1190, "Segment": "ソフト価格・本体同梱セット・通信環境懸念"}, {"id": "p_mk_6", "user": "@family_switch_papa", "handle": "週末ファミリーゲーマー", "time": "10/11 10:15", "sentiment": "positive", "topic": "コース間シームレス接続＆フリードライブ", "text": "小2の息子が『マリオカート ワールド』のフリードライブ映像見て「これならコースアウトしても怒られないね！」って大喜びしてる。家族みんなで大陸探検できるの本当に神設計。", "likes": 9420, "retweets": 2150, "Segment": "オープンワールド・フリードライブ探索"}, {"id": "p_mk_7", "user": "@net_infra_eng", "handle": "ネットワークエンジニアの呟き", "time": "10/11 18:40", "sentiment": "negative", "topic": "単品ソフト価格 vs 同梱版のお得感・回線ラグ不安", "text": "24人同時対戦＋天候リアルタイム同期となると、Wi-Fi環境が弱いプレイヤーが混ざった時の同期ズレ補正がどうなるか気になる。有線LAN接続推奨アナウンスは絶対出した方がいい。", "likes": 3180, "retweets": 740, "Segment": "ソフト価格・本体同梱セット・通信環境懸念"}, {"id": "p_mk_8", "user": "@BGM_composer_k", "handle": "ゲーム音楽愛好家", "time": "10/12 21:05", "sentiment": "positive", "topic": "天候・時間変化＆新アクション（レールライド・壁走り）", "text": "マリオカートワールド、昼から夕暮れ・夜にシームレスに変わるだけじゃなくて、時間帯と天候に合わせてBGMのアレンジがインタラクティブに遷移してる…！サウンドチームの仕事が細かすぎる。", "likes": 11500, "retweets": 3290, "Segment": "天候・時間変化＆新アクション（レールライド・壁走り）"}]}, "title_zelda_new": {"id": "title_zelda_new", "name": "ゼルダの伝説・アクションADV群", "level": 4, "levelLabel": "L4: 個別タイトル深掘り（ミクロ粒度）", "parent": "plat_switch", "children": [], "description": "任天堂スイッチにおける『ゼルダの伝説』シリーズ（高解像度アップグレード版・新作考察）に関するミクロ発話分析。", "kpis": {"totalPosts": "94,880", "growthRate": "+22.4%", "engagement": "1,120,000", "uniqueUsers": "58,400", "posRatio": 75, "neuRatio": 19, "negRatio": 6, "burstIndex": "High (3.2x)"}, "timeSeries": {"total": [5000, 5200, 6000, 7200, 5500, 5000, 5300, 12000, 10500, 8200, 7500, 6500, 5200, 5780], "positive": [3700, 3900, 4500, 5400, 4100, 3700, 4000, 9200, 8000, 6100, 5600, 4900, 3900, 4380], "neutral": [1000, 1000, 1100, 1300, 1000, 1000, 1000, 2100, 1900, 1600, 1400, 1200, 1000, 1100], "negative": [300, 300, 400, 500, 400, 300, 300, 700, 600, 500, 500, 400, 300, 300], "annotations": [{"index": 7, "date": "10/08", "label": "60fps高解像度プレイ比較＆スマホ連携ナビ発表", "delta": "+126%"}]}, "subtopics": [{"id": "title_mariokart_world", "name": "60fps化・ロード時間短縮（マリカワールドとの同時購入検討）", "share": 62.0, "volume": "58,820", "sentiment": 81, "growth": "+28.0%", "color": "#10b981", "desc": "コログの森でも一切処理落ちしない滑らかさに感動の声"}, {"id": "plat_switch", "name": "アプリ連携「ZELDA NOTES」音声ナビ・設計図共有", "share": 38.0, "volume": "36,060", "sentiment": 72, "growth": "+16.5%", "color": "#3b82f6", "desc": "QRコードでクラフト設計図をX上でシェアする遊びが再燃"}], "topicDrivers": [{"topic": "60fps＆HDR対応によるハイラル再訪意欲", "volume": 58820, "pos": 81, "neu": 15, "neg": 4, "insight": "「マリオカートワールドと一緒にゼルダも最初からやり直したい」という休眠復帰・2周目需要が顕著。"}, {"topic": "QRコード設計図シェア・コンプ支援", "volume": 36060, "pos": 72, "neu": 21, "neg": 7, "insight": "Xのタイムライン上で自作ギアのQRコードを共有し合うUGCループが活性化。"}], "cooccurrence": {"nodes": [{"id": "z1", "label": "ゼルダの伝説", "group": "core", "size": 32, "x": 250, "y": 150}, {"id": "z2", "label": "60fpsぬるぬる", "group": "pos", "size": 27, "x": 140, "y": 100}, {"id": "z3", "label": "設計図QR共有", "group": "switch", "size": 25, "x": 360, "y": 100}, {"id": "z4", "label": "マリカと同時買い", "group": "pos", "size": 23, "x": 250, "y": 240}], "links": [{"source": "z1", "target": "z2", "weight": 5}, {"source": "z1", "target": "z3", "weight": 4}, {"source": "z1", "target": "z4", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [84, 85, 92, 88, 91, 76], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "クロスセル・インサイト", "title": "『マリオカート ワールド』購入層の34%が「ゼルダ高画質版」の同時プレイを言及", "body": "パーティーゲームであるマリカワールドと、ソロ没入型のゼルダが補完関係となり、ハード購入の納得感をさらに強めています。", "action": "既存セーブデータ引き継ぎ＆アップグレードパスの分かりやすい解説動画が有効です。"}], "posts": [{"id": "p_z_1", "user": "@hyrule_architect", "handle": "ハイラル工務店", "time": "10/09 21:00", "sentiment": "positive", "topic": "60fps＆HDR対応によるハイラル再訪意欲", "text": "ゼルダの60fps高解像度映像見たら完全に別ゲーレベルの美しさで鳥肌立った…！昼は友達とマリオカートワールド走って、夜はハイラル探索する生活が確定したわ。", "likes": 6200, "retweets": 1480, "Segment": "ゼルダの伝説・アクションADV群"}]}, "title_splatoon_fes": {"id": "title_splatoon_fes", "name": "スプラトゥーン・パーティーマルチ群", "level": 4, "levelLabel": "L4: 個別タイトル深掘り（ミクロ粒度）", "parent": "plat_switch", "children": [], "description": "スプラトゥーンシリーズおよびスイッチのオンラインパーティーゲーム群に関するミクロ発話分析。", "kpis": {"totalPosts": "75,250", "growthRate": "+14.8%", "engagement": "698,300", "uniqueUsers": "49,100", "posRatio": 64, "neuRatio": 24, "negRatio": 12, "burstIndex": "Medium-High (2.6x)"}, "timeSeries": {"total": [7800, 7800, 9600, 11600, 8700, 7900, 8000, 4000, 2000, 1000, 1100, 1300, 2300, 2150], "positive": [4800, 4800, 6200, 7800, 5600, 5100, 4900, 2300, 1200, 600, 700, 900, 1500, 1450], "neutral": [2000, 2000, 2200, 2400, 1900, 1700, 1800, 1600, 600, 300, 300, 300, 600, 500], "negative": [1000, 1000, 1200, 1400, 1200, 1100, 1300, 100, 200, 100, 100, 100, 200, 200], "annotations": [{"index": 3, "date": "10/04", "label": "週末フェス開催＆フレンド固定募集ピーク", "delta": "+48%"}]}, "subtopics": [{"id": "title_mariokart_world", "name": "固定フレンズの『マリオカート ワールド』合流意向", "share": 100.0, "volume": "75,250", "sentiment": 74, "growth": "+32.0%", "color": "#f59e0b", "desc": "普段スプラを遊んでいる固定メンツでマリカワールドの24人部屋を作りたいという発話"}], "topicDrivers": [{"topic": "固定通話メンバーでのマリカワールド移行・併用", "volume": 51000, "pos": 76, "neu": 18, "neg": 6, "insight": "「いつもスプラやってるDiscordサーバーの全員（20人以上）で一気に同じマリカ部屋に入れる！」という歓喜の声。"}], "cooccurrence": {"nodes": [{"id": "sp1", "label": "スプラ固定メンツ", "group": "core", "size": 30, "x": 250, "y": 150}, {"id": "sp2", "label": "24人カスタム部屋", "group": "switch", "size": 27, "x": 140, "y": 105}, {"id": "sp3", "label": "ゲームチャット", "group": "pos", "size": 25, "x": 360, "y": 105}], "links": [{"source": "sp1", "target": "sp2", "weight": 5}, {"source": "sp1", "target": "sp3", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [79, 82, 85, 86, 90, 84], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "コミュニティ移行インサイト", "title": "4人固定から最大24人コミュニティへの拡張が既存マルチプレイヤー層を直撃", "body": "4人定員のゲームで「枠から溢れてしまう」課題を抱えていたコミュニティが、24人同時対戦の『マリオカート ワールド』を「サーバー全員で遊べる受け皿」として熱烈に歓迎しています。", "action": "大人数ロビー作成の簡単さをアピールする紹介映像がコミュニティリーダー層に響きます。"}], "posts": [{"id": "p_sp_1", "user": "@ika_server_admin", "handle": "エンジョイ勢サーバー管理人", "time": "10/09 22:15", "sentiment": "positive", "topic": "固定通話メンバーでのマリカワールド移行・併用", "text": "うちのゲーム鯖いつも15人くらい集まって4人チーム分けするの大変だったから、マリオカートワールドの24人対戦なら全員同じレースで走れるの神すぎる！！", "likes": 4300, "retweets": 890, "Segment": "スプラトゥーン・パーティーマルチ群"}]}, "title_mhwilds": {"id": "title_mhwilds", "name": "モンスターハンターワイルズ", "level": 4, "levelLabel": "L4: 個別タイトル深掘り（ミクロ粒度）", "parent": "plat_ps5", "children": [], "description": "『モンスターハンターワイルズ』に関するミクロ発話分析。武器調整、クロスプレイ、ハード環境構築の議論。", "kpis": {"totalPosts": "131,470", "growthRate": "+31.0%", "engagement": "1,890,000", "uniqueUsers": "74,500", "posRatio": 71, "neuRatio": 20, "negRatio": 9, "burstIndex": "High (3.6x)"}, "timeSeries": {"total": [8000, 8200, 11000, 13500, 9500, 8500, 8800, 11500, 11000, 9800, 9000, 8000, 7200, 7470], "positive": [5500, 5600, 7800, 9600, 6600, 5900, 6100, 8200, 7800, 6900, 6300, 5600, 5000, 5370], "neutral": [1700, 1800, 2200, 2700, 2000, 1800, 1900, 2300, 2200, 2000, 1900, 1600, 1500, 1500], "negative": [800, 800, 1000, 1200, 900, 800, 800, 1000, 1000, 900, 800, 800, 700, 600], "annotations": [{"index": 3, "date": "10/04", "label": "武器紹介＆実機マルチプレイ配信", "delta": "+68%"}]}, "subtopics": [{"id": "title_mariokart_world", "name": "オープンワールド設計比較（マリカワールドへ遷移）", "share": 100.0, "volume": "131,470", "sentiment": 71, "growth": "+31.0%", "color": "#3b82f6", "desc": "ベースキャンプからフィールドへシームレスに出発する設計がマリカワールドと共通するトレンドとして語られる"}], "topicDrivers": [{"topic": "ロード画面なしのシームレス世界体験", "volume": 84000, "pos": 79, "neu": 16, "neg": 5, "insight": "近年の大型タイトル共通トレンドとして「メニュー画面とフィールドの境界をなくす体験」が高く評価。"}], "cooccurrence": {"nodes": [{"id": "mh1", "label": "モンハンワイルズ", "group": "core", "size": 31, "x": 250, "y": 150}, {"id": "mh2", "label": "シームレス", "group": "pos", "size": 26, "x": 140, "y": 105}, {"id": "mh3", "label": "クロスプレイ", "group": "ps5", "size": 25, "x": 360, "y": 105}], "links": [{"source": "mh1", "target": "mh2", "weight": 5}, {"source": "mh1", "target": "mh3", "weight": 4}]}, "radar": {"labels": ["速報拡散力", "購買・予約意欲", "継続議論性", "動画・画像添付率", "コミュニティ熱量", "ライト層リーチ"], "values": [85, 88, 89, 84, 90, 68], "benchmark": [70, 65, 70, 60, 72, 68]}, "insights": [{"type": "ゲームデザイントレンド", "title": "「シームレス・オープンワールド化」が2026年のゲーム体験満足度を決定づける最大因子に", "body": "『モンスターハンターワイルズ』と『マリオカート ワールド』の双方において、「コースやクエストの切れ目なく世界が繋がっていること」がポジティブ発話の最大ドライバーとなっています。", "action": "ロード時間ゼロ・シームレス移動の快適性を直感的に伝えるノーカット移動動画の訴求が有効です。"}], "posts": [{"id": "p_mh_1", "user": "@hunter_guild_jp", "handle": "狩猟笛メイン", "time": "10/05 20:30", "sentiment": "positive", "topic": "ロード画面なしのシームレス世界体験", "text": "拠点からそのままフィールドに出て天候がリアルタイムに変わっていくの、モンハンワイルズもマリオカートワールドも「世界が繋がってる感」が次世代のトレンドなんだなぁと実感する。", "likes": 4800, "retweets": 920, "Segment": "モンスターハンターワイルズ"}]}}};
+
+let currentNodeId = "root_game";
+let tsMode = "all";
+let rightVizTab = "network";
+let postSentimentFilter = "all";
+let subtopicKeywordFilter = "";
+
+const TREE_ORDER = [
+  "root_game",
+  "cat_console",
+  "plat_switch",
+  "title_mariokart_world",
+  "title_zelda_new",
+  "title_splatoon_fes",
+  "plat_ps5",
+  "title_mhwilds",
+  "plat_xbox",
+  "cat_mobile",
+  "cat_pc",
+  "cat_esports"
+];
+
+const LEVEL_COLORS = {
+  1: "#6366f1",
+  2: "#ec4899",
+  3: "#f59e0b",
+  4: "#ef4444"
+};
+
+function selectNode(nodeId) {
+  if (!DASHBOARD_DATA.nodes[nodeId]) return;
+  currentNodeId = nodeId;
+  subtopicKeywordFilter = "";
+  const searchEl = document.getElementById("postSearchInput");
+  if (searchEl) searchEl.value = "";
+  renderAll();
+}
+
+function setTsMode(mode) {
+  tsMode = mode;
+  renderTimeSeries();
+}
+
+function setVizTab(tab) {
+  rightVizTab = tab;
+  renderNetworkOrRadar();
+}
+
+function setPostSentimentFilter(sent, el) {
+  postSentimentFilter = sent;
+  document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+  if (el) el.classList.add("active");
+  renderPosts();
+}
+
+function getBreadcrumbChain(nodeId) {
+  const chain = [];
+  let curr = DASHBOARD_DATA.nodes[nodeId];
+  while (curr) {
+    chain.unshift(curr);
+    curr = curr.parent ? DASHBOARD_DATA.nodes[curr.parent] : null;
+  }
+  return chain;
+}
+
+function collectPostsRecursive(nodeId) {
+  const node = DASHBOARD_DATA.nodes[nodeId];
+  if (!node) return [];
+  let list = [...(node.posts || [])];
+  if (node.level < 4 && node.children) {
+    node.children.forEach(cid => {
+      const childPosts = collectPostsRecursive(cid);
+      childPosts.forEach(cp => {
+        if (!list.some(existing => existing.id === cp.id)) {
+          list.push(cp);
+        }
+      });
+    });
+  }
+  return list;
+}
+
+function renderBreadcrumbAndStepper() {
+  const chain = getBreadcrumbChain(currentNodeId);
+  const container = document.getElementById("breadcrumbContainer");
+  let html = `<span class="bc-label">現在の分析階層:</span>`;
+  chain.forEach((n, idx) => {
+    const isLast = idx === chain.length - 1;
+    html += `
+      <span class="bc-item ${isLast ? 'active' : ''}" onclick="selectNode('${n.id}')">
+        <span class="bc-lvl-tag">L${n.level}</span>
+        <span>${n.name}</span>
+      </span>
+    `;
+    if (!isLast) html += `<span class="bc-arrow">›</span>`;
+  });
+  container.innerHTML = html;
+
+  // Highlight example stepper pills
+  ["root_game", "cat_console", "plat_switch", "title_mariokart_world"].forEach(id => {
+    const btn = document.getElementById("step_" + id);
+    if (btn) {
+      if (currentNodeId === id) btn.classList.add("current-step");
+      else btn.classList.remove("current-step");
+    }
+  });
+}
+
+function renderSidebarTree() {
+  const container = document.getElementById("hierarchyTree");
+  let html = "";
+  TREE_ORDER.forEach(id => {
+    const n = DASHBOARD_DATA.nodes[id];
+    if (!n) return;
+    const isSel = id === currentNodeId;
+    const dotColor = LEVEL_COLORS[n.level] || "#94a3b8";
+    html += `
+      <div class="tree-node lvl-${n.level} ${isSel ? 'selected' : ''}" onclick="selectNode('${n.id}')">
+        <div class="tree-node-left">
+          <span class="lvl-dot" style="background:${dotColor};"></span>
+          <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${n.name}</span>
+        </div>
+        <span class="tree-vol">${n.kpis.totalPosts}</span>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function renderHeroAndKPIs() {
+  const node = DASHBOARD_DATA.nodes[currentNodeId];
+  document.getElementById("heroLevelBadge").textContent = node.levelLabel;
+  document.getElementById("heroTitle").textContent = node.name;
+  document.getElementById("heroDesc").textContent = node.description;
+  document.getElementById("insightScopeName").textContent = `${node.name}（L${node.level}）`;
+
+  // Hero nav buttons (Parent / Children quick jump)
+  const navWrap = document.getElementById("heroNavButtons");
+  let navHtml = "";
+  if (node.parent && DASHBOARD_DATA.nodes[node.parent]) {
+    const pNode = DASHBOARD_DATA.nodes[node.parent];
+    navHtml += `<button class="btn-action" onclick="selectNode('${pNode.id}')">⬆ 上位粒度（${pNode.name}）へ戻る</button>`;
+  }
+  if (node.children && node.children.length > 0) {
+    const firstChild = DASHBOARD_DATA.nodes[node.children[0]];
+    if (firstChild) {
+      navHtml += `<button class="btn-action btn-primary" onclick="selectNode('${firstChild.id}')">⬇ 代表下位（${firstChild.name}）へドリルダウン</button>`;
+    }
+  }
+  navWrap.innerHTML = navHtml;
+
+  const k = node.kpis;
+  document.getElementById("kpiGrid").innerHTML = `
+    <div class="kpi-card">
+      <span class="kpi-label">期間内総発話数 (X Posts)</span>
+      <div class="kpi-val">${k.totalPosts}</div>
+      <div class="kpi-sub"><span class="tag-up">${k.growthRate}</span> <span>前期間比</span></div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">総エンゲージメント (RP+いいね)</span>
+      <div class="kpi-val">${k.engagement}</div>
+      <div class="kpi-sub"><span style="color:#a5b4fc;">拡散密度・クリップ添付高</span></div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">ユニーク発話ユーザー数</span>
+      <div class="kpi-val">${k.uniqueUsers}</div>
+      <div class="kpi-sub"><span>1人あたり平均発話活性度 高</span></div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">ポジネガ感情バランス</span>
+      <div class="kpi-val" style="font-size:18px; color:#34d399;">Pos ${k.posRatio}% <span style="font-size:13px; color:#94a3b8;">/ Neu ${k.neuRatio}% / Neg ${k.negRatio}%</span></div>
+      <div class="sentiment-mini-bar">
+        <div style="width:${k.posRatio}%; background:#10b981;"></div>
+        <div style="width:${k.neuRatio}%; background:#38bdf8;"></div>
+        <div style="width:${k.negRatio}%; background:#f43f5e;"></div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">最大バースト指数 (瞬間風速)</span>
+      <div class="kpi-val" style="color:#fbbf24;">${k.burstIndex}</div>
+      <div class="kpi-sub"><span>イベント発表日の平常比倍率</span></div>
+    </div>
+  `;
+}
+
+function renderTimeSeries() {
+  const node = DASHBOARD_DATA.nodes[currentNodeId];
+  const dates = DASHBOARD_DATA.dates;
+  const ts = node.timeSeries;
+  const w = 680, h = 280;
+  const padL = 52, padR = 24, padT = 38, padB = 34;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const maxVal = Math.max(...ts.total) * 1.15;
+  const xPos = (i) => padL + (i / (dates.length - 1)) * plotW;
+  const yPos = (v) => padT + plotH - (v / maxVal) * plotH;
+
+  // Grid lines
+  let gridSvg = "";
+  for (let g = 0; g <= 4; g++) {
+    const val = Math.round((maxVal / 4) * g);
+    const y = yPos(val);
+    gridSvg += `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#1e293b" stroke-dasharray="3,3"/>`;
+    gridSvg += `<text x="${padL - 8}" y="${y + 4}" fill="#64748b" font-size="10.5" text-anchor="end">${(val/1000).toFixed(0)}k</text>`;
+  }
+
+  // Date labels
+  dates.forEach((d, i) => {
+    if (i % 2 === 0 || i === dates.length - 1) {
+      gridSvg += `<text x="${xPos(i)}" y="${h - 10}" fill="#94a3b8" font-size="10.5" text-anchor="middle">${d}</text>`;
+    }
+  });
+
+  const makePath = (arr) => arr.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPos(i).toFixed(1)} ${yPos(v).toFixed(1)}`).join(" ");
+  const makeArea = (arr) => `${makePath(arr)} L ${xPos(arr.length - 1).toFixed(1)} ${(padT + plotH).toFixed(1)} L ${padL} ${(padT + plotH).toFixed(1)} Z`;
+
+  let seriesSvg = "";
+  if (tsMode === "all") {
+    seriesSvg += `<path d="${makeArea(ts.total)}" fill="rgba(99, 102, 241, 0.14)"/>`;
+    seriesSvg += `<path d="${makePath(ts.total)}" fill="none" stroke="#818cf8" stroke-width="2.6"/>`;
+    seriesSvg += `<path d="${makePath(ts.positive)}" fill="none" stroke="#10b981" stroke-width="2"/>`;
+    seriesSvg += `<path d="${makePath(ts.neutral)}" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+    seriesSvg += `<path d="${makePath(ts.negative)}" fill="none" stroke="#f43f5e" stroke-width="1.8"/>`;
+  } else {
+    seriesSvg += `<path d="${makeArea(ts.positive)}" fill="rgba(16, 185, 129, 0.18)"/>`;
+    seriesSvg += `<path d="${makePath(ts.positive)}" fill="none" stroke="#10b981" stroke-width="2.8"/>`;
+    seriesSvg += `<path d="${makeArea(ts.negative)}" fill="rgba(244, 63, 94, 0.2)"/>`;
+    seriesSvg += `<path d="${makePath(ts.negative)}" fill="none" stroke="#f43f5e" stroke-width="2.4"/>`;
+  }
+
+  // Points & Annotations
+  const targetArr = tsMode === "all" ? ts.total : ts.positive;
+  targetArr.forEach((v, i) => {
+    seriesSvg += `<circle cx="${xPos(i)}" cy="${yPos(v)}" r="3.5" fill="#fff" stroke="#6366f1" stroke-width="2"/>`;
+  });
+
+  (ts.annotations || []).forEach(ann => {
+    const ax = xPos(ann.index);
+    const ay = yPos(targetArr[ann.index]);
+    seriesSvg += `
+      <line x1="${ax}" y1="${padT}" x2="${ax}" y2="${padT + plotH}" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3,3"/>
+      <circle cx="${ax}" cy="${ay}" r="6" fill="rgba(245, 158, 11, 0.35)" stroke="#fbbf24" stroke-width="2"/>
+      <rect x="${Math.min(Math.max(ax - 95, padL), w - padR - 195)}" y="${Math.max(ay - 34, 6)}" width="195" height="22" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1"/>
+      <text x="${Math.min(Math.max(ax - 95, padL), w - padR - 195) + 97}" y="${Math.max(ay - 34, 6) + 14}" fill="#fde68a" font-size="10" font-weight="bold" text-anchor="middle">⚡ ${ann.date} ${ann.label} (${ann.delta})</text>
+    `;
+  });
+
+  // Legend
+  const legendSvg = `
+    <g transform="translate(${padL}, 16)">
+      <circle cx="0" cy="-4" r="4" fill="#818cf8"/><text x="8" y="0" fill="#cbd5e1" font-size="11">総発話数</text>
+      <circle cx="72" cy="-4" r="4" fill="#10b981"/><text x="80" y="0" fill="#cbd5e1" font-size="11">ポジティブ</text>
+      <circle cx="152" cy="-4" r="4" fill="#38bdf8"/><text x="160" y="0" fill="#cbd5e1" font-size="11">中立・考察</text>
+      <circle cx="232" cy="-4" r="4" fill="#f43f5e"/><text x="240" y="0" fill="#cbd5e1" font-size="11">ネガティブ</text>
+    </g>
+  `;
+
+  document.getElementById("timeSeriesChart").innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" width="100%" height="280">
+      ${gridSvg}
+      ${seriesSvg}
+      ${legendSvg}
+    </svg>
+  `;
+}
+
+function handleSubtopicClick(subId, subName) {
+  if (DASHBOARD_DATA.nodes[subId] && subId !== currentNodeId) {
+    selectNode(subId);
+  } else {
+    // At L4 micro node, filter posts by segment/topic
+    const searchInput = document.getElementById("postSearchInput");
+    if (searchInput) {
+      searchInput.value = subName.split("・")[0];
+      renderPosts();
+      document.getElementById("postsGrid").scrollIntoView({ behavior: "smooth" });
+    }
+  }
+}
+
+function renderSubtopics() {
+  const node = DASHBOARD_DATA.nodes[currentNodeId];
+  const container = document.getElementById("subtopicList");
+  let html = "";
+  (node.subtopics || []).forEach(st => {
+    const canDrill = DASHBOARD_DATA.nodes[st.id] && st.id !== currentNodeId;
+    const actionBadge = canDrill
+      ? `<span style="font-size:10.5px; background:rgba(99,102,241,0.2); color:#a5b4fc; padding:2px 7px; border-radius:4px;">クリックで下位粒度へ遷移 ➔</span>`
+      : `<span style="font-size:10.5px; background:rgba(16,185,129,0.18); color:#6ee7b7; padding:2px 7px; border-radius:4px;">クリックで該当ポスト抽出 🔎</span>`;
+    html += `
+      <div class="subtopic-item" onclick="handleSubtopicClick('${st.id}', '${st.name}')">
+        <div class="subtopic-top">
+          <div class="subtopic-name">
+            <span style="width:10px; height:10px; border-radius:3px; background:${st.color}; display:inline-block;"></span>
+            <span>${st.name}</span>
+          </div>
+          <div class="subtopic-metrics">
+            <span style="font-weight:700; color:#fff;">${st.share}%</span>
+            <span>(${st.volume}件)</span>
+            <span style="color:#34d399; font-weight:700;">${st.growth}</span>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${st.share}%; background:${st.color};"></div>
+        </div>
+        <div class="subtopic-desc">
+          <span>${st.desc}（好意度 ${st.sentiment}%）</span>
+          ${actionBadge}
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function renderDriverTable() {
+  const node = DASHBOARD_DATA.nodes[currentNodeId];
+  const table = document.getElementById("driverTable");
+  let html = `
+    <thead>
+      <tr>
+        <th>発話トピック・論点</th>
+        <th>発話量</th>
+        <th>感情内訳 (Pos / Neu / Neg)</th>
+        <th>含まれるインサイト・発話文脈</th>
+      </tr>
+    </thead>
+    <tbody>
+  `;
+  (node.topicDrivers || []).forEach(d => {
+    html += `
+      <tr>
+        <td style="font-weight:700; color:#f8fafc; min-width:170px;">${d.topic}</td>
+        <td style="font-variant-numeric:tabular-nums; color:#cbd5e1; white-space:nowrap;">${d.volume.toLocaleString()}件</td>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="sent-stack">
+              <div style="width:${d.pos}%; background:#10b981;"></div>
+              <div style="width:${d.neu}%; background:#38bdf8;"></div>
+              <div style="width:${d.neg}%; background:#f43f5e;"></div>
+            </div>
+            <span style="font-size:11px; color:#34d399; font-weight:700;">+${d.pos}%</span>
+          </div>
+        </td>
+        <td style="color:#cbd5e1; font-size:12px;">${d.insight}</td>
+      </tr>
+    `;
+  });
+  html += `</tbody>`;
+  table.innerHTML = html;
+}
+
+function renderNetworkOrRadar() {
+  const node = DASHBOARD_DATA.nodes[currentNodeId];
+  const container = document.getElementById("networkOrRadarContainer");
+  const w = 520, h = 300;
+
+  if (rightVizTab === "network") {
+    const net = node.cooccurrence;
+    const nodeMap = {};
+    net.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+    let linksSvg = "";
+    net.links.forEach(l => {
+      const s = nodeMap[l.source], t = nodeMap[l.target];
+      if (s && t) {
+        linksSvg += `<line x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="#475569" stroke-width="${l.weight}" stroke-opacity="0.65"/>`;
+      }
+    });
+
+    const groupColors = {
+      core: "#6366f1",
+      console: "#818cf8",
+      switch: "#ef4444",
+      ps5: "#3b82f6",
+      mobile: "#ec4899",
+      pc: "#14b8a6",
+      esports: "#f59e0b",
+      pos: "#10b981",
+      neg: "#f43f5e"
+    };
+
+    let nodesSvg = "";
+    net.nodes.forEach(n => {
+      const col = groupColors[n.group] || "#6366f1";
+      nodesSvg += `
+        <g style="cursor:pointer;" onclick="filterPostByKeyword('${n.label}')">
+          <circle cx="${n.x}" cy="${n.y}" r="${n.size}" fill="${col}" fill-opacity="0.25" stroke="${col}" stroke-width="2.2"/>
+          <text x="${n.x}" y="${n.y + 4}" fill="#f8fafc" font-size="11.5" font-weight="700" text-anchor="middle">${n.label}</text>
+        </g>
+      `;
+    });
+
+    container.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="290">
+        ${linksSvg}
+        ${nodesSvg}
+        <text x="12" y="288" fill="#94a3b8" font-size="10.5">💡 ノードをクリックすると該当キーワードを含むポストを絞り込みます</text>
+      </svg>
+    `;
+  } else {
+    // 6-axis Radar Chart
+    const rData = node.radar;
+    const cx = w / 2, cy = h / 2 + 6, radius = 105;
+    const labels = rData.labels;
+    const N = labels.length;
+
+    const getPt = (idx, val) => {
+      const angle = (Math.PI * 2 * idx) / N - Math.PI / 2;
+      const r = (val / 100) * radius;
+      return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+    };
+
+    let webSvg = "";
+    [25, 50, 75, 100].forEach(level => {
+      const pts = labels.map((_, i) => getPt(i, level).join(",")).join(" ");
+      webSvg += `<polygon points="${pts}" fill="none" stroke="#26334d" stroke-width="1"/>`;
+    });
+
+    labels.forEach((lab, i) => {
+      const [ex, ey] = getPt(i, 100);
+      const [lx, ly] = getPt(i, 122);
+      webSvg += `<line x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" stroke="#26334d" stroke-width="1"/>`;
+      webSvg += `<text x="${lx}" y="${ly + 4}" fill="#cbd5e1" font-size="11" font-weight="600" text-anchor="middle">${lab} (${rData.values[i]})</text>`;
+    });
+
+    const benchPts = rData.benchmark.map((v, i) => getPt(i, v).join(",")).join(" ");
+    const valPts = rData.values.map((v, i) => getPt(i, v).join(",")).join(" ");
+
+    container.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="290">
+        ${webSvg}
+        <polygon points="${benchPts}" fill="rgba(148, 163, 184, 0.12)" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="${valPts}" fill="rgba(239, 68, 68, 0.25)" stroke="#ef4444" stroke-width="2.5"/>
+        <g transform="translate(14, 18)">
+          <rect x="0" y="-8" width="12" height="8" fill="rgba(239,68,68,0.5)" stroke="#ef4444"/>
+          <text x="18" y="0" fill="#f8fafc" font-size="11">${node.name} スコア</text>
+          <line x1="0" y1="12" x2="12" y2="12" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3,2"/>
+          <text x="18" y="16" fill="#94a3b8" font-size="11">ゲーム業界平均ベンチマーク</text>
+        </g>
+      </svg>
+    `;
+  }
+}
+
+function filterPostByKeyword(kw) {
+  const input = document.getElementById("postSearchInput");
+  if (input) {
+    input.value = kw;
+    renderPosts();
+    document.getElementById("postsGrid").scrollIntoView({ behavior: "smooth" });
+  }
+}
+
+function renderInsights() {
+  const node = DASHBOARD_DATA.nodes[currentNodeId];
+  const grid = document.getElementById("insightsGrid");
+  let html = "";
+  (node.insights || []).forEach(ins => {
+    html += `
+      <div class="insight-card">
+        <div class="insight-type">📌 ${ins.type}</div>
+        <div class="insight-title">${ins.title}</div>
+        <div class="insight-body">${ins.body}</div>
+        <div class="insight-action"><strong>💡 推奨アクション:</strong> ${ins.action}</div>
+      </div>
+    `;
+  });
+  grid.innerHTML = html;
+}
+
+function renderPosts() {
+  const allPosts = collectPostsRecursive(currentNodeId);
+  const kw = (document.getElementById("postSearchInput")?.value || "").trim().toLowerCase();
+
+  const filtered = allPosts.filter(p => {
+    if (postSentimentFilter !== "all" && p.sentiment !== postSentimentFilter) return false;
+    if (kw) {
+      const hay = `${p.text} ${p.topic} ${p.handle} ${p.Segment}`.toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+
+  const sentLabels = {
+    positive: "ポジティブ",
+    neutral: "中立・考察",
+    negative: "ネガティブ・懸念"
+  };
+
+  const grid = document.getElementById("postsGrid");
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div style="color:#94a3b8; padding:16px;">条件に一致するダミーポストがありません。検索ワードや感情フィルタをリセットしてください。</div>`;
+    return;
+  }
+
+  let html = "";
+  filtered.forEach(p => {
+    const initial = p.handle.charAt(0);
+    html += `
+      <div class="x-post-card">
+        <div class="x-post-header">
+          <div class="x-user-info">
+            <div class="x-avatar">${initial}</div>
+            <div>
+              <div class="x-handle">${p.handle}</div>
+              <div class="x-userid">${p.user} ・ ${p.time}</div>
+            </div>
+          </div>
+          <span class="sent-badge sent-${p.sentiment}">${sentLabels[p.sentiment] || p.sentiment}</span>
+        </div>
+        <div class="x-post-text">${p.text}</div>
+        <div class="x-post-footer">
+          <span>🏷 ${p.topic}</span>
+          <span>🔁 ${p.retweets.toLocaleString()}　❤️ ${p.likes.toLocaleString()}</span>
+        </div>
+      </div>
+    `;
+  });
+  grid.innerHTML = html;
+}
+
+function exportCurrentCSV() {
+  const posts = collectPostsRecursive(currentNodeId);
+  const header = ["ID", "User", "Handle", "Time", "Sentiment", "Segment", "Topic", "Retweets", "Likes", "Text"];
+  const rows = posts.map(p => [
+    p.id, p.user, `"${p.handle}"`, p.time, p.sentiment, `"${p.Segment}"`, `"${p.topic}"`, p.retweets, p.likes, `"${p.text.replace(/"/g, '""')}"`
+  ]);
+  const csvContent = "\uFEFF" + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `x_posts_${currentNodeId}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderAll() {
+  renderBreadcrumbAndStepper();
+  renderSidebarTree();
+  renderHeroAndKPIs();
+  renderTimeSeries();
+  renderSubtopics();
+  renderDriverTable();
+  renderNetworkOrRadar();
+  renderInsights();
+  renderPosts();
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  renderAll();
+});
+</script>
+</body>
+</html>
