@@ -4,6 +4,7 @@ for l in (open(os.environ['ENV_FILE']) if os.environ.get('ENV_FILE') else []):
         k, v = l.strip().split('=', 1); os.environ[k] = v.strip('"\'')
 os.makedirs('out', exist_ok=True)
 name = sys.argv[1]
+effort = os.environ.get("EFFORT")  # 例: high。未指定なら各モデルの既定値
 prompt = open('prompt.txt').read()
 
 def sse(req):
@@ -17,6 +18,7 @@ def sse(req):
 t0 = time.time(); ttft = None; text = []; usage = {}
 if name.startswith('gpt'):
     body = {"model": name, "input": prompt, "stream": True}
+    if effort: body["reasoning"] = {"effort": effort}
     req = urllib.request.Request("https://api.openai.com/v1/responses", json.dumps(body).encode(),
         {"Authorization": "Bearer " + os.environ["OPENAI_API_KEY"], "Content-Type": "application/json"})
     for e in sse(req):
@@ -24,8 +26,25 @@ if name.startswith('gpt'):
             ttft = ttft or time.time() - t0; text.append(e["delta"])
         elif e["type"] == "response.completed": usage = e["response"]["usage"]
         elif e["type"] in ("response.failed", "error"): print(e, file=sys.stderr)
+elif name.startswith('gemini'):
+    # 出力上限はモデルの上限(32,768、思考を含む)を既定にする。
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": int(os.environ.get("MAX_TOKENS", 32768))}}
+    if effort: body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": effort}
+    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{name}:streamGenerateContent?alt=sse",
+        json.dumps(body).encode(), {"x-goog-api-key": os.environ["GEMINI_API_KEY"], "Content-Type": "application/json"})
+    for e in sse(req):
+        for c in e.get("candidates", []):
+            for p in c.get("content", {}).get("parts", []):
+                if p.get("text") and not p.get("thought"):
+                    ttft = ttft or time.time() - t0; text.append(p["text"])
+            if c.get("finishReason"): usage["stop_reason"] = c["finishReason"]
+        if "usageMetadata" in e: usage.update(e["usageMetadata"])
+        if "error" in e: print(e, file=sys.stderr)
+    body["max_tokens"] = body["generationConfig"]["maxOutputTokens"]
 else:
-    body = {"model": name, "max_tokens": 64000, "stream": True, "messages": [{"role": "user", "content": prompt}]}
+    body = {"model": name, "max_tokens": int(os.environ.get("MAX_TOKENS", 64000)), "stream": True, "messages": [{"role": "user", "content": prompt}]}
+    if effort: body["output_config"] = {"effort": effort}
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
         {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
     for e in sse(req):
@@ -40,5 +59,5 @@ raw = "".join(text)
 open(f"out/{name}.raw.txt", "w").write(raw)
 m = re.search(r"```html\s*\n(.*?)```", raw, re.S) or re.search(r"(<!DOCTYPE.*</html>)", raw, re.S | re.I)
 open(f"out/{name}.html", "w").write(m.group(1) if m else raw)
-json.dump({"model": name, "elapsed_s": round(el, 1), "ttft_s": round(ttft or 0, 1), "usage": usage, "chars": len(raw)}, open(f"out/{name}.meta.json", "w"), ensure_ascii=False, indent=1)
+json.dump({"model": name, "max_tokens": body.get("max_tokens"), "effort": effort, "elapsed_s": round(el, 1), "ttft_s": round(ttft or 0, 1), "usage": usage, "chars": len(raw)}, open(f"out/{name}.meta.json", "w"), ensure_ascii=False, indent=1)
 print(name, "done", round(el, 1), "s", usage)
