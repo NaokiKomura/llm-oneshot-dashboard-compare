@@ -1,13 +1,13 @@
 {
  "model": "gemini-4-carbon",
- "max_tokens": 32768,
+ "max_tokens": 131072,
  "effort": "high",
- "elapsed_s": 421.5,
- "ttft_s": 198.2,
+ "elapsed_s": 422.7,
+ "ttft_s": 107.2,
  "usage": {
   "promptTokenCount": 174,
-  "candidatesTokenCount": 20756,
-  "totalTokenCount": 32942,
+  "candidatesTokenCount": 28347,
+  "totalTokenCount": 32585,
   "promptTokensDetails": [
    {
     "modality": "TEXT",
@@ -17,11 +17,11 @@
   "candidatesTokensDetails": [
    {
     "modality": "TEXT",
-    "tokenCount": 20756
+    "tokenCount": 28347
    }
   ],
-  "thoughtsTokenCount": 12012,
-  "stop_reason": "MAX_TOKENS"
+  "thoughtsTokenCount": 4064,
+  "stop_reason": "STOP"
  },
- "chars": 51203
+ "chars": 78571
 }
