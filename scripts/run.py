@@ -25,7 +25,7 @@ if name.startswith('gpt'):
         elif e["type"] == "response.completed": usage = e["response"]["usage"]
         elif e["type"] in ("response.failed", "error"): print(e, file=sys.stderr)
 else:
-    body = {"model": name, "max_tokens": 64000, "stream": True, "messages": [{"role": "user", "content": prompt}]}
+    body = {"model": name, "max_tokens": int(os.environ.get("MAX_TOKENS", 64000)), "stream": True, "messages": [{"role": "user", "content": prompt}]}
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
         {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
     for e in sse(req):
@@ -40,5 +40,5 @@ raw = "".join(text)
 open(f"out/{name}.raw.txt", "w").write(raw)
 m = re.search(r"```html\s*\n(.*?)```", raw, re.S) or re.search(r"(<!DOCTYPE.*</html>)", raw, re.S | re.I)
 open(f"out/{name}.html", "w").write(m.group(1) if m else raw)
-json.dump({"model": name, "elapsed_s": round(el, 1), "ttft_s": round(ttft or 0, 1), "usage": usage, "chars": len(raw)}, open(f"out/{name}.meta.json", "w"), ensure_ascii=False, indent=1)
+json.dump({"model": name, "max_tokens": body.get("max_tokens"), "elapsed_s": round(el, 1), "ttft_s": round(ttft or 0, 1), "usage": usage, "chars": len(raw)}, open(f"out/{name}.meta.json", "w"), ensure_ascii=False, indent=1)
 print(name, "done", round(el, 1), "s", usage)
