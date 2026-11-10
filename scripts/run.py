@@ -24,6 +24,21 @@ if name.startswith('gpt'):
             ttft = ttft or time.time() - t0; text.append(e["delta"])
         elif e["type"] == "response.completed": usage = e["response"]["usage"]
         elif e["type"] in ("response.failed", "error"): print(e, file=sys.stderr)
+elif name.startswith('gemini'):
+    # 思考の強さは指定せず既定のまま。出力上限はモデルの上限(32,768)を明示する。
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": int(os.environ.get("MAX_TOKENS", 32768))}}
+    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{name}:streamGenerateContent?alt=sse",
+        json.dumps(body).encode(), {"x-goog-api-key": os.environ["GEMINI_API_KEY"], "Content-Type": "application/json"})
+    for e in sse(req):
+        for c in e.get("candidates", []):
+            for p in c.get("content", {}).get("parts", []):
+                if p.get("text") and not p.get("thought"):
+                    ttft = ttft or time.time() - t0; text.append(p["text"])
+            if c.get("finishReason"): usage["stop_reason"] = c["finishReason"]
+        if "usageMetadata" in e: usage.update(e["usageMetadata"])
+        if "error" in e: print(e, file=sys.stderr)
+    body["max_tokens"] = body["generationConfig"]["maxOutputTokens"]
 else:
     body = {"model": name, "max_tokens": int(os.environ.get("MAX_TOKENS", 64000)), "stream": True, "messages": [{"role": "user", "content": prompt}]}
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", json.dumps(body).encode(),
