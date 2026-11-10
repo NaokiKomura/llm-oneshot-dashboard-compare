@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X Topic Insight Dashboard（Mock）</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0a0e17;--panel:#111827;--panel2:#0d1320;--line:#1f2a3a;--text:#e6edf6;--muted:#8b98ab;
+  --accent:#1d9bf0;--pos:#22c55e;--neg:#f43f5e;--neu:#64748b;--warn:#f59e0b;--purple:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;font-size:13px;line-height:1.5}
+button{font-family:inherit}
+header{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:10px 20px;background:rgba(10,14,23,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);height:58px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;white-space:nowrap}
+.logo .x{width:30px;height:30px;border-radius:8px;background:#000;border:1px solid #2b2b2b;display:grid;place-items:center;font-weight:900;font-size:16px}
+.logo small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
+.badge-dummy{font-size:10.5px;padding:3px 8px;border-radius:999px;background:rgba(245,158,11,.14);color:#fbbf24;border:1px solid rgba(245,158,11,.35);white-space:nowrap}
+.spacer{flex:1}
+.hdr-range{color:var(--muted);font-size:12px;white-space:nowrap}
+.hdr-range b{color:var(--text);font-weight:600}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-shrink:0}
+.seg button{background:none;border:none;color:var(--muted);padding:5px 11px;cursor:pointer;font-size:12px}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--accent);color:#fff}
+.layout{display:grid;grid-template-columns:280px 1fr}
+aside{border-right:1px solid var(--line);padding:14px 10px;position:sticky;top:58px;height:calc(100vh - 58px);overflow:auto;background:var(--panel2)}
+.side-title{font-size:11px;color:var(--muted);letter-spacing:.06em;margin:4px 8px 8px;display:flex;justify-content:space-between}
+.search{width:100%;background:#0a101b;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px;margin-bottom:10px;outline:none}
+.search:focus{border-color:var(--accent)}
+.tn{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:pointer;color:#c9d4e3;font-size:12.5px;user-select:none}
+.tn:hover{background:#162033}
+.tn.active{background:rgba(29,155,240,.16);color:#fff;box-shadow:inset 3px 0 0 var(--accent)}
+.caret{width:14px;color:var(--muted);font-size:10px;text-align:center;flex-shrink:0}
+.tn-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tn-vol{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.tn-g{font-size:10px;min-width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.up{color:var(--pos)}.down{color:var(--neg)}
+.lv-legend{margin:16px 8px 0;padding:10px;border:1px dashed var(--line);border-radius:8px;font-size:11px;color:var(--muted)}
+.lv-legend div{display:flex;gap:6px;align-items:center;margin:3px 0}
+.lv-legend i{display:inline-block;width:18px;height:6px;border-radius:3px}
+main{padding:16px 22px 40px;min-width:0}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12px;color:var(--muted);margin-bottom:8px}
+.crumbs a{color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:5px}
+.crumbs a:hover{color:var(--text);background:#162033}
+.crumbs a.cur{color:var(--accent);font-weight:600}
+.hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:10px}
+.lvl{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:999px;background:rgba(167,139,250,.15);color:#c4b5fd;border:1px solid rgba(167,139,250,.35);margin-bottom:6px}
+h1{font-size:24px;font-weight:700;letter-spacing:.01em}
+.hero p{color:var(--muted);font-size:12.5px;margin-top:4px;max-width:820px}
+.hero-actions{display:flex;gap:8px;flex-shrink:0}
+.btn{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center}
+.chips .lab{font-size:11px;color:var(--muted);margin-right:4px}
+.chip{background:#121c2c;border:1px solid var(--line);color:#cfe3f7;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+.chip:hover{border-color:var(--accent);color:#fff}
+.chip span{color:var(--muted);margin-left:6px;font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.s2{grid-column:span 2}.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+.card h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.card h3 .sub{color:var(--muted);font-weight:400;font-size:11px}
+.card h3 .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.hint{font-size:10.5px;color:#64748b;font-weight:400}
+.chart-box{position:relative;height:270px}
+.chart-box.tall{height:310px}
+.kpi{padding:12px 14px}
+.kpi .k-label{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .k-val{font-size:22px;font-weight:700;margin:2px 0;font-variant-numeric:tabular-nums}
+.kpi .k-row{display:flex;justify-content:space-between;align-items:flex-end;gap:6px}
+.kpi .k-foot{font-size:10.5px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spark{width:90px;height:30px}
+.delta{font-size:11px;font-weight:600;white-space:nowrap}
+.delta.good{color:var(--pos)}.delta.bad{color:var(--neg)}.delta.na{color:#64748b;font-weight:400}
+.ins-list{display:flex;flex-direction:column;gap:8px;max-height:318px;overflow:auto;padding-right:4px}
+.ins{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:9px 11px;background:#0f1726}
+.ins[data-link]{cursor:pointer}
+.ins[data-link]:hover{background:#132036}
+.ins-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.tag{font-size:10px;padding:1px 7px;border-radius:999px;font-weight:600}
+.src{font-size:10px;color:#64748b}
+.ins-t{font-weight:600;font-size:12.5px}
+.ins-b{color:var(--muted);font-size:11.5px;margin-top:2px}
+.ins.trend{border-left-color:var(--accent)}.ins.trend .tag{background:rgba(29,155,240,.15);color:#7cc4f8}
+.ins.opportunity{border-left-color:var(--pos)}.ins.opportunity .tag{background:rgba(34,197,94,.15);color:#86efac}
+.ins.risk{border-left-color:var(--neg)}.ins.risk .tag{background:rgba(244,63,94,.15);color:#fda4af}
+.ins.auto{border-left-color:var(--purple)}.ins.auto .tag{background:rgba(167,139,250,.15);color:#c4b5fd}
+.cloud{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:center;min-height:270px;padding:8px;align-content:center}
+.cloud span{cursor:pointer;line-height:1.15;transition:transform .15s,opacity .15s;font-weight:600}
+.cloud span:hover{transform:scale(1.08);opacity:.85}
+.cloud span.sel{text-decoration:underline;text-underline-offset:4px}
+.legend-inline{display:flex;gap:10px;font-size:10.5px;color:var(--muted)}
+.legend-inline i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.rise{display:flex;flex-direction:column;gap:7px}
+.rise-row{display:grid;grid-template-columns:18px 1fr 64px;gap:8px;align-items:center;cursor:pointer;font-size:12px}
+.rise-row:hover .rise-w{color:var(--accent)}
+.rise-rank{color:#64748b;font-size:11px;text-align:right}
+.rise-w{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rise-bar{height:4px;background:#1e293b;border-radius:2px;margin-top:3px;overflow:hidden}
+.rise-bar i{display:block;height:100%;background:linear-gradient(90deg,#1d9bf0,#a78bfa)}
+.rise-g{text-align:right;color:var(--pos);font-weight:600;font-variant-numeric:tabular-nums}
+.tl{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto}
+.tl-row{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start}
+.tl-no{width:20px;height:20px;border-radius:50%;background:var(--warn);color:#111;font-weight:700;font-size:11px;display:grid;place-items:center}
+.tl-d{font-size:11px;color:var(--muted)}
+.tl-l{font-size:12px;font-weight:600}
+.tl-n{font-size:10.5px;color:#64748b}
+.heat{display:grid;grid-template-columns:28px repeat(24,1fr);gap:2px;font-size:10px;color:var(--muted)}
+.heat .c{height:22px;border-radius:3px}
+.heat .hl{text-align:center;font-size:9.5px}
+.heat .dl{display:flex;align-items:center;font-size:11px}
+.heat-foot{display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--muted);align-items:center}
+.heat-scale{display:flex;align-items:center;gap:6px}
+.heat-scale i{display:inline-block;width:120px;height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(29,155,240,.06),rgba(29,155,240,1))}
+.demo{display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+.posts-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.kw-filter{font-size:11.5px;background:rgba(29,155,240,.15);color:#7cc4f8;border:1px solid rgba(29,155,240,.4);padding:3px 9px;border-radius:999px;cursor:pointer}
+.posts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.post{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#0f1726;display:flex;gap:10px}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;flex-shrink:0;color:#fff;font-size:14px}
+.pbody{flex:1;min-width:0}
+.phead{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.pname{font-weight:700;font-size:12.5px}
+.phandle{color:var(--muted);font-size:11.5px}
+.ptext{margin:4px 0 7px;font-size:13px;line-height:1.6;word-break:break-word}
+.ptext mark{background:rgba(29,155,240,.3);color:#fff;border-radius:3px;padding:0 2px}
+.pfoot{display:flex;gap:14px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:wrap}
+.stag{font-size:10px;padding:1px 7px;border-radius:999px;font-weight:600}
+.stag.pos{background:rgba(34,197,94,.15);color:#86efac}
+.stag.neg{background:rgba(244,63,94,.15);color:#fda4af}
+.stag.neu{background:rgba(100,116,139,.2);color:#cbd5e1}
+.ttag{font-size:10px;padding:1px 7px;border-radius:999px;background:#1a2538;color:#9fb3cc}
+.more{display:block;margin:12px auto 0}
+.empty{color:var(--muted);text-align:center;padding:30px;grid-column:1/-1}
+.note{color:#64748b;font-size:11px;line-height:1.7;border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
+.fade{animation:fade .35s ease}
+@keyframes fade{from{opacity:.25;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(max-width:1300px){.s2{grid-column:span 4}.s3{grid-column:span 6}.s4{grid-column:span 6}.s5,.s6,.s7,.s8{grid-column:span 12}}
+@media(max-width:860px){.layout{grid-template-columns:1fr}aside{position:static;height:auto;max-height:320px}.s2,.s3,.s4{grid-column:span 12}.posts{grid-template-columns:1fr}.hdr-range{display:none}.hero{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="x">𝕏</div><div>Topic Insight Dashboard<small>X投稿 発話トピック分析</small></div></div>
+  <span class="badge-dummy">MOCK ／ 全データはダミー</span>
+  <div class="spacer"></div>
+  <div class="hdr-range" id="rangeLabel"></div>
+  <div class="seg" id="periodSeg">
+    <button data-p="30">30日</button><button data-p="60">60日</button><button data-p="90" class="active">90日</button><button data-p="180">180日</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <input class="search" id="search" placeholder="🔍 トピックを検索（例: マリカ, ポケモン）">
+    <div class="side-title"><span>トピック階層</span><span>投稿数 / 前期比</span></div>
+    <div id="tree"></div>
+    <div class="lv-legend">
+      <div style="margin-bottom:6px;color:#9fb3cc;font-weight:600">分析粒度</div>
+      <div><i style="background:#1d9bf0"></i>L1 大カテゴリ（例: ゲーム）</div>
+      <div><i style="background:#22d3ee"></i>L2 中カテゴリ（例: コンシューマー）</div>
+      <div><i style="background:#a78bfa"></i>L3 ブランド / プラットフォーム</div>
+      <div><i style="background:#f472b6"></i>L4 タイトル / 製品 → 論点分析</div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div class="crumbs" id="crumbs"></div>
+    <section class="hero">
+      <div>
+        <span class="lvl" id="lvl"></span>
+        <h1 id="title"></h1>
+        <p id="desc"></p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn" id="upBtn">↑ 上位階層へ</button>
+        <button class="btn primary" id="demoBtn">▶ ドリルダウン例を再生</button>
+      </div>
+    </section>
+    <div class="chips" id="childChips"></div>
+
+    <!-- KPI -->
+    <div class="grid" id="kpis"></div>
+
+    <!-- Row: Trend + Insights -->
+    <div class="grid">
+      <div class="card s8">
+        <h3>発話量推移 <span class="sub" id="trendSub"></span>
+          <span class="right">
+            <span class="hint" id="trendHint"></span>
+            <div class="seg" id="granSeg"><button data-g="day" class="active">日次</button><button data-g="week">週次</button></div>
+          </span>
+        </h3>
+        <div class="chart-box tall"><canvas id="trendChart"></canvas></div>
+      </div>
+      <div class="card s4">
+        <h3>キーインサイト <span class="sub">アナリストコメント＋自動検出</span></h3>
+        <div class="ins-list" id="insights"></div>
+      </div>
+    </div>
+
+    <!-- Row: Subtopic -->
+    <div class="grid">
+      <div class="card s6">
+        <h3><span id="bubbleTitle">サブトピック・ポジショニング</span> <span class="sub" id="bubbleSub"></span><span class="right hint" id="bubbleHint"></span></h3>
+        <div class="chart-box"><canvas id="subBubble"></canvas></div>
+      </div>
+      <div class="card s6">
+        <h3><span id="sentBarTitle">サブトピック別センチメント構成</span> <span class="sub">発話量の多い順</span><span class="right hint" id="sentBarHint"></span></h3>
+        <div class="chart-box"><canvas id="subSent"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row: Sentiment / Emotion / Intent -->
+    <div class="grid">
+      <div class="card s6">
+        <h3>センチメント推移 <span class="sub">ポジ / ニュートラル / ネガ構成比 ＋ ネットセンチメント</span></h3>
+        <div class="chart-box"><canvas id="sentTrend"></canvas></div>
+      </div>
+      <div class="card s3">
+        <h3>感情分析 <span class="sub" id="emoSub"></span></h3>
+        <div class="chart-box"><canvas id="emoChart"></canvas></div>
+      </div>
+      <div class="card s3">
+        <h3>発話文脈（インテント）</h3>
+        <div class="chart-box"><canvas id="intentChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row: Keywords / Rising / Events -->
+    <div class="grid">
+      <div class="card s6">
+        <h3>共起キーワード <span class="sub">クリックで投稿を絞り込み</span>
+          <span class="right legend-inline"><span><i style="background:#4ade80"></i>ポジ寄り</span><span><i style="background:#7dd3fc"></i>中立</span><span><i style="background:#fb7185"></i>ネガ寄り</span></span>
+        </h3>
+        <div class="cloud" id="cloud"></div>
+      </div>
+      <div class="card s3">
+        <h3>急上昇ワード <span class="sub">前期比</span></h3>
+        <div class="rise" id="rising"></div>
+      </div>
+      <div class="card s3">
+        <h3>イベントタイムライン <span class="sub">推移グラフの番号と対応</span></h3>
+        <div class="tl" id="timeline"></div>
+      </div>
+    </div>
+
+    <!-- Row: Heatmap / Demographics -->
+    <div class="grid">
+      <div class="card s6">
+        <h3>投稿時間帯ヒートマップ <span class="sub">曜日 × 時間帯</span></h3>
+        <div class="heat" id="heat"></div>
+        <div class="heat-foot"><span id="heatPeak"></span><span class="heat-scale">少<i></i>多</span></div>
+      </div>
+      <div class="card s6">
+        <h3>投稿者属性（推定） <span class="sub" id="demoSub"></span></h3>
+        <div class="demo">
+          <div class="chart-box" style="height:250px"><canvas id="ageChart"></canvas></div>
+          <div class="chart-box" style="height:250px"><canvas id="genderChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Posts -->
+    <div class="grid">
+      <div class="card s12" id="postsCard">
+        <h3>代表投稿 <span class="sub" id="postsSub"></span>
+          <span class="right posts-toolbar">
+            <span id="kwFilter"></span>
+            <div class="seg" id="pfSeg"><button data-f="all" class="active">すべて</button><button data-f="pos">ポジ</button><button data-f="neu">ニュートラル</button><button data-f="neg">ネガ</button></div>
+            <div class="seg" id="sortSeg"><button data-s="eng" class="active">エンゲージメント順</button><button data-s="new">新しい順</button></div>
+          </span>
+        </h3>
+        <div class="posts" id="posts"></div>
+        <button class="btn more" id="moreBtn">さらに表示</button>
+      </div>
+    </div>
+
+    <div class="note">
+      ※ 本ダッシュボードはモックです。投稿・数値・イベント・ユーザー名はすべてダミーデータとして生成しています（実在の事象名は文脈づくりのため参照していますが、数値は架空です）。<br>
+      想定パイプライン：X API で投稿を収集 → LLM / 分類モデルでトピック階層（L1〜L4）・論点（アスペクト）・センチメント・感情・発話文脈を付与 → 日次集計。上位階層の数値は下位トピックと階層固有の一般発話を合算して算出しています。
+    </div>
+  </main>
+</div>
+
+<script>
+/* =========================================================
+   0. Utilities
+========================================================= */
+const $=id=>document.getElementById(id);
+const START=new Date(2025,0,1);
+const N=180;
+const DATES=Array.from({length:N},(_,i)=>{const d=new Date(START);d.setDate(d.getDate()+i);return d;});
+const di=s=>{const [y,m,d]=s.split('-').map(Number);return Math.round((new Date(y,m-1,d)-START)/86400000);};
+const fmtD=d=>`${d.getMonth()+1}/${d.getDate()}`;
+const fmtDate=d=>`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+const sumR=(a,s,e)=>{let x=0;for(let i=s;i<e;i++)x+=a[i];return x;};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pct=(c,p)=>p?(c-p)/p*100:null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtN(n){n=Math.round(n);if(n>=1e8)return(n/1e8).toFixed(2)+'億';if(n>=1e4)return(n/1e4).toFixed(n>=1e6?0:1)+'万';return n.toLocaleString();}
+function hash(str){let h=2166136261;for(const c of str){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function rng(seed){let a=seed;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function alpha(hex,a){const n=parseInt(hex.slice(1),16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+const norm=v=>{const t=v.reduce((a,b)=>a+b,0)||1;return v.map(x=>x/t*100);};
+const PAL=['#1d9bf0','#a78bfa','#f59e0b','#22d3ee','#f472b6','#34d399','#fb923c'];
+const LEVELS=['L1 大カテゴリ','L2 中カテゴリ','L3 ブランド / プラットフォーム','L4 タイトル / 製品'];
+const INTENTS=['感想・レビュー','購入・予約','プレイ報告・攻略','不満・要望','ニュース・情報共有','比較・検討'];
+const EMOS=['喜び','期待','驚き','信頼','怒り','悲しみ'];
+const AGES=['10代','20代','30代','40代','50代以上'];
+const GENDERS=['男性','女性','不明'];
+const DOW_F=[1.14,0.95,0.93,0.94,0.97,1.03,1.17]; // Sun..Sat
+
+/* =========================================================
+   1. Presets
+========================================================= */
+const PRESETS={
+  general:{intents:[30,8,22,12,20,8],emo:[58,45,30,40,18,14],age:[15,33,27,17,8],gender:[60,34,6],heat:'general',uniq:.6,imp:950,sent:[.42,.17]},
+  console:{intents:[28,14,20,12,18,8],emo:[62,58,36,42,18,12],age:[12,30,29,20,9],gender:[64,30,6],heat:'console',uniq:.58,imp:1100,sent:[.46,.16]},
+  mobile:{intents:[22,6,34,18,14,6],emo:[54,46,26,34,24,20],age:[19,38,25,13,5],gender:[52,42,6],heat:'mobile',uniq:.42,imp:700,sent:[.42,.21]},
+  pc:{intents:[24,8,30,15,13,10],emo:[50,36,30,30,28,10],age:[14,41,28,12,5],gender:[73,21,6],heat:'pc',uniq:.5,imp:820,sent:[.38,.24]},
+  esports:{intents:[26,3,12,8,39,12],emo:[64,52,48,38,15,18],age:[17,42,25,11,5],gender:[58,36,6],heat:'esports',uniq:.55,imp:1300,sent:[.5,.13]},
+};
+const HEAT={
+  general:{p:[[21,2.5,1],[12.5,1.1,.4],[7.5,1,.2]],w:[[15,3,.4]]},
+  console:{p:[[21.5,2.2,1],[12.5,1.1,.3]],w:[[15,3,.65]]},
+  mobile:{p:[[7.6,1,.45],[12.3,.9,.6],[22.3,1.8,.9]],w:[[15,3,.35]]},
+  pc:{p:[[23,2.4,1],[1.5,1.4,.45],[13,1.5,.15]],w:[[15,3,.45]]},
+  esports:{p:[[20,2,1],[17,2,.3]],w:[[15,2.5,.7]]},
+};
+const ASPECTS={
+  general:['ゲーム性','グラフィック','価格','ストーリー','アップデート','不具合'],
+  console:['ゲーム性','グラフィック','ストーリー','価格','ボリューム','操作性','オンライン','不具合・最適化'],
+  mobile:['ガチャ・排出率','キャラクター','イベント','運営対応','ゲームバランス','報酬・配布','ストーリー','不具合'],
+  pc:['ゲームバランス','チーター・不正','ランク','パフォーマンス','アップデート','コミュニティ','価格・セール','新要素'],
+  esports:['試合内容','選手・チーム','配信・視聴体験','運営','会場・現地','結果','実況・解説','グッズ'],
+};
+const NEG_WORDS=['価格','不具合','最適化','チーター','ガチャ','運営','値上げ','転売','抽選','鯖'];
+const USERS=[['たかし@ゲーム垢','takashi_gm'],['みか🎮','mika_play'],['ねこまる','nekomaru_22'],['Ryo','ryo_gamer'],['はるか@二児の母','haruka_mama'],['しんじ','shinji0809'],['ゆうと','yuto_fps'],['ぽてと','potato_chan'],['かずき','kazuki_rta'],['あやね','ayane_ch'],['ソラ','sora_sky'],['もちこ','mochiko_m'],['ケンタ','kenta_k'],['ちひろ','chihiro_x'],['ライト','light_g'],['ゲーム速報まとめ','game_sokuho'],['よしお@40代ゲーマー','yoshio_40'],['こはる','koharu_v']];
+
+/* =========================================================
+   2. Topic tree (dummy definitions)
+   events: d=date, a=added daily volume, k=decay(days), s=sentiment shift, l=label
+   keywords: [word, weight, sentiment(-1..1), growth%]
+   posts: [text, sentiment, date, likes, reposts]
+========================================================= */
+const TREE={id:'game',name:'ゲーム',cat:'general',base:180000,trend:.05,
+ desc:'ゲーム全般に関するX上の発話。コンシューマー / スマホ / PC / eスポーツ・配信の4領域で構成。',
+ events:[{d:'2025-01-01',a:40000,k:4,s:.05,l:'年末年始休暇'},{d:'2025-05-03',a:28000,k:4,s:.05,l:'ゴールデンウィーク'}],
+ keywords:[['ゲーム',100,.2,5],['神ゲー',40,.9,18],['積みゲー',35,0,12],['新作',45,.5,25],['徹夜',18,.3,8],['クリア',30,.6,6],['セール',28,.5,15],['発売日',32,.5,40],['家族で',14,.7,60]],
+ insights:[
+  {tag:'trend',t:'次世代ハードの発売がカテゴリ全体を牽引',b:'Switch 2 関連の発話がコンシューマー領域を押し上げ、6月のゲーム全体の発話量は大きく伸長。ハード起点で周辺タイトル・実況配信へと波及。'},
+  {tag:'opportunity',t:'「家族で」「子どもと」文脈が拡大',b:'30〜40代の投稿で家族プレイ文脈の共起が増加。パーティ系・ファミリー向けタイトルの訴求余地が大きい。'},
+  {tag:'risk',t:'スマホゲームは運営・ガチャ不満が高止まり',b:'スマホゲーム領域のネガティブ発話の多くが「ガチャ」「排出率」「運営」関連。周年・新パック時に一時的に悪化しやすい。'}
+ ],
+ posts:[['最近ゲームする時間が取れなくて積みゲーばかり増えていく。社会人あるある','neu','2025-05-15',6200,880],['GWは一日中ゲームできる幸せ。神ゲーに出会えた','pos','2025-05-04',4100,300]],
+ children:[
+  {id:'consumer',name:'コンシューマーゲーム',cat:'console',base:40000,trend:.04,
+   desc:'家庭用ゲーム機（任天堂 / PlayStation / Xbox）とそのタイトルに関する発話。',
+   keywords:[['据え置き',30,.3,5],['パッケージ版',22,.2,8],['DL版',24,.2,10],['新作発表',35,.6,30],['予約',30,.4,45],['トロコン',12,.6,4],['同梱版',18,.4,120]],
+   insights:[
+    {tag:'trend',t:'Switch 2 発売で任天堂のシェアが急伸',b:'6月第1週はコンシューマー領域の発話の過半が任天堂関連。ハード起点でマリオカートワールド等ローンチタイトルへ発話が波及。'},
+    {tag:'risk',t:'ハード価格・入手性がネガティブの主要因',b:'「抽選」「転売」「値上げ」を含む投稿のネガティブ率が高く、4〜5月のセンチメント低下を牽引。'},
+    {tag:'opportunity',t:'発売日の「開封・初プレイ報告」がUGCを増幅',b:'発売当日〜3日間の「開封」「初見」投稿はエンゲージメントが高く、発売日施策の重要度が高い。'}
+   ],
+   posts:[['今年の上半期、据え置きの新作ラッシュでガチで積みゲーが崩せない','neu','2025-06-20',3100,300]],
+   children:[
+    {id:'switch',name:'Nintendo Switch',base:12000,trend:.15,
+     desc:'Nintendo Switch / Switch 2 本体および任天堂プラットフォームのタイトルに関する発話。',
+     events:[{d:'2025-01-16',a:40000,k:3,s:.1,l:''},{d:'2025-03-27',a:35000,k:2,s:.08,l:'Nintendo Direct 2025.3.27'},{d:'2025-04-02',a:50000,k:3,s:.02,l:''},{d:'2025-06-05',a:50000,k:5,s:.1,l:''}],
+     keywords:[['Switch2',80,.3,160],['ニンダイ',40,.6,30],['任天堂',60,.4,40],['Joy-Con',20,.2,35],['抽選',45,-.4,200],['ゲームチャット',18,.5,250],['マイニンテンドーストア',22,0,180],['転売',25,-.8,140]],
+     insights:[
+      {tag:'trend',t:'「発表→抽選→発売」の3段階で発話の山を形成',b:'1/16の正式発表、4/2のDirect、6/5の発売が三大ピーク。抽選期間中も話題が途切れず、長期間の関心維持に成功。'},
+      {tag:'risk',t:'抽選落選・転売がネガティブ発話の大半',b:'4〜5月のネガティブ発話は抽選結果発表日に集中。「転売」との共起がブランド毀損リスク。'},
+      {tag:'opportunity',t:'「ゲームチャット」など新機能に好意的な反応',b:'発売後、ゲームチャット・画面共有への言及がポジティブ優勢で増加。オンライン体験が新たな話題軸に。'}
+     ],
+     posts:[['ニンダイ見終わった。今年の任天堂ラインナップ強すぎて財布が持たない','pos','2025-03-27',8800,1500],['マイニンテンドーストアの抽選条件、プレイ時間で優遇されるのは既存ユーザーに優しくて良い','pos','2025-04-03',5100,900]],
+     children:[
+      {id:'switch2hw',name:'Switch 2 本体',base:5000,trend:.1,
+       desc:'Nintendo Switch 2 ハードウェア（価格・抽選・性能・新機能）に関する発話。',
+       sent:[.40,.22],intents:[20,34,8,20,14,4],emo:[55,65,38,40,30,22],
+       events:[{d:'2025-01-16',a:110000,k:3,s:.12,l:'Switch 2 正式発表トレーラー'},{d:'2025-01-16',a:8000,k:80,s:0,l:''},
+        {d:'2025-04-02',a:180000,k:3,s:-.06,l:'Switch 2 Direct・価格発表'},{d:'2025-04-04',a:60000,k:4,s:.02,l:'抽選予約受付開始'},
+        {d:'2025-04-24',a:120000,k:3,s:-.2,l:'第1回抽選結果発表'},{d:'2025-05-08',a:70000,k:3,s:-.15,l:'第2回抽選結果発表'},
+        {d:'2025-06-05',a:260000,k:5,s:.15,l:'Switch 2 発売日'},{d:'2025-06-05',a:30000,k:40,s:.05,l:''}],
+       keywords:[['抽選',90,-.4,210],['当選',50,.9,260],['落選',55,-.9,240],['49,980円',45,-.1,90],['転売',48,-.8,150],['開封',40,.8,400],['ゲームチャット',28,.5,250],['4K',20,.6,60],['互換',22,.6,40],['Joy-Con 2',25,.3,70],['マウス操作',18,.2,120],['バッテリー',16,-.3,180]],
+       aspects:[['抽選・入手性',.22,.20,.58,180],['性能・画質',.16,.76,.06,90],['価格・国内専用版',.14,.38,.30,40],['転売',.11,.05,.80,130],['Joy-Con 2・マウス操作',.10,.62,.14,70],['バッテリー・携帯性',.10,.40,.30,160],['ゲームチャット',.09,.58,.15,250],['互換性',.08,.70,.08,30]],
+       insights:[
+        {tag:'risk',t:'抽選結果発表日はネガティブ率が急騰',b:'4/24・5/8の当落発表日は「落選」「転売」を含む投稿が急増し、ネガティブ率が平常時の2倍超に。'},
+        {tag:'opportunity',t:'国内専用版・価格への評価は「妥当」が優勢に',b:'価格言及は賛否拮抗しつつも、「日本語・国内専用」への評価がポジティブ転換の契機に。'},
+        {tag:'trend',t:'発売後は「開封」「性能」「互換」の体験系発話へシフト',b:'6/5以降、購入・予約文脈から感想・レビュー文脈へ主役が移行。'}
+       ],
+       posts:[['Switch2当選メール来た！！！3回目でやっと…手が震えてる','pos','2025-05-08',24800,3900],['抽選また落選。転売ヤーが8万で出品してるの見ると本当に萎える','neg','2025-04-24',31200,8800],['49,980円は正直ギリ許容。日本語・国内専用版を用意してくれたのは英断だと思う','pos','2025-04-02',12100,2400],['Switch2開封した。画面でかいしロード爆速で笑った','pos','2025-06-05',15600,2100],['携帯モードのバッテリー持ち、思ったより短いかも。外出時はモバイルバッテリー必須','neg','2025-06-09',5200,640],['ゲームチャットで友達と画面共有しながら遊べるの、思ってた以上に楽しい','pos','2025-06-12',6800,910],['Joy-Con 2 のマウス操作、最初は違和感あったけど慣れると便利','neu','2025-06-15',2100,150]]},
+      {id:'mkw',name:'マリオカートワールド',base:350,trend:0,
+       desc:'Switch 2 ローンチタイトル「マリオカートワールド」に関する発話。新モード・価格・オンライン対戦などの論点を分析。',
+       sent:[.55,.14],intents:[30,16,24,10,14,6],emo:[72,60,40,45,12,8],age:[16,28,30,20,6],gender:[60,36,4],
+       events:[{d:'2025-01-16',a:20000,k:3,s:.1,l:'Switch 2 発表映像に新作マリカ'},{d:'2025-04-02',a:95000,k:3,s:.08,l:'Direct で「マリオカートワールド」発表'},{d:'2025-04-02',a:6000,k:60,s:0,l:''},
+        {d:'2025-04-17',a:70000,k:3,s:.1,l:'マリオカートワールド Direct'},{d:'2025-04-24',a:8000,k:3,s:-.1,l:'同梱版 抽選結果'},
+        {d:'2025-06-05',a:160000,k:6,s:.12,l:'マリオカートワールド 発売'},{d:'2025-06-05',a:28000,k:50,s:.02,l:''},{d:'2025-06-20',a:22000,k:3,s:.05,l:'更新データ配信（ダミー）'}],
+       keywords:[['ノックアウトツアー',90,.7,180],['フリーラン',70,.6,140],['24人',65,.4,90],['牛',50,.9,60],['8,980円',45,-.5,40],['同梱版',55,.2,70],['オンライン',60,-.1,120],['運ゲー',30,-.7,210],['子どもと',35,.7,220],['BGM',30,.8,80],['旧コース',28,-.2,50],['レート',32,0,160],['ショートカット',25,.3,130],['画面分割',22,.6,150],['壁走り',26,.5,170]],
+       aspects:[['ノックアウトツアー',.18,.78,.08,180],['フリーラン・ワールド',.15,.70,.10,140],['オンライン対戦',.14,.45,.35,120],['価格・同梱版',.12,.25,.55,30],['コース・旧コース',.12,.55,.25,60],['キャラクター（牛ほか）',.10,.82,.04,50],['BGM・演出',.07,.85,.03,80],['画面分割・ローカル',.06,.72,.08,150],['操作・テクニック',.06,.50,.18,170]],
+       insights:[
+        {tag:'opportunity',t:'ノックアウトツアー・フリーランが新体験として高評価',b:'新モードへの言及はポジティブ率7割超。「24人」「サバイバル」との共起が多く、従来シリーズとの差別化ポイントとして機能。'},
+        {tag:'risk',t:'単品価格8,980円への言及はネガティブ優勢',b:'価格論点はネガティブ比率が5割超。同梱版のお得感訴求や体験導線で緩和余地あり。'},
+        {tag:'opportunity',t:'ファミリー文脈（「子どもと」「画面分割」）が発売後に急伸',b:'30〜40代の投稿で家族プレイ文脈の共起が増加。年末商戦に向けたファミリー訴求の有力な切り口。'},
+        {tag:'risk',t:'オンライン対戦のバランス（運要素）に不満が集積',b:'「運ゲー」「アイテム」の共起が対戦系投稿で増加。アップデートによる調整を期待する声が多い。'}
+       ],
+       posts:[['マリカワールド、ノックアウトツアーが楽しすぎて気づいたら3時間経ってた…24人レースの混沌感最高','pos','2025-06-07',18420,3210],['マリオカートワールド単品8,980円かぁ…同梱版で買ったから実質お得だったけど、単品だとちょっと高く感じるな','neg','2025-06-06',6210,980],['フリーランで世界中を走り回れるのいい。寄り道してるだけで時間溶ける','pos','2025-06-08',9830,1450],['牛が使えるマリカ、もうこれだけで神ゲー確定','pos','2025-04-17',25300,6120],['オンライン24人だとアイテムの嵐で運ゲー感強い。もうちょいバランス調整ほしい','neg','2025-06-12',4120,610],['Switch2と一緒にマリカワールド同梱版の予約完了！発売日まで待ちきれない','pos','2025-04-24',3200,210],['コース間をつなぐ移動区間、好みが分かれそう。直線長すぎない？','neg','2025-06-09',2870,330],['子どもと画面分割で2人プレイしてるけど、ヌルヌル動いてて感動した','pos','2025-06-14',7650,890],['マリオカートワールドDirect見た。ノックアウトツアーとか完全に新しいマリカだ','pos','2025-04-17',14200,2980],['マリカワールドのBGMアレンジ良すぎる、懐かしい曲がいっぱい流れてくる','pos','2025-06-10',5400,820],['旧コースのリメイク少なくない？新コースは良いけどもっと懐かしいのも欲しかった','neg','2025-06-11',3300,410],['マリカワールド、レートが全然上がらなくて沼ってる','neu','2025-06-20',1980,120],['壁走りとレールのショートカット覚えたらタイム一気に縮んだ。奥が深い','pos','2025-06-18',4300,760],['マリカワールド開封！とりあえずグランプリから回していく','neu','2025-06-05',2100,90],['新作マリカの映像キタ！Switch 2の初報でこれ見せるの強すぎる','pos','2025-01-16',21000,5400]]},
+      {id:'dk',name:'ドンキーコング バナンザ',base:200,trend:0,sent:[.6,.08],
+       events:[{d:'2025-04-02',a:30000,k:3,s:.08,l:'Switch 2 Directで発表'},{d:'2025-04-02',a:1500,k:60,s:0,l:''},{d:'2025-06-18',a:38000,k:3,s:.12,l:'バナンザ Direct'}],
+       keywords:[['破壊',40,.7,200],['バナンザ',50,.6,150],['ポリーン',25,.7,120],['3Dアクション',30,.6,80],['予約',28,.4,160],['変身',22,.7,300]],
+       posts:[['ドンキーの新作、地形をぶっ壊しながら進めるの気持ちよさそう。Direct見て即予約した','pos','2025-06-18',6400,1100],['バナンザDirect、変身要素あるの知って一気に欲しくなった','pos','2025-06-19',3100,420],['7月17日発売か。マリカ遊び尽くした頃にちょうどいいタイミング','neu','2025-06-18',1200,80],['ドンキーコング バナンザ、Switch 2専用で価格も上がってるのは少し気になる','neg','2025-04-03',980,60]]},
+      {id:'plza',name:'ポケモン レジェンズ Z-A',base:2500,trend:.05,sent:[.5,.12],
+       events:[{d:'2025-02-27',a:90000,k:3,s:.1,l:'Pokémon Presents 新映像'},{d:'2025-04-02',a:25000,k:3,s:.02,l:'Switch 2 Edition 発表'}],
+       keywords:[['ミアレシティ',40,.6,60],['メガシンカ',55,.8,90],['Z-A',45,.4,50],['リアルタイムバトル',30,.3,70],['御三家',35,.6,80],['Switch 2 Edition',25,0,110]],
+       posts:[['レジェンズZ-Aの新映像、ミアレシティの作り込みすごい。リアルタイムバトルどうなるんだろ','pos','2025-02-27',15200,3300],['メガシンカ復活は熱すぎる！推しのメガ進化来てほしい','pos','2025-02-28',8800,1500],['Z-A、Switch 2 Editionと分かれるのか…どっちで買うか迷う','neu','2025-04-03',2200,190],['御三家がチコリータ・ポカブ・ワニノコ？ 発表見て悩み始めた','pos','2025-02-27',5400,700]]}
+     ]},
+    {id:'ps',name:'PlayStation',base:12000,trend:.02,
+     desc:'PlayStation 5 本体および PlayStation プラットフォームのタイトルに関する発話。',
+     events:[{d:'2025-02-13',a:30000,k:2,s:.08,l:'State of Play（2月）'},{d:'2025-06-04',a:45000,k:2,s:.1,l:'State of Play（6月）'}],
+     keywords:[['PS5',70,.2,10],['PS Plus',35,.1,8],['フリープレイ',25,.5,12],['State of Play',30,.6,60],['トロフィー',18,.5,5]],
+     insights:[{tag:'trend',t:'2月はモンハンワイルズ一色',b:'2/28の発売前後でPlayStation領域の発話が急増。発売後は最適化論点でセンチメントが一時悪化。'},{tag:'opportunity',t:'State of Play 後の期待発話が伸長',b:'6/4の配信でゴースト・オブ・ヨウテイ等への期待発話が増加、ポジティブ率も改善。'}],
+     posts:[['State of Play、サプライズ多くて満足度高い','pos','2025-06-05',5200,980]],
+     children:[
+      {id:'ps5hw',name:'PS5 本体',base:5000,trend:-.05,sent:[.35,.25],
+       aspectNames:['価格','性能・画質','静音性','ソフトラインナップ','周辺機器','PS Plus'],
+       events:[{d:'2025-05-28',a:12000,k:5,s:.1,l:'Days of Play セール'}],
+       keywords:[['PS5 Pro',40,.3,20],['価格',45,-.5,10],['ディスクドライブ',20,-.2,5],['静音',15,.5,0],['PS Portal',22,.5,25]],
+       posts:[['PS5 Proの画質やっぱり段違い。ただ価格はなかなか…','neu','2025-03-10',2100,180],['PS5の値段もう少し下がってくれたら買うんだけどな','neg','2025-05-20',1800,90],['PS Portalでベッドからリモートプレイ最高','pos','2025-04-12',2500,210]]},
+      {id:'mhw',name:'モンスターハンターワイルズ',base:4000,trend:-.1,sent:[.42,.22],
+       events:[{d:'2025-02-28',a:240000,k:7,s:.08,l:'モンハンワイルズ 発売'},{d:'2025-02-28',a:40000,k:30,s:0,l:''},{d:'2025-03-10',a:35000,k:5,s:-.25,l:'最適化・不具合への不満拡大'},{d:'2025-04-04',a:70000,k:3,s:.12,l:'TU1 配信'}],
+       keywords:[['太刀',40,.6,30],['拠点',25,.5,20],['最適化',45,-.7,90],['重い',30,-.8,80],['ソロ',25,.1,15],['マルチ',35,.3,20],['TU1',38,.6,300],['歯ごたえ',18,-.3,60]],
+       insights:[{tag:'risk',t:'発売直後の最適化・不具合への不満',b:'3月上旬に「重い」「最適化」の共起が急増。ネガティブ率が発売週比で大きく上昇。'},{tag:'opportunity',t:'TU1で復帰ユーザーの発話が増加',b:'4/4のTU1配信日に「復帰」を含む投稿が急増し、ポジティブ率も回復。'}],
+       posts:[['モンハンワイルズ、シームレスな拠点と狩り場の行き来が快適すぎる。太刀楽しい','pos','2025-03-01',22100,4100],['ワイルズ、PS5でもカクつく場面ある。最適化もうちょい頼む','neg','2025-03-10',8700,1300],['TU1来たから久しぶりにワイルズ復帰した！','pos','2025-04-04',6400,800],['ワイルズ、ソロだと簡単すぎてマルチだと一瞬で終わる。もう少し歯ごたえ欲しい','neg','2025-03-15',5200,620]]},
+      {id:'ds2',name:'デス・ストランディング2',base:600,trend:0,sent:[.55,.1],
+       events:[{d:'2025-03-10',a:25000,k:2,s:.1,l:'DS2 発売日決定トレーラー'},{d:'2025-06-26',a:90000,k:5,s:.1,l:'デス・ストランディング2 発売'}],
+       keywords:[['小島監督',45,.6,40],['配達',30,.5,60],['物語',30,.4,50],['グラフィック',35,.8,70]],
+       posts:[['デススト2、序盤から映像のクオリティが異次元。配達してるだけで楽しい','pos','2025-06-27',9800,1700],['小島監督の新作、相変わらず物語が難解だけどそれが良い','pos','2025-06-28',4200,500],['デス・ストランディング2の発売日決定トレーラー、情報量多すぎて3回見た','pos','2025-03-11',6100,900]]},
+      {id:'yotei',name:'ゴースト・オブ・ヨウテイ',base:300,trend:0,sent:[.6,.07],
+       events:[{d:'2025-06-04',a:30000,k:3,s:.12,l:'ヨウテイ ゲームプレイ初公開'}],
+       keywords:[['羊蹄山',30,.6,200],['ツシマ',35,.7,90],['和風',25,.6,80],['オープンワールド',28,.5,70]],
+       posts:[['ゴースト・オブ・ヨウテイのゲームプレイ映像、北海道の自然が美しすぎる','pos','2025-06-05',7300,1200],['ヨウテイ、前作ツシマの正統進化って感じで期待しかない','pos','2025-06-04',3900,520]]}
+     ]},
+    {id:'xbox',name:'Xbox',base:3000,trend:0,
+     events:[{d:'2025-06-08',a:25000,k:3,s:.1,l:'Xbox Games Showcase'}],
+     keywords:[['Xbox',60,.2,10],['クラウド',20,.3,15],['Series X',25,.1,0]],
+     posts:[['Xbox Games Showcase、日本向けタイトルも多くて意外と良かった','pos','2025-06-09',2400,300]],
+     children:[
+      {id:'gamepass',name:'Game Pass',base:2500,trend:0,aspectNames:['価格・値上げ','Day One','ラインナップ','クラウド','PC版','解約'],
+       events:[{d:'2025-01-23',a:12000,k:3,s:.1,l:'Developer Direct'},{d:'2025-05-12',a:9000,k:3,s:-.25,l:'価格改定の噂'}],
+       keywords:[['Game Pass',60,.4,10],['Day One',30,.7,20],['値上げ',30,-.8,120],['クラウドゲーミング',18,.3,15]],
+       posts:[['Game PassのDay One配信、これ一本で元が取れてしまう','pos','2025-01-24',1500,140],['Game Passまた値上げの噂…さすがに厳しい','neg','2025-05-12',2200,260]]},
+      {id:'xboxhw',name:'Xbox ハード',base:1200,trend:0,aspectNames:['価格','性能','携帯機','国内展開','ソフト','互換性'],
+       events:[{d:'2025-06-08',a:15000,k:3,s:.1,l:'ROG Xbox Ally 発表'}],
+       keywords:[['ROG Xbox Ally',35,.6,500],['携帯機',30,.5,300],['Series X',25,.1,0]],
+       posts:[['ROG Xbox Ally発表きた！ Xboxの携帯機ってこういう形になるのか','pos','2025-06-09',3400,610],['Series X、国内だとソフトの話題が少なくて寂しい','neg','2025-03-02',900,40]]}
+     ]}
+   ]},
+  {id:'mobile',name:'スマホゲーム',cat:'mobile',base:30000,trend:0,
+   desc:'スマートフォン向けゲームに関する発話。ガチャ・運営・イベント文脈が中心。',
+   keywords:[['ガチャ',80,-.2,10],['石',40,0,5],['課金',40,-.3,8],['天井',35,-.4,12],['周年',30,.7,40],['ログボ',20,.4,0],['排出率',25,-.7,15],['無課金',25,.1,5],['運営',35,-.5,10]],
+   insights:[{tag:'risk',t:'ガチャ・排出率への不満が恒常的なネガティブ要因',b:'領域全体のネガティブ発話の約半数がガチャ・運営関連。仕様変更時（例: ポケポケのトレード機能）に急増。'},{tag:'trend',t:'周年・新パック実装日に定期的なスパイク',b:'ウマ娘4周年、ポケポケ新拡張パックなど、運営イベントのカレンダーに沿った波形が特徴。'}],
+   posts:[['周年ガチャで天井まで回してしまった…今月は節約生活','neg','2025-02-25',4100,380]],
+   children:[
+    {id:'uma',name:'ウマ娘',base:25000,trend:-.05,sent:[.48,.2],
+     events:[{d:'2025-02-24',a:130000,k:5,s:.12,l:'ウマ娘 4周年'},{d:'2025-04-14',a:40000,k:3,s:-.08,l:'新シナリオ実装'},{d:'2025-06-10',a:35000,k:2,s:.1,l:'新育成ウマ娘 実装'}],
+     keywords:[['育成',50,.3,10],['因子',30,.1,5],['チャンミ',35,.4,15],['サポカ',35,.2,20],['新シナリオ',30,-.2,90],['4周年',40,.9,200]],
+     posts:[['ウマ娘4周年おめでとう！ 配布でサポカ天井まで回せた','pos','2025-02-24',18200,3100],['新シナリオ難しすぎて育成全然うまくいかない…','neg','2025-04-15',4200,380],['チャンミ本番、因子厳選が報われて決勝いけた！','pos','2025-05-25',6100,420]]},
+    {id:'pokepoke',name:'ポケポケ',base:18000,trend:-.1,sent:[.45,.22],
+     events:[{d:'2025-01-29',a:70000,k:4,s:-.3,l:'トレード機能実装（仕様に批判）'},{d:'2025-01-30',a:45000,k:3,s:.1,l:'新拡張パック'},{d:'2025-02-27',a:40000,k:3,s:.1,l:'新拡張パック'},{d:'2025-03-27',a:38000,k:3,s:.1,l:'新拡張パック'},{d:'2025-04-30',a:42000,k:3,s:.1,l:'新拡張パック'},{d:'2025-05-29',a:36000,k:3,s:.1,l:'新拡張パック'}],
+     keywords:[['開封',45,.6,20],['ゴッドパック',35,.9,30],['トレード',40,-.6,60],['トレードトークン',25,-.8,80],['デッキ',30,.2,10],['砂時計',20,0,5],['新パック',40,.6,40]],
+     posts:[['ポケポケの新パック、ゴッドパック引いた！！！手が震える','pos','2025-04-30',12400,1800],['トレード機能の仕様ひどくない？ トレードトークン集めるのにカード大量に消すの意味わからん','neg','2025-01-29',28400,7200],['砂時計貯めて新パック開封するのが毎朝のルーティン','neu','2025-05-30',3200,210]]},
+    {id:'genshin',name:'原神',base:10000,trend:-.05,sent:[.46,.18],
+     events:[{d:'2025-02-12',a:22000,k:3,s:.08,l:'原神 Ver.5.4 配信'},{d:'2025-03-26',a:26000,k:3,s:.08,l:'原神 Ver.5.5 配信'},{d:'2025-05-07',a:24000,k:3,s:.08,l:'原神 Ver.5.6 配信'},{d:'2025-06-18',a:25000,k:3,s:.08,l:'原神 Ver.5.7 配信'}],
+     keywords:[['原石',35,0,5],['新キャラ',45,.7,30],['祈願',40,.1,15],['探索',25,.6,10],['樹脂',25,-.5,10]],
+     posts:[['原神の新キャラ、モーションが美しすぎて祈願回してしまった','pos','2025-03-26',8900,1300],['樹脂の上限もう少し増やしてくれないかな。デイリーがだるい','neg','2025-05-10',3100,240]]},
+    {id:'monst',name:'モンスト',base:12000,trend:0,sent:[.44,.2],
+     events:[{d:'2025-03-14',a:30000,k:5,s:.1,l:'モンスト コラボイベント開始'},{d:'2025-06-06',a:25000,k:4,s:-.1,l:'新轟絶クエスト'}],
+     keywords:[['激獣神祭',35,.3,10],['コラボ',45,.7,40],['オーブ',30,.1,5],['轟絶',30,-.3,50],['運極',25,.6,5]],
+     posts:[['モンストのコラボガチャ、10連で推し出た！ オーブ貯めてた甲斐あった','pos','2025-03-15',4800,510],['轟絶の新クエ、難しすぎてマルチで全然勝てない','neg','2025-06-10',1900,110]]}
+   ]},
+  {id:'pc',name:'PCゲーム',cat:'pc',base:15000,trend:.05,
+   desc:'PCゲーム（Steam・対戦系タイトル・ゲーミングPC）に関する発話。',
+   keywords:[['Steam',60,.3,20],['ゲーミングPC',35,.3,15],['グラボ',35,0,20],['自作PC',20,.4,10],['セール',40,.6,40]],
+   insights:[{tag:'trend',t:'Steamセール時期に「積みゲー」「ウィッシュリスト」が急増',b:'春・夏のセール開始日にPC領域の発話がスパイク。購買意向文脈の比率が一時的に上昇。'},{tag:'risk',t:'対戦系タイトルは「チーター」「鯖落ち」がネガティブを牽引',b:'Apex・VALORANTのネガティブ発話の多くが不正行為・サーバー品質関連。'}],
+   posts:[['新しいグラボ買ったら世界が変わった。RTX最高','pos','2025-03-05',3200,250]],
+   children:[
+    {id:'steam',name:'Steam',base:15000,trend:.05,sent:[.48,.14],
+     events:[{d:'2025-03-13',a:45000,k:6,s:.15,l:'Steam 春セール'},{d:'2025-06-26',a:60000,k:4,s:.15,l:'Steam サマーセール'}],
+     keywords:[['セール',60,.6,80],['ウィッシュリスト',30,.4,90],['積みゲー',35,0,60],['Steam Deck',30,.6,20],['インディー',30,.6,15],['圧倒的に好評',20,.8,25]],
+     posts:[['Steamサマーセールでまた積みゲーが増えた。ウィッシュリストが溶けていく','neu','2025-06-27',9200,1400],['インディーの「圧倒的に好評」タイトル、数百円で神ゲーだった','pos','2025-03-15',5600,890],['Steam Deckで寝ながらゲームできるの最高すぎる','pos','2025-04-20',3300,300]]},
+    {id:'valorant',name:'VALORANT',base:9000,trend:.05,sent:[.4,.24],
+     events:[{d:'2025-02-20',a:20000,k:10,s:.08,l:'VCT Masters Bangkok'},{d:'2025-06-07',a:30000,k:14,s:.1,l:'VCT Masters Toronto'}],
+     keywords:[['ランク',45,-.1,10],['VCT',40,.6,80],['新エージェント',25,.4,30],['スマーフ',20,-.8,20],['煽り',15,-.9,10]],
+     posts:[['VCT Masters Toronto、日本チームの試合熱すぎた！','pos','2025-06-15',11200,2300],['ランクでスマーフに当たりすぎてやる気なくなる','neg','2025-05-03',4100,350]]},
+    {id:'apex',name:'Apex Legends',base:8000,trend:-.1,sent:[.35,.3],
+     events:[{d:'2025-02-11',a:30000,k:4,s:.05,l:'Apex 新シーズン開始'},{d:'2025-02-12',a:15000,k:2,s:-.3,l:'Apex サーバー障害'},{d:'2025-05-06',a:32000,k:4,s:.08,l:'Apex 新シーズン開始'}],
+     keywords:[['ランク',40,-.1,10],['チーター',35,-.9,30],['シーズン',35,.4,40],['プレデター',20,.5,5],['鯖落ち',25,-.9,60]],
+     posts:[['Apex新シーズン、ランクのマッチング改善されてて楽しい','pos','2025-05-07',3800,410],['またチーターに当たった。対策どうなってるの','neg','2025-03-21',6200,980],['鯖落ちでランク負け扱いは許せん','neg','2025-02-12',4500,520]]}
+   ]},
+  {id:'esports',name:'eスポーツ・配信',cat:'esports',base:8000,trend:.05,
+   desc:'ゲーム実況・配信および大会・イベントに関する発話。',
+   keywords:[['eスポーツ',40,.4,10],['大会',35,.5,20],['配信',40,.4,15]],
+   insights:[{tag:'trend',t:'Switch 2 発売日は同時配信ラッシュで実況領域も急伸',b:'新ハード発売日はゲーム実況の発話が平常時を大きく上回る。開封・初見配信の切り抜き拡散が特徴。'}],
+   posts:[['eスポーツの大会、地上波でもっと流れてほしい','neu','2025-05-10',1500,120]],
+   children:[
+    {id:'jikkyo',name:'ゲーム実況・配信',base:20000,trend:.08,sent:[.5,.12],
+     events:[{d:'2025-02-28',a:20000,k:3,s:.05,l:'モンハンワイルズ 配信ラッシュ'},{d:'2025-06-05',a:45000,k:4,s:.1,l:'Switch 2 発売日の同時配信ラッシュ'}],
+     keywords:[['配信',50,.4,15],['切り抜き',35,.5,40],['同接',30,.3,30],['VTuber',40,.5,20],['耐久配信',20,.4,60],['初見プレイ',25,.5,30]],
+     posts:[['Switch 2 の開封配信、同接すごいことになってて笑った','pos','2025-06-05',7100,940],['推しVTuberのマリカワールド耐久配信、最後まで見ちゃった','pos','2025-06-08',5300,610]]},
+    {id:'taikai',name:'大会・イベント',base:5000,trend:.05,sent:[.52,.12],
+     events:[{d:'2025-05-02',a:40000,k:3,s:.12,l:'EVO Japan 2025'}],
+     keywords:[['EVO Japan',40,.7,300],['優勝',35,.8,30],['現地観戦',25,.7,60],['格ゲー',30,.5,40],['スト6',35,.5,40]],
+     posts:[['EVO Japan現地観戦してきた！ スト6の決勝、会場の熱気がすごかった','pos','2025-05-04',9800,1600],['大会の配信、遅延とトラブル多かったのが残念','neg','2025-05-03',2100,180]]}
+   ]}
+ ]};
+
+/* =========================================================
+   3. Data generation & aggregation
+========================================================= */
+const NODES={};
+function jit(vec,r,amt=.15){return vec.map(v=>v*(1-amt+r()*2*amt));}
+function heatVec(p,seed){
+  const r=rng(seed),H=HEAT[p],out=[];
+  for(let d=0;d<7;d++){const we=d>=5;
+    for(let h=0;h<24;h++){
+      let v=.06;
+      const add=([c,w,a])=>{let dist=Math.abs(h-c);dist=Math.min(dist,24-dist);v+=a*Math.exp(-dist*dist/(2*w*w));};
+      H.p.forEach(add);if(we)H.w.forEach(add);
+      if((d===4&&h>=22)||(d===5&&h<=1))v*=1.15;
+      v*=(we?1.08:1)*(0.92+r()*0.16);out.push(v);
+    }}
+  return out;
+}
+function makeProf(node){
+  const P=PRESETS[node.cat],r=rng(hash(node.id+'p'));
+  return{cat:node.cat,intents:node.intents||jit(P.intents,r),emo:node.emo||jit(P.emo,r),age:node.age||jit(P.age,r,.12),gender:node.gender||jit(P.gender,r,.08),
+    heat:heatVec(node.heat||P.heat,hash(node.id+'h')),uniq:P.uniq*(0.9+r()*0.2),imp:P.imp*(0.8+r()*0.4),
+    sent:node.sent||[P.sent[0]+(r()-.5)*.1,P.sent[1]+(r()-.5)*.06]};
+}
+function genOwn(node){
+  const r=rng(hash(node.id)),P=node.prof,base=node.base;
+  const trend=node.trend!=null?node.trend:(r()*0.3-0.08),noise=node.noise!=null?node.noise:0.1;
+  const [p0,n0]=P.sent;
+  node.evs=(node.events||[]).map(e=>Object.assign({},e,{t:di(e.d),node}));
+  const vol=[],pos=[],neg=[];
+  for(let t=0;t<N;t++){
+    const bv=base*(1+trend*t/N)*DOW_F[DATES[t].getDay()]*(1+(r()-.5)*2*noise);
+    let v=bv,pc=bv*clamp(p0+(r()-.5)*.04,.02,.95),nc=bv*clamp(n0+(r()-.5)*.04,.02,.9);
+    for(const e of node.evs){
+      let ev=0;
+      if(t>=e.t)ev=e.a*Math.exp(-(t-e.t)/e.k)*(0.88+r()*0.24);
+      else if(e.t-t<=3&&e.l)ev=e.a*0.035*(4-(e.t-t));
+      if(ev>0){const s=e.s||0;v+=ev;pc+=ev*clamp(p0+s*1.5,.03,.9);nc+=ev*clamp(n0-s*1.5,.02,.85);}
+    }
+    vol.push(Math.round(v));pos.push(pc);neg.push(nc);
+  }
+  node.ownVol=vol;node.ownPos=pos;node.ownNeg=neg;
+}
+function makeAspects(node){
+  const r=rng(hash(node.id+'a'));
+  if(node.aspects)return node.aspects.map(([n,share,pos,neg,g])=>({n,share,pos,neg,g}));
+  const names=node.aspectNames||ASPECTS[node.prof.cat];
+  const ws=names.map(()=>0.4+r()),tot=ws.reduce((a,b)=>a+b,0),[p0,n0]=node.prof.sent;
+  return names.map((n,i)=>{
+    const ng=NEG_WORDS.some(w=>n.includes(w));
+    let pos=ng?p0*0.45+r()*.1:clamp(p0+(r()-.3)*.25,.1,.9);
+    let neg=ng?clamp(n0+0.25+r()*.15,0,.8):clamp(n0*(0.5+r()*.6),.02,.5);
+    if(pos+neg>.95)pos=.95-neg;
+    return{n,share:ws[i]/tot,pos,neg,g:Math.round((r()-.3)*80)};
+  });
+}
+function mkPost(p,node){
+  const [text,s,d,l,rt]=p,h=hash(text),u=USERS[h%USERS.length];
+  return{text,s,d,t:di(d),l,rt,node:node.name,nodeId:node.id,user:u[0],handle:u[1],color:PAL[h%PAL.length]};
+}
+function build(node,parent,depth){
+  node.parent=parent;node.depth=depth;
+  node.cat=node.cat||(parent?parent.cat:'general');
+  node.prof=makeProf(node);genOwn(node);
+  node.children=node.children||[];
+  node.vol=node.ownVol.slice();node.pos=node.ownPos.slice();node.neg=node.ownNeg.slice();
+  node.uniq=node.ownVol.map(v=>v*node.prof.uniq);node.imp=node.ownVol.map(v=>v*node.prof.imp);
+  node.children.forEach(c=>{build(c,node,depth+1);
+    for(let t=0;t<N;t++){node.vol[t]+=c.vol[t];node.pos[t]+=c.pos[t];node.neg[t]+=c.neg[t];node.uniq[t]+=c.uniq[t]*0.92;node.imp[t]+=c.imp[t];}});
+  if(!node.children.length)node.aspectList=makeAspects(node);
+  node.postList=(node.posts||[]).map(p=>mkPost(p,node));
+  if(!node.desc)node.desc=`「${node.name}」に関するX上の発話。${parent?`上位トピック「${parent.name}」の一部。`:''}`;
+  NODES[node.id]=node;
+}
+build(TREE,null,0);
+
+function descend(node,fn){fn(node);node.children.forEach(c=>descend(c,fn));}
+function stat(n,s,e){return{vol:sumR(n.vol,s,e),pos:sumR(n.pos,s,e),neg:sumR(n.neg,s,e),uniq:sumR(n.uniq,s,e),imp:sumR(n.imp,s,e)};}
+function aggVec(node,key,s,e){
+  const ow=sumR(node.ownVol,s,e),acc=node.prof[key].map(v=>v*ow);let W=ow;
+  node.children.forEach(c=>{const r=aggVec(c,key,s,e);r.vec.forEach((v,i)=>acc[i]+=v*r.w);W+=r.w;});
+  return{vec:acc.map(v=>v/(W||1)),w:W};
+}
+function aggKw(node,s,e){
+  const map={},total=sumR(node.vol,s,e)||1;
+  (function add(n){
+    const w=sumR(n.ownVol,s,e)/total,kws=n.keywords||[],tw=kws.reduce((a,k)=>a+k[1],0)||1;
+    kws.forEach(([word,wt,sen,g])=>{
+      const x=wt/tw*w;if(x<=0)return;
+      const gg=g!=null?g:Math.round((rng(hash(word))()-.3)*100);
+      const m=map[word]||(map[word]={word,w:0,s:0,g:0,src:n.name});
+      m.s=(m.s*m.w+sen*x)/(m.w+x);m.g=(m.g*m.w+gg*x)/(m.w+x);m.w+=x;
+    });
+    n.children.forEach(add);
+  })(node);
+  return Object.values(map).sort((a,b)=>b.w-a.w);
+}
+function eventsIn(node,s,e){
+  const list=[];descend(node,n=>n.evs.forEach(ev=>{if(ev.l&&ev.t>=s&&ev.t<e)list.push(ev);}));
+  // group same-day
+  const g={};list.forEach(ev=>{const k=ev.t;(g[k]=g[k]||{t:k,a:0,items:[]});g[k].a+=ev.a;g[k].items.push(ev);});
+  return Object.values(g).sort((a,b)=>b.a-a.a).slice(0,6).sort((a,b)=>a.t-b.t).map((x,i)=>({...x,no:i+1,
+    label:[...new Set(x.items.map(i=>i.l))].join(' ／ '),nodes:[...new Set(x.items.map(i=>i.node.name))].join('・')}));
+}
+function peakCause(node,tp){
+  let best=null,bv=0;
+  descend(node,n=>n.evs.forEach(ev=>{if(!ev.l||ev.t>tp)return;const c=ev.a*Math.exp(-(tp-ev.t)/ev.k);if(c>bv){bv=c;best=ev;}}));
+  return best;
+}
+
+/* =========================================================
+   4. State
+========================================================= */
+const state={node:'game',period:90,gran:'day',pf:'all',kw:null,sort:'eng',open:new Set(['game','consumer']),q:'',limit:10};
+const cur=()=>NODES[state.node];
+function getRange(){const p=state.period,s=N-p,e=N,ps=s-p>=0?s-p:null;return{s,e,ps,pe:ps==null?null:s};}
+function go(id,scroll=true){
+  state.node=id;state.kw=null;state.limit=10;
+  let n=NODES[id];while(n){state.open.add(n.id);n=n.parent;}
+  render();
+  if(scroll)window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* =========================================================
+   5. Chart setup
+========================================================= */
+Chart.defaults.color='#8b98ab';
+Chart.defaults.font.family='"Hiragino Sans","Noto Sans JP","Yu Gothic UI",Meiryo,sans-serif';
+Chart.defaults.font.size=11;
+Chart.defaults.borderColor='rgba(148,163,184,.10)';
+Chart.defaults.maintainAspectRatio=false;
+Chart.defaults.plugins.legend.labels.boxWidth=10;
+Chart.defaults.plugins.legend.labels.boxHeight=10;
+Chart.defaults.plugins.tooltip.backgroundColor='#0b1220';
+Chart.defaults.plugins.tooltip.borderColor='#26354d';
+Chart.defaults.plugins.tooltip.borderWidth=1;
+Chart.defaults.plugins.tooltip.padding=9;
+const MARKS={};
+Chart.register({id:'eventLines',afterDatasetsDraw(chart){
+  const marks=MARKS[chart.canvas.id];if(!marks||!marks.length)return;
+  const{ctx,chartArea:{top,bottom,left,right},scales:{x}}=chart;ctx.save();
+  marks.forEach(m=>{
+    if(m.idx<0)return;const px=x.getPixelForValue(m.idx);if(px<left-1||px>right+1)return;
+    ctx.strokeStyle='rgba(245,158,11,.65)';ctx.setLineDash([3,3]);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(px,top);ctx.lineTo(px,bottom);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#f59e0b';ctx.beginPath();ctx.arc(px,top-9,8,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#111';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(m.no,px,top-9);
+  });ctx.restore();
+}});
+Chart.register({id:'bubbleLabels',afterDatasetsDraw(chart){
+  if(chart.config.type!=='bubble')return;
+  const ctx=chart.ctx;ctx.save();ctx.font='11px sans-serif';ctx.fillStyle='#dbe4f0';ctx.textBaseline='middle';
+  chart.data.datasets.forEach((ds,i)=>{chart.getDatasetMeta(i).data.forEach((el,j)=>{const d=ds.data[j];ctx.fillText(d.name,el.x+(el.options.radius||d.r)+4,el.y);});});
+  ctx.restore();
+}});
+const charts={};
+function mkChart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);}
+function getBins(s,e,gran){
+  gran=gran||state.gran;const o=[];
+  if(gran==='day'){for(let t=s;t<e;t++)o.push([t,t+1,fmtD(DATES[t])]);return o;}
+  for(let end=e;end-7>=s;end-=7)o.unshift([end-7,end,fmtD(DATES[end-7])+'週']);return o;
+}
+const binIdx=(B,t)=>B.findIndex(b=>t>=b[0]&&t<b[1]);
+const netColor=(net,a=1)=>`hsla(${clamp((net+0.2)/0.8,0,1)*130},70%,55%,${a})`;
+
+/* =========================================================
+   6. Renderers
+========================================================= */
+function renderTree(){
+  const{s,e,ps,pe}=getRange(),el=$('tree');el.innerHTML='';
+  const q=state.q.trim().toLowerCase();
+  const row=(node,flat)=>{
+    const c=sumR(node.vol,s,e),g=ps!=null?pct(c,sumR(node.vol,ps,pe)):null;
+    const hasC=node.children.length,open=state.open.has(node.id);
+    const d=document.createElement('div');
+    d.className='tn'+(node.id===state.node?' active':'');
+    d.style.paddingLeft=(flat?8:8+node.depth*14)+'px';
+    d.innerHTML=`<span class="caret">${flat?'›':hasC?(open?'▾':'▸'):'·'}</span>
+      <span class="tn-name" title="${esc(node.name)}">${esc(node.name)}${flat&&node.parent?`<span style="color:#64748b;font-size:10.5px"> ／ ${esc(node.parent.name)}</span>`:''}</span>
+      <span class="tn-vol">${fmtN(c)}</span>
+      <span class="tn-g ${g==null?'':g>=0?'up':'down'}">${g==null?'':(g>=0?'+':'')+g.toFixed(0)+'%'}</span>`;
+    d.onclick=ev=>{
+      if(!flat&&ev.target.classList.contains('caret')&&hasC){open?state.open.delete(node.id):state.open.add(node.id);renderTree();return;}
+      go(node.id);
+    };
+    el.appendChild(d);
+  };
+  if(q){Object.values(NODES).filter(n=>n.name.toLowerCase().includes(q)).forEach(n=>row(n,true));
+    if(!el.children.length)el.innerHTML='<div class="empty">該当なし</div>';return;}
+  (function rec(n){row(n,false);if(state.open.has(n.id))n.children.forEach(rec);})(TREE);
+}
+
+function renderHeader(){
+  const n=cur(),{s,e,ps}=getRange();
+  $('rangeLabel').innerHTML=`期間 <b>${fmtDate(DATES[s])} 〜 ${fmtDate(DATES[e-1])}</b>${ps!=null?`　比較: 前${state.period}日`:'　（比較期間なし）'}`;
+  const path=[];let p=n;while(p){path.unshift(p);p=p.parent;}
+  $('crumbs').innerHTML=path.map(x=>`<a class="${x.id===n.id?'cur':''}" data-id="${x.id}">${esc(x.name)}</a>`).join('<span>›</span>');
+  $('crumbs').querySelectorAll('a').forEach(a=>a.onclick=()=>go(a.dataset.id));
+  $('lvl').textContent=LEVELS[n.depth]+(n.children.length?'':'　｜　論点（アスペクト）分析モード');
+  $('title').textContent=n.name;$('desc').textContent=n.desc;
+  $('upBtn').disabled=!n.parent;
+  const cc=$('childChips');
+  if(n.children.length){
+    const tot=sumR(n.vol,s,e);
+    cc.innerHTML='<span class="lab">ドリルダウン ▸</span>'+n.children.map(c=>({c,v:sumR(c.vol,s,e)})).sort((a,b)=>b.v-a.v)
+      .map(({c,v})=>`<button class="chip" data-id="${c.id}">${esc(c.name)}<span>${(v/tot*100).toFixed(1)}%</span></button>`).join('');
+    cc.querySelectorAll('.chip').forEach(b=>b.onclick=()=>go(b.dataset.id));
+  }else{
+    cc.innerHTML=`<span class="lab">最下層トピックです。サブトピックの代わりに「論点（アスペクト）」単位で分析しています。</span>`;
+  }
+}
+
+function spark(vals,color){
+  if(vals.length<2)return'';
+  const mn=Math.min(...vals),mx=Math.max(...vals),rg=mx-mn||1;
+  const pts=vals.map((v,i)=>`${(i/(vals.length-1)*100).toFixed(1)},${(27-(v-mn)/rg*24).toFixed(1)}`);
+  return`<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none"><polygon points="0,30 ${pts.join(' ')} 100,30" fill="${alpha(color,.15)}"/><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function deltaHTML(v,unit,inv){
+  if(v==null||isNaN(v))return'<span class="delta na">前期比 —</span>';
+  const up=v>=0,good=inv?!up:up;
+  return`<span class="delta ${good?'good':'bad'}">${up?'▲':'▼'} ${Math.abs(v).toFixed(1)}${unit}</span>`;
+}
+function renderKPIs(){
+  const n=cur(),{s,e,ps,pe}=getRange(),c=stat(n,s,e),p=ps!=null?stat(n,ps,pe):null;
+  const posR=c.pos/c.vol*100,negR=c.neg/c.vol*100;
+  let peakT=s;for(let t=s;t<e;t++)if(n.vol[t]>n.vol[peakT])peakT=t;
+  const size=Math.max(1,Math.round(state.period/18)),SB=[];
+  for(let t=s;t<e;t+=size)SB.push([t,Math.min(e,t+size)]);
+  const sv=f=>SB.map(b=>f(b[0],b[1]));
+  let share;
+  if(n.parent){
+    const sh=c.vol/sumR(n.parent.vol,s,e)*100,psh=p?p.vol/sumR(n.parent.vol,ps,pe)*100:null;
+    share={label:`「${n.parent.name}」内シェア`,val:sh.toFixed(1)+'%',d:p?sh-psh:null,unit:'pt',foot:`${LEVELS[n.depth].split(' ')[0]} 粒度での存在感`,sp:sv((a,b)=>sumR(n.vol,a,b)/sumR(n.parent.vol,a,b)),col:'#a78bfa'};
+  }else{
+    share={label:'1日平均投稿数',val:fmtN(c.vol/(e-s)),d:p?pct(c.vol,p.vol):null,unit:'%',foot:'最上位カテゴリ',sp:sv((a,b)=>sumR(n.vol,a,b)/(b-a)),col:'#a78bfa'};
+  }
+  const items=[
+    {label:'総投稿数',val:fmtN(c.vol),d:p?pct(c.vol,p.vol):null,unit:'%',foot:`ピーク ${fmtD(DATES[peakT])}（${fmtN(n.vol[peakT])}件）`,sp:sv((a,b)=>sumR(n.vol,a,b)),col:'#1d9bf0'},
+    {label:'ユニーク投稿者数',val:fmtN(c.uniq),d:p?pct(c.uniq,p.uniq):null,unit:'%',foot:`1人あたり ${(c.vol/c.uniq).toFixed(2)} 投稿`,sp:sv((a,b)=>sumR(n.uniq,a,b)),col:'#22d3ee'},
+    {label:'推定インプレッション',val:fmtN(c.imp),d:p?pct(c.imp,p.imp):null,unit:'%',foot:`投稿あたり ${fmtN(c.imp/c.vol)} imp`,sp:sv((a,b)=>sumR(n.imp,a,b)),col:'#f59e0b'},
+    {label:'ポジティブ率',val:posR.toFixed(1)+'%',d:p?posR-p.pos/p.vol*100:null,unit:'pt',foot:`ネットセンチメント ${posR-negR>=0?'+':''}${(posR-negR).toFixed(1)}`,sp:sv((a,b)=>sumR(n.pos,a,b)/sumR(n.vol,a,b)),col:'#22c55e'},
+    {label:'ネガティブ率',val:negR.toFixed(1)+'%',d:p?negR-p.neg/p.vol*100:null,unit:'pt',inv:true,foot:`ネガ投稿 ${fmtN(c.neg)} 件`,sp:sv((a,b)=>sumR(n.neg,a,b)/sumR(n.vol,a,b)),col:'#f43f5e'},
+    share
+  ];
+  $('kpis').innerHTML=items.map(k=>`<div class="card kpi s2 fade"><div class="k-label">${esc(k.label)}</div>
+    <div class="k-row"><div><div class="k-val">${k.val}</div>${deltaHTML(k.d,k.unit,k.inv)}</div>${spark(k.sp,k.col)}</div>
+    <div class="k-foot">${esc(k.foot)}</div></div>`).join('');
+}
+
+function renderTrend(){
+  const n=cur(),{s,e}=getRange(),B=getBins(s,e),labels=B.map(b=>b[2]),isLeaf=!n.children.length;
+  const marks=eventsIn(n,s,e);
+  MARKS.trendChart=marks.map(m=>({no:m.no,idx:binIdx(B,m.t)}));
+  let datasets=[],type='line',scales;
+  if(!isLeaf){
+    const kids=n.children.map(c=>({c,v:sumR(c.vol,s,e)})).sort((a,b)=>b.v-a.v).slice(0,6);
+    kids.forEach((k,i)=>datasets.push({label:k.c.name,nodeId:k.c.id,data:B.map(b=>sumR(k.c.vol,b[0],b[1])),borderColor:PAL[i],backgroundColor:alpha(PAL[i],.32),fill:i===0?'origin':'-1',tension:.3,pointRadius:0,pointHitRadius:6,borderWidth:1.5}));
+    const other=B.map((b,j)=>Math.max(0,sumR(n.vol,b[0],b[1])-datasets.reduce((a,d)=>a+d.data[j],0)));
+    datasets.push({label:'その他・一般',data:other,borderColor:'#475569',backgroundColor:'rgba(71,85,105,.32)',fill:'-1',tension:.3,pointRadius:0,borderWidth:1});
+    scales={x:{grid:{display:false},ticks:{maxTicksLimit:12}},y:{stacked:true,ticks:{callback:v=>fmtN(v)}}};
+    $('trendSub').textContent='サブトピック別 積み上げ';$('trendHint').textContent='凡例クリックでドリルダウン';
+  }else{
+    type='bar';
+    datasets.push({type:'bar',label:'投稿数',data:B.map(b=>sumR(n.vol,b[0],b[1])),backgroundColor:alpha('#1d9bf0',.55),borderRadius:2,order:3,yAxisID:'y'});
+    if(state.gran==='day'){
+      datasets.push({type:'line',label:'7日移動平均',data:B.map(b=>{const t=b[0],a=Math.max(0,t-6);return sumR(n.vol,a,t+1)/(t+1-a);}),borderColor:'#f59e0b',pointRadius:0,tension:.3,borderWidth:2,order:1,yAxisID:'y'});
+    }
+    if(n.parent)datasets.push({type:'line',label:`「${n.parent.name}」内シェア(%)`,data:B.map(b=>sumR(n.vol,b[0],b[1])/sumR(n.parent.vol,b[0],b[1])*100),borderColor:'#a78bfa',borderDash:[4,3],pointRadius:0,tension:.3,borderWidth:1.5,order:2,yAxisID:'y1'});
+    scales={x:{grid:{display:false},ticks:{maxTicksLimit:12}},y:{ticks:{callback:v=>fmtN(v)}},y1:{position:'right',grid:{display:false},ticks:{callback:v=>v.toFixed(1)+'%'}}};
+    $('trendSub').textContent=state.gran==='day'?'日次投稿数 ＋ 7日移動平均 ＋ 親カテゴリ内シェア':'週次投稿数 ＋ 親カテゴリ内シェア';$('trendHint').textContent='';
+  }
+  mkChart('trendChart',{type,data:{labels,datasets},options:{
+    layout:{padding:{top:20}},interaction:{mode:'index',intersect:false},scales,
+    plugins:{legend:{position:'bottom',onClick:(ev,item,legend)=>{const ds=legend.chart.data.datasets[item.datasetIndex];if(ds.nodeId)go(ds.nodeId);else Chart.defaults.plugins.legend.onClick(ev,item,legend);}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.dataset.yAxisID==='y1'?c.parsed.y.toFixed(2)+'%':fmtN(c.parsed.y)}`,
+        footer:items=>{if(isLeaf)return'';return'合計: '+fmtN(items.reduce((a,i)=>a+i.parsed.y,0));}}}}
+  }});
+}
+
+function renderInsights(){
+  const n=cur(),{s,e,ps,pe}=getRange(),c=stat(n,s,e),p=ps!=null?stat(n,ps,pe):null,auto=[];
+  let peakT=s;for(let t=s;t<e;t++)if(n.vol[t]>n.vol[peakT])peakT=t;
+  const ratio=n.vol[peakT]/(c.vol/(e-s)),cause=peakCause(n,peakT);
+  auto.push({tag:'auto',t:`${fmtD(DATES[peakT])} に発話ピーク（期間平均の ${ratio.toFixed(1)} 倍）`,b:cause&&peakT-cause.t<=7?`主因と推定：「${cause.l}」（${cause.node.name}）`:'特定イベントに依らない自然増と推定'});
+  if(p){
+    const g=pct(c.vol,p.vol),dp=(c.pos/c.vol-p.pos/p.vol)*100;
+    auto.push({tag:g>=0?'trend':'risk',t:`発話量は前期比 ${g>=0?'+':''}${g.toFixed(1)}%`,b:`前期 ${fmtN(p.vol)} → 当期 ${fmtN(c.vol)} 件。ポジティブ率は ${dp>=0?'+':''}${dp.toFixed(1)}pt 変化。`});
+  }
+  if(n.children.length){
+    const ks=n.children.map(ch=>{const st=stat(ch,s,e),pv=ps!=null?sumR(ch.vol,ps,pe):null;return{ch,st,g:pv?pct(st.vol,pv):null,neg:st.neg/st.vol,pos:st.pos/st.vol};});
+    const tot=c.vol;
+    if(p){const b=ks.filter(k=>k.g!=null).sort((a,b)=>b.g-a.g)[0];
+      if(b)auto.push({tag:'opportunity',t:`成長率トップ：${b.ch.name}（${b.g>=0?'+':''}${b.g.toFixed(0)}%）`,b:`発話シェア ${(b.st.vol/tot*100).toFixed(1)}%／ポジティブ率 ${(b.pos*100).toFixed(1)}%。クリックでドリルダウン。`,link:b.ch.id});}
+    const w=ks.slice().sort((a,b)=>b.neg-a.neg)[0];
+    auto.push({tag:'risk',t:`ネガティブ率最大：${w.ch.name}（${(w.neg*100).toFixed(1)}%）`,b:`「${n.name}」全体（${(c.neg/c.vol*100).toFixed(1)}%）を上回る。不満論点の深掘り推奨。`,link:w.ch.id});
+  }else{
+    const A=aspectItems(n,s,e);
+    const bp=A.slice().sort((a,b)=>(b.pos-b.neg)-(a.pos-a.neg))[0],bn=A.slice().sort((a,b)=>(a.pos-a.neg)-(b.pos-b.neg))[0];
+    auto.push({tag:'opportunity',t:`最も評価が高い論点：${bp.name}`,b:`ポジティブ率 ${(bp.pos*100).toFixed(0)}%／言及シェア ${(bp.share*100).toFixed(0)}%。訴求ポイントとして活用余地。`});
+    auto.push({tag:'risk',t:`最も評価が低い論点：${bn.name}`,b:`ネガティブ率 ${(bn.neg*100).toFixed(0)}%／言及シェア ${(bn.share*100).toFixed(0)}%。対応・コミュニケーション設計が必要。`});
+  }
+  const kw=aggKw(n,s,e).slice(0,25).sort((a,b)=>b.g-a.g)[0];
+  if(kw)auto.push({tag:'auto',t:`急上昇ワード：「${kw.word}」（+${kw.g.toFixed(0)}%）`,b:`センチメント傾向：${kw.s>.25?'ポジティブ寄り':kw.s<-.25?'ネガティブ寄り':'中立'}。関連投稿は下部で確認可能。`,kw:kw.word});
+  const TAGL={trend:'トレンド',opportunity:'機会',risk:'リスク',auto:'自動検出'};
+  const all=[...(n.insights||[]).map(x=>({...x,src:'アナリストコメント'})),...auto.map(x=>({...x,src:'自動検出'}))];
+  $('insights').innerHTML=all.map(x=>`<div class="ins ${x.tag} fade" ${x.link?`data-link="${x.link}"`:''} ${x.kw?`data-kw="${esc(x.kw)}"`:''}>
+    <div class="ins-top"><span class="tag">${TAGL[x.tag]}</span><span class="src">${x.src}</span></div>
+    <div class="ins-t">${esc(x.t)}</div><div class="ins-b">${esc(x.b)}</div></div>`).join('');
+  $('insights').querySelectorAll('[data-link]').forEach(d=>d.onclick=()=>go(d.dataset.link));
+  $('insights').querySelectorAll('[data-kw]').forEach(d=>{d.style.cursor='pointer';d.onclick=()=>setKw(d.dataset.kw);});
+}
+
+function aspectItems(n,s,e){
+  const st=stat(n,s,e),f=clamp((st.pos/st.vol)/n.prof.sent[0],.7,1.3),fn=clamp((st.neg/st.vol)/n.prof.sent[1],.7,1.4);
+  return n.aspectList.map(a=>{let pos=clamp(a.pos*f,.02,.95),neg=clamp(a.neg*fn,.02,.9);if(pos+neg>.97)pos=.97-neg;
+    return{name:a.n,id:null,vol:st.vol*a.share,share:a.share,pos,neg,g:a.g};});
+}
+function subItems(n,s,e,ps,pe){
+  if(n.children.length)return n.children.map(c=>{const st=stat(c,s,e),pv=ps!=null?sumR(c.vol,ps,pe):null;
+    return{name:c.name,id:c.id,vol:st.vol,pos:st.pos/st.vol,neg:st.neg/st.vol,g:pv?pct(st.vol,pv):null};});
+  return aspectItems(n,s,e);
+}
+function renderSub(){
+  const n=cur(),{s,e,ps,pe}=getRange(),items=subItems(n,s,e,ps,pe).sort((a,b)=>b.vol-a.vol),isLeaf=!n.children.length;
+  const maxV=Math.max(...items.map(i=>i.vol)),useG=!isLeaf&&ps!=null;
+  const data=items.map(i=>({x:isLeaf?i.share*100:i.vol,y:useG?i.g:(i.pos-i.neg)*100,r:7+18*Math.sqrt(i.vol/maxV),name:i.name,id:i.id,net:i.pos-i.neg,vol:i.vol,g:i.g}));
+  $('bubbleTitle').textContent=isLeaf?'論点（アスペクト）マップ':'サブトピック・ポジショニング';
+  $('bubbleSub').textContent=isLeaf?'言及シェア × ネットセンチメント（色＝評価）':useG?'発話量 × 前期比成長率（色＝ネットセンチメント）':'発話量 × ネットセンチメント';
+  $('bubbleHint').textContent=isLeaf?'':'バブルクリックでドリルダウン';
+  mkChart('subBubble',{type:'bubble',data:{datasets:[{data,backgroundColor:data.map(d=>netColor(d.net,.55)),borderColor:data.map(d=>netColor(d.net,1)),borderWidth:1.5}]},
+    options:{layout:{padding:{right:70,top:10}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const d=c.raw;return[`${d.name}`,`発話量: ${fmtN(d.vol)}`,`ネットセンチメント: ${(d.net*100).toFixed(1)}`,d.g!=null?`前期比: ${d.g>=0?'+':''}${d.g.toFixed(1)}%`:''].filter(Boolean);}}}},
+    scales:{x:isLeaf?{title:{display:true,text:'言及シェア（%）'},ticks:{callback:v=>v+'%'}}:{type:'logarithmic',title:{display:true,text:'発話量（対数軸）'},ticks:{callback:v=>{const l=Math.log10(v);return Math.abs(l-Math.round(l))<1e-6?fmtN(v):'';}}},
+      y:{title:{display:true,text:useG?'前期比成長率（%）':'ネットセンチメント'},grid:{color:c=>c.tick.value===0?'rgba(226,232,240,.35)':'rgba(148,163,184,.10)'}}},
+    onClick:(ev,els,chart)=>{if(!els.length)return;const d=chart.data.datasets[0].data[els[0].index];if(d.id)go(d.id);},
+    onHover:(ev,els)=>{ev.native.target.style.cursor=els.length&&!isLeaf?'pointer':'default';}}});
+  $('sentBarTitle').textContent=isLeaf?'論点別センチメント構成':'サブトピック別センチメント構成';
+  $('sentBarHint').textContent=isLeaf?'':'バークリックでドリルダウン';
+  mkChart('subSent',{type:'bar',data:{labels:items.map(i=>i.name),datasets:[
+      {label:'ポジティブ',data:items.map(i=>i.pos*100),backgroundColor:'#22c55e',ids:items.map(i=>i.id)},
+      {label:'ニュートラル',data:items.map(i=>(1-i.pos-i.neg)*100),backgroundColor:'#475569'},
+      {label:'ネガティブ',data:items.map(i=>i.neg*100),backgroundColor:'#f43f5e'}]},
+    options:{indexAxis:'y',scales:{x:{stacked:true,max:100,ticks:{callback:v=>v+'%'}},y:{stacked:true,grid:{display:false}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.x.toFixed(1)}%`}}},
+      onClick:(ev,els,chart)=>{if(!els.length)return;const id=chart.data.datasets[0].ids[els[0].index];if(id)go(id);}}});
+}
+
+function renderSentiment(){
+  const n=cur(),{s,e}=getRange(),B=getBins(s,e);
+  const P=B.map(b=>sumR(n.pos,b[0],b[1])/sumR(n.vol,b[0],b[1])*100),Ng=B.map(b=>sumR(n.neg,b[0],b[1])/sumR(n.vol,b[0],b[1])*100);
+  MARKS.sentTrend=eventsIn(n,s,e).map(m=>({no:m.no,idx:binIdx(B,m.t)}));
+  mkChart('sentTrend',{type:'bar',data:{labels:B.map(b=>b[2]),datasets:[
+      {label:'ポジティブ',data:P,backgroundColor:'rgba(34,197,94,.75)',stack:'s',order:2},
+      {label:'ニュートラル',data:P.map((p,i)=>100-p-Ng[i]),backgroundColor:'rgba(71,85,105,.6)',stack:'s',order:2},
+      {label:'ネガティブ',data:Ng,backgroundColor:'rgba(244,63,94,.75)',stack:'s',order:2},
+      {type:'line',label:'ネットセンチメント',data:P.map((p,i)=>p-Ng[i]),borderColor:'#fbbf24',pointRadius:0,borderWidth:2,tension:.3,yAxisID:'y1',order:1}]},
+    options:{layout:{padding:{top:20}},interaction:{mode:'index',intersect:false},barPercentage:1,categoryPercentage:.95,
+      scales:{x:{stacked:true,grid:{display:false},ticks:{maxTicksLimit:10}},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}},y1:{position:'right',grid:{display:false},ticks:{callback:v=>(v>0?'+':'')+v}}},
+      plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}${c.dataset.yAxisID==='y1'?'':'%'}`}}}}});
+}
+
+function emoOf(node,s,e){
+  const v=aggVec(node,'emo',s,e).vec,st=stat(node,s,e),pr=st.pos/st.vol,nr=st.neg/st.vol;
+  let pk=0;for(let t=s;t<e;t++)pk=Math.max(pk,node.vol[t]);const spike=Math.min(pk/(st.vol/(e-s)),5);
+  return v.map((x,i)=>i===0?x*pr/.45:i===2?x*(0.7+0.12*spike):i>=4?x*nr/.18:x);
+}
+function renderEmotion(){
+  const n=cur(),{s,e}=getRange(),ds=[{label:n.name,data:emoOf(n,s,e),backgroundColor:'rgba(29,155,240,.25)',borderColor:'#1d9bf0',pointBackgroundColor:'#1d9bf0',borderWidth:2}];
+  if(n.parent)ds.push({label:n.parent.name+'（親）',data:emoOf(n.parent,s,e),backgroundColor:'rgba(148,163,184,.06)',borderColor:'rgba(148,163,184,.6)',borderDash:[4,3],pointRadius:0,borderWidth:1.5});
+  $('emoSub').textContent=n.parent?'親カテゴリと比較':'';
+  mkChart('emoChart',{type:'radar',data:{labels:EMOS,datasets:ds},options:{plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.r.toFixed(0)}`}}},
+    scales:{r:{angleLines:{color:'rgba(148,163,184,.15)'},grid:{color:'rgba(148,163,184,.15)'},pointLabels:{color:'#cbd5e1',font:{size:11}},ticks:{display:false},suggestedMin:0}}}});
+}
+function renderIntent(){
+  const n=cur(),{s,e}=getRange(),v=norm(aggVec(n,'intents',s,e).vec);
+  mkChart('intentChart',{type:'doughnut',data:{labels:INTENTS,datasets:[{data:v,backgroundColor:['#1d9bf0','#22c55e','#a78bfa','#f43f5e','#f59e0b','#22d3ee'],borderColor:'#111827',borderWidth:2}]},
+    options:{cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:10.5}}},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toFixed(1)}%`}}}}});
+}
+
+function setKw(w){state.kw=state.kw===w?null:w;state.limit=10;renderKeywords();renderPosts();if(state.kw)$('postsCard').scrollIntoView({behavior:'smooth',block:'start'});}
+function renderKeywords(){
+  const n=cur(),{s,e}=getRange(),all=aggKw(n,s,e),top=all.slice(0,36);
+  const mx=top[0]?top[0].w:1,r=rng(hash(n.id+'c'));
+  const sh=top.map(k=>({k,o:r()})).sort((a,b)=>a.o-b.o).map(x=>x.k);
+  $('cloud').innerHTML=sh.map(k=>{
+    const fs=11+25*Math.sqrt(k.w/mx),col=k.s>.3?'#4ade80':k.s<-.25?'#fb7185':(k.s>.05?'#7dd3fc':'#cbd5e1');
+    return`<span class="${state.kw===k.word?'sel':''}" data-w="${esc(k.word)}" style="font-size:${fs.toFixed(1)}px;color:${col};opacity:${(0.6+0.4*Math.sqrt(k.w/mx)).toFixed(2)}" title="関連度 ${(k.w/mx*100).toFixed(0)} ／ センチメント ${k.s.toFixed(2)} ／ 前期比 +${k.g.toFixed(0)}%（${esc(k.src)}）">${esc(k.word)}</span>`;
+  }).join('');
+  $('cloud').querySelectorAll('span').forEach(sp=>sp.onclick=()=>setKw(sp.dataset.w));
+  const rise=all.slice(0,30).sort((a,b)=>b.g-a.g).slice(0,8),mg=Math.max(...rise.map(r=>r.g),1);
+  $('rising').innerHTML=rise.map((k,i)=>`<div class="rise-row" data-w="${esc(k.word)}"><span class="rise-rank">${i+1}</span>
+    <div><div class="rise-w">${esc(k.word)}</div><div class="rise-bar"><i style="width:${Math.max(4,k.g/mg*100)}%"></i></div></div>
+    <span class="rise-g">+${k.g.toFixed(0)}%</span></div>`).join('');
+  $('rising').querySelectorAll('.rise-row').forEach(d=>d.onclick=()=>setKw(d.dataset.w));
+}
+function renderEvents(){
+  const n=cur(),{s,e}=getRange(),ev=eventsIn(n,s,e);
+  $('timeline').innerHTML=ev.length?ev.map(m=>`<div class="tl-row"><span class="tl-no">${m.no}</span><div>
+    <div class="tl-d">${fmtDate(DATES[m.t])}（${'日月火水木金土'[DATES[m.t].getDay()]}）　<span style="color:#fbbf24">+${fmtN(m.a)}件/日 規模</span></div>
+    <div class="tl-l">${esc(m.label)}</div><div class="tl-n">${esc(m.nodes)}</div></div></div>`).join(''):'<div class="empty">期間内の主要イベントなし</div>';
+}
+function renderHeat(){
+  const n=cur(),{s,e}=getRange(),v=aggVec(n,'heat',s,e).vec,mx=Math.max(...v),D=['月','火','水','木','金','土','日'];
+  let h='<div></div>';for(let i=0;i<24;i++)h+=`<div class="hl">${i%3===0?i:''}</div>`;
+  for(let d=0;d<7;d++){h+=`<div class="dl">${D[d]}</div>`;
+    for(let i=0;i<24;i++){const x=v[d*24+i]/mx;h+=`<div class="c" style="background:rgba(29,155,240,${(0.05+x*0.95).toFixed(3)})" title="${D[d]}曜 ${i}時台：指数 ${(x*100).toFixed(0)}"></div>`;}}
+  $('heat').innerHTML=h;
+  const pi=v.indexOf(mx);
+  const wd=v.slice(0,120).reduce((a,b)=>a+b,0)/5,we=v.slice(120).reduce((a,b)=>a+b,0)/2;
+  $('heatPeak').innerHTML=`ピーク：<b style="color:#e6edf6">${D[Math.floor(pi/24)]}曜 ${pi%24}時台</b>　｜　週末/平日比 ${(we/wd).toFixed(2)}倍`;
+}
+function renderDemo(){
+  const n=cur(),{s,e}=getRange(),a=norm(aggVec(n,'age',s,e).vec),g=norm(aggVec(n,'gender',s,e).vec);
+  const ds=[{label:n.name,data:a,backgroundColor:'#1d9bf0',borderRadius:3}];
+  if(n.parent)ds.push({label:n.parent.name+'（親）',data:norm(aggVec(n.parent,'age',s,e).vec),backgroundColor:'rgba(148,163,184,.35)',borderRadius:3});
+  $('demoSub').textContent=n.parent?`年代構成は「${n.parent.name}」と比較`:'';
+  mkChart('ageChart',{type:'bar',data:{labels:AGES,datasets:ds},options:{plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`}}},scales:{x:{grid:{display:false}},y:{ticks:{callback:v=>v+'%'}}}}});
+  mkChart('genderChart',{type:'doughnut',data:{labels:GENDERS,datasets:[{data:g,backgroundColor:['#1d9bf0','#f472b6','#475569'],borderColor:'#111827',borderWidth:2}]},
+    options:{cutout:'62%',plugins:{legend:{position:'bottom'},title:{display:true,text:'性別（推定）',color:'#8b98ab',font:{weight:'normal'}},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toFixed(1)}%`}}}}});
+}
+function renderPosts(){
+  const n=cur();let list=[];descend(n,x=>list.push(...x.postList));
+  const total=list.length;
+  if(state.pf!=='all')list=list.filter(p=>p.s===state.pf);
+  if(state.kw)list=list.filter(p=>p.text.includes(state.kw));
+  list.sort(state.sort==='eng'?(a,b)=>(b.l+b.rt*3)-(a.l+a.rt*3):(a,b)=>b.t-a.t);
+  $('postsSub').textContent=`サンプル ${total} 件中 ${list.length} 件表示対象`;
+  $('kwFilter').innerHTML=state.kw?`<span class="kw-filter" id="kwClear">🔎 「${esc(state.kw)}」で絞り込み中 ✕</span>`:'';
+  if(state.kw)$('kwClear').onclick=()=>{state.kw=null;renderKeywords();renderPosts();};
+  const SL={pos:'ポジティブ',neg:'ネガティブ',neu:'ニュートラル'};
+  const hl=t=>{let x=esc(t);if(state.kw){const k=esc(state.kw);x=x.split(k).join(`<mark>${k}</mark>`);}return x;};
+  $('posts').innerHTML=list.length?list.slice(0,state.limit).map(p=>`<div class="post fade"><div class="av" style="background:${p.color}">${esc([...p.user][0])}</div>
+    <div class="pbody"><div class="phead"><span class="pname">${esc(p.user)}</span><span class="phandle">@${esc(p.handle)} · ${fmtDate(DATES[p.t]||START)}</span></div>
+    <div class="ptext">${hl(p.text)}</div>
+    <div class="pfoot"><span>♡ ${fmtN(p.l)}</span><span>⟲ ${fmtN(p.rt)}</span><span class="stag ${p.s}">${SL[p.s]}</span><span class="ttag">#${esc(p.node)}</span></div></div></div>`).join('')
+    :'<div class="empty">条件に一致する投稿がありません</div>';
+  $('moreBtn').style.display=list.length>state.limit?'block':'none';
+}
+
+function render(){
+  renderTree();renderHeader();renderKPIs();renderTrend();renderInsights();renderSub();
+  renderSentiment();renderEmotion();renderIntent();renderKeywords();renderEvents();renderHeat();renderDemo();renderPosts();
+}
+
+/* =========================================================
+   7. Events
+========================================================= */
+function bindSeg(id,attr,fn){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{$(id).querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');fn(b.dataset[attr]);});}
+bindSeg('periodSeg','p',v=>{state.period=+v;render();});
+bindSeg('granSeg','g',v=>{state.gran=v;renderTrend();renderSentiment();});
+bindSeg('pfSeg','f',v=>{state.pf=v;state.limit=10;renderPosts();});
+bindSeg('sortSeg','s',v=>{state.sort=v;renderPosts();});
+$('moreBtn').onclick=()=>{state.limit+=10;renderPosts();};
+$('upBtn').onclick=()=>{const p=cur().parent;if(p)go(p.id);};
+$('search').oninput=e=>{state.q=e.target.value;renderTree();};
+$('search').onkeydown=e=>{if(e.key==='Enter'){const m=Object.values(NODES).find(n=>n.name.toLowerCase().includes(state.q.trim().toLowerCase()));if(m){state.q='';e.target.value='';go(m.id);}}};
+let demoTimer=null;
+$('demoBtn').onclick=()=>{
+  if(demoTimer){clearTimeout(demoTimer);demoTimer=null;$('demoBtn').textContent='▶ ドリルダウン例を再生';return;}
+  const path=['game','consumer','switch','mkw'];let i=0;$('demoBtn').textContent='■ 停止';
+  const step=()=>{go(path[i]);i++;if(i<path.length)demoTimer=setTimeout(step,2200);else{demoTimer=null;$('demoBtn').textContent='▶ ドリルダウン例を再生';}};
+  step();
+};
+
+render();
+</script>
+</body>
+</html>
