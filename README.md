@@ -1,8 +1,8 @@
 # llm-oneshot-dashboard-compare
 
-同じプロンプトを4つのLLMに1回ずつ渡し、1発で出てきたHTMLダッシュボードを比べた記録である。所要時間とAPIコストを測り、言われていないところまで作り込むか、ダミーデータをどれだけ用意するかといった実装の違いを、コードと画面から評価した。
+同じプロンプトを複数のLLMに1回ずつ渡し、1発で出てきたHTMLダッシュボードを比べた記録である。所要時間とAPIコストを測り、言われていないところまで作り込むか、ダミーデータをどれだけ用意するかといった実装の違いを、コードと画面から評価した。
 
-比較レポートは [report/index.html](report/index.html) をブラウザで開くと読める。
+比較レポートは [report/index.html](report/index.html) をブラウザで開くと読める。1ファイルで完結していて、各モデルのダッシュボードもその中で操作できる。
 
 ## 実験の概要
 
@@ -11,9 +11,55 @@
 - マクロからミクロまで粒度を遷移でき、各粒度で多面的に可視化できる(例として「ゲーム」から「コンシューマーゲーム」「任天堂スイッチ」「マリオカートワールド」へ降りる)
 - 発話量の推移から、発話トピックとインサイトの示唆を可視化する
 
-出力は各モデル1回だけで、再実行や手直しはしていない。例外が1つある。Fable 5.1の出力はJavaScriptが構文エラーで動かなかったため、1か所だけ直したものを評価に使った。
+実験は2回行った。この README の前半は、条件を揃えて6モデルで比べた最新の結果である。effort を指定しなかった最初の実験(4モデル)の記録は、後半の「最初の実験」に残している。
 
-## 比較したモデル
+## 最新の比較(6モデル、思考の強さ high)
+
+### 条件
+
+| 項目 | 内容 |
+|---|---|
+| 思考の強さ | 6モデルとも high を明示(OpenAI は `reasoning.effort`、Anthropic は `output_config.effort`、Gemini は `thinkingConfig.thinkingLevel`) |
+| 出力上限 | 各モデルの最大値。Claude の3モデルは128,000トークン、Gemini の2モデルは思考を含めて32,768トークン、gpt-6-astra は指定なし |
+| 呼び出し方 | 各社のAPIをストリーミングで直接呼び出し、システムプロンプトは付けない |
+| 生成の回数 | 各モデル1回。出力は手直ししていない |
+
+gpt-6-astra、Fable 5.1、Opus 5.5、Gemini 4 Argon は2026-10-15に、Fable 5.2 と Gemini 4 Carbon は2026-11-10に生成した。
+
+### 計測結果
+
+| | gpt-6-astra | Fable 5.1 | Fable 5.2 | Opus 5.5 | Gemini 4 Argon | Gemini 4 Carbon |
+|---|---|---|---|---|---|---|
+| 総所要時間 | 487秒 | 351秒 | 857秒 | 814秒 | 148秒 | 422秒 |
+| 最初の出力まで | 182秒 | 96秒 | 545秒 | 491秒 | 26秒 | 198秒 |
+| 出力トークン | 27,003 | 30,646 | 92,082 | 91,744 | 13,310 | 32,768(上限) |
+| うち思考トークン | 6,446 | 6,215 | 50,574 | 47,112 | 1,711 | 12,012 |
+| 単価(入力/出力、100万トークンあたり) | $10 / $50 * | $10 / $50 | $8 / $40 | $4 / $20 | $2 / $10 * | $2 / $10 * |
+| コスト目安 | 約$1.35 | 約$1.53 | 約$3.69 | 約$1.84 | 約$0.13 | 約$0.33 |
+| そのまま動作 | 動く | 動く | 動く | 動く | 動く | 途中で切れて枠だけ表示 |
+
+\* 二次情報の単価で、各社の公式ページでは確かめていない。Gemini の2モデルは導入期間の価格とされる。
+
+### 今回加えた2モデル
+
+- **Fable 5.2**: 6本の中で最も深く作り込んだ。手で定義した62ノード(L1〜L4)の下に、話題テーマのL5を335ノード自動で作り、L1からL5まで実際に降りられる。上位階層の数字は下位の合計と一致する。外部ライブラリは使わず、機能の数は11(Opus 5.5の12に次ぐ)。その代わり、思考トークンが Fable 5.1 の約8倍の50,574に増え、生成に857秒、コストは約$3.69と6モデルで最も高い。
+- **Gemini 4 Carbon**: 出力の上限(思考込み32,768トークン)に達し、HTMLが途中で切れた。12ノードのデータを手書きで厚く持たせる設計で、5ノード目を書いている途中で止まり、描画の処理は書かれなかった。画面には枠だけが表示される。APIはエラーを返しておらず(`finishReason: MAX_TOKENS`)、上限に対して出力量を見積もれなかった結果である。同じ上限の Argon は、4ノードに絞って書き切っている。
+
+### Fable 5.2 の1回目
+
+Fable 5.2 は最初、出力上限64,000トークン(思考の強さは既定の high)で生成したところ、64,000トークンをすべて思考に使って上限に達し、HTMLを1文字も出さなかった(684秒、約$2.56)。上限を128,000トークンに上げた2回目を評価に使っている。1回目の計測値は [metrics/claude-fable-5-2.attempt1-max64k.meta.json](metrics/claude-fable-5-2.attempt1-max64k.meta.json) にある。
+
+### ファイル
+
+- `outputs/high/`: 6モデルが出力したHTML。4モデル分は、この条件で作られたレポートに埋め込まれていたものを取り出した。
+- `outputs/high/raw/`, `metrics/high/`: 今回加えた2モデルの生の出力と計測値
+- `screenshots/high/`: 今回加えた2モデルの画面(ヘッドレスChrome、1600px幅)
+
+## 最初の実験(4モデル、思考の強さは既定)
+
+2026-10-15に、effort を指定せず各モデルの既定のまま動かした実験である。Opus 5.5 の既定は medium、Fable 5.1 の既定は high だった。この回のレポートは [report/2026-10-15-default-effort.html](report/2026-10-15-default-effort.html) に残している。
+
+### 比較したモデル
 
 | 表記 | モデルID | 呼び出し方 |
 |---|---|---|
@@ -22,11 +68,9 @@
 | Opus 5.5 | `claude-opus-5-5` | 同上 |
 | Gemini 4 Argon | 不明 | 利用者が別経路で生成したHTMLを取り込んだ |
 
-思考の強さ(effort)は指定せず、各モデルの既定のまま動かした。Opus 5.5の既定はmediumである。
-
 Argonだけは、APIキーもVertex AIの権限もなく、Google AI Pro枠のAntigravity CLIでも選べなかったため、同じ条件で呼び出せていない。生成にかかった時間とコストは測れていない。
 
-## 計測結果
+### 計測結果
 
 | | gpt-6-astra | Fable 5.1 | Opus 5.5 | Gemini Argon |
 |---|---|---|---|---|
@@ -44,7 +88,7 @@ gpt-6-astraの単価は二次情報で確認したもので、OpenAIの公式ペ
 
 生の計測値は [metrics/](metrics/) にある。
 
-## 実装の違い
+### 実装の違い
 
 | | gpt-6-astra | Fable 5.1 | Opus 5.5 | Gemini Argon |
 |---|---|---|---|---|
@@ -62,7 +106,7 @@ gpt-6-astraの単価は二次情報で確認したもので、OpenAIの公式ペ
 - Opus 5.5: 唯一L5まで粒度を取り、日次・週次の切替、NSS、推定リーチ、粒度間のジャンプリンクまで入れた。粒度遷移の設計が最も細かい。
 - Gemini Argon: データ量は最も少ないが、各インサイトに推奨アクションを付けた。投稿文が最も自然で、数字とストーリーが噛み合っている。
 
-## Fable 5.1の構文エラー
+### Fable 5.1の構文エラー
 
 Fable 5.1が出力したHTMLは、パンくずを描く `renderCrumb` 関数で変数 `n` を `let` と `const` の両方で宣言しており、script全体が実行されなかった。APIは `end_turn` で正常終了していて、出力の途中切れではない。
 
@@ -70,31 +114,34 @@ Fable 5.1が出力したHTMLは、パンくずを描く `renderCrumb` 関数で�
 
 ## 再現方法
 
-Python 3だけで動く。外部パッケージは使わない。APIキーを書いた `.env` を用意し、そのパスを `ENV_FILE` で渡す。必要なキーは `OPENAI_API_KEY` と `ANTHROPIC_API_KEY` である。
+Python 3だけで動く。外部パッケージは使わない。APIキーを書いた `.env` を用意し、そのパスを `ENV_FILE` で渡す。必要なキーは `OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`GEMINI_API_KEY` である。
+
+思考の強さは `EFFORT`、出力上限は `MAX_TOKENS` で指定する。どちらも省略すると、思考の強さは各モデルの既定値、出力上限は Claude が64,000、Gemini が32,768になる。最新の比較は次のように実行した。
 
 ```bash
-ENV_FILE=/path/to/.env python3 scripts/run.py gpt-6-astra
-ENV_FILE=/path/to/.env python3 scripts/run.py claude-fable-5-1
-ENV_FILE=/path/to/.env python3 scripts/run.py claude-opus-5-5
+EFFORT=high ENV_FILE=/path/to/.env python3 scripts/run.py gpt-6-astra
+EFFORT=high MAX_TOKENS=128000 ENV_FILE=/path/to/.env python3 scripts/run.py claude-fable-5-2
+EFFORT=high MAX_TOKENS=128000 ENV_FILE=/path/to/.env python3 scripts/run.py claude-opus-5-5
+EFFORT=high ENV_FILE=/path/to/.env python3 scripts/run.py gemini-4-carbon
 ```
 
 結果は `out/` に、HTML、生の出力、計測値(JSON)として保存される。モデルの応答に含まれる最初の ```html ブロックをHTMLとして切り出す。
 
 ## ディレクトリ構成
 
-- `prompt.txt`: 4モデルに渡したプロンプト
+- `prompt.txt`: 全モデルに渡したプロンプト
 - `scripts/run.py`: 呼び出しと計測のスクリプト
-- `outputs/`: 各モデルが出力したHTMLと、生の出力(`raw/`)
-- `metrics/`: 所要時間とトークン使用量
-- `screenshots/`: 各HTMLをヘッドレスChromeで開いた画面(1440px幅)
-- `report/index.html`: 比較レポート
-- `fixes/`: Fable 5.1の出力に加えた修正
+- `outputs/high/`, `metrics/high/`, `screenshots/high/`: 最新の比較(思考の強さ high)の成果物
+- `outputs/`, `metrics/`, `screenshots/`(直下): 最初の実験の成果物
+- `report/index.html`: 6モデルの比較レポート
+- `report/2026-10-15-default-effort.html`: 最初の実験のレポート
+- `fixes/`: 最初の実験で Fable 5.1 の出力に加えた修正
 
 ## 限界
 
 - 各モデル1回ずつの出力で、再実行すれば結果は変わりうる。
 - 評価は、初期表示の画面とコードの集計に基づく。すべてのボタンやドリルダウンを手で操作して確かめてはいない。
-- ArgonはAPIの条件が異なるため、時間とコストを他の3つと比べられない。
+- 出力上限はモデルごとに違う。Gemini の2モデルは思考を含めて32,768トークンで、Claude の3モデル(128,000トークン)より厳しい条件で書いている。
 - 生成したHTMLのデータはすべて架空のダミーであり、実在のXの投稿や統計ではない。
 
 ## ライセンス

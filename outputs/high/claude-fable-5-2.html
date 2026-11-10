@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X発話分析ダッシュボード｜ゲームカテゴリ（モック）</title>
+<style>
+:root{--bg:#0a0e14;--panel:#121923;--panel2:#18212d;--line:#243040;--tx:#e7ecf2;--mut:#8b98a8;--acc:#1d9bf0;--pos:#00ba7c;--neg:#f4425a;--neu:#64748b;--warn:#ffb020;--pur:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.55 "Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",Meiryo,system-ui,sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.app{display:grid;grid-template-columns:268px 1fr;min-height:100vh}
+.side{background:#0d131b;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow:auto;padding:14px 10px}
+.brand{display:flex;gap:10px;align-items:center;padding:4px 6px 14px}
+.brand b{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#fff;color:#000;font-size:18px}
+.brand div{font-weight:700;font-size:14px;line-height:1.3}.brand small{display:block;color:var(--mut);font-weight:400;font-size:11px}
+.sec{color:var(--mut);font-size:11px;letter-spacing:.08em;margin:14px 6px 6px}
+.trow{position:relative;display:flex;align-items:center;gap:4px;padding:5px 8px;border-radius:6px;cursor:pointer;overflow:hidden}
+.trow:hover{background:#17202c}.trow.inpath .tn{color:#fff;font-weight:600}.trow.on{background:#16324a}
+.trow i{position:absolute;left:0;bottom:0;height:2px;background:var(--acc);opacity:.45}
+.tw{width:12px;color:var(--mut);font-size:10px;flex:none}.tn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c5ceda}
+.tv{color:var(--mut);font-size:11px;flex:none}
+.qj{display:block;width:100%;text-align:left;padding:5px 8px;border-radius:6px;color:#c5ceda}.qj:hover{background:#17202c}
+.qj small{color:var(--acc);margin-right:6px}
+.note{margin:16px 6px;padding:10px;border:1px dashed var(--line);border-radius:8px;color:var(--mut);font-size:11px}
+main{min-width:0}
+.top{position:sticky;top:0;z-index:20;background:rgba(10,14,20,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#crumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.crumb{display:flex;flex-direction:column;align-items:flex-start;padding:4px 10px;border-radius:8px;border:1px solid transparent;text-align:left}
+.crumb small{font-size:10px;color:var(--mut)}.crumb span{font-weight:600;font-size:13px}
+.crumb:hover{background:var(--panel2)}.crumb.on{background:#16324a;border-color:#1d6fa8}
+.crumb.ghost{cursor:default;opacity:.55;border:1px dashed var(--line)}.crumb.ghost:hover{background:none}
+.sep{color:var(--mut);font-style:normal}
+.meta{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.badge.w{color:var(--warn);border-color:#6b4d10}
+.wrap{padding:16px 20px 40px}
+.nav2{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.meter{display:flex;align-items:center;gap:5px;color:var(--mut);font-size:11px}
+.meter i{width:34px;height:6px;border-radius:3px;background:#243040}.meter i.past{background:#1d5d8f}.meter i.on{background:var(--acc);box-shadow:0 0 8px var(--acc)}
+.nv{display:flex;gap:8px;align-items:flex-start;margin-top:8px}.nv>label{flex:none;width:118px;color:var(--mut);font-size:11px;padding-top:4px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);font-size:12px}
+.chip:hover{border-color:var(--acc);color:#fff}.chip em{font-style:normal;color:var(--mut);font-size:11px;margin-left:4px}
+.chip.up{border-style:dashed}
+.summary{margin-top:10px;padding:9px 12px;border-radius:8px;background:linear-gradient(90deg,#132a3f,#151c27);border-left:3px solid var(--acc);font-size:12.5px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c7{grid-column:span 7}.c6{grid-column:span 6}.c5{grid-column:span 5}.c4{grid-column:span 4}.c3{grid-column:span 3}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.card h3{margin:0;font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h3 small{font-weight:400;color:var(--mut);font-size:11px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:6px}
+.seg button{padding:3px 10px;font-size:11.5px;color:var(--mut)}.seg button.on{background:#16324a;color:#fff}
+.kpis{grid-column:span 12;display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi label{color:var(--mut);font-size:11px}.kpi .v{font-size:22px;font-weight:700;margin:2px 0;letter-spacing:.01em}.kpi .v small{font-size:12px;font-weight:400;color:var(--mut);margin-left:3px}
+.kpi .f{display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:var(--mut)}
+.up{color:var(--pos)}.dn{color:var(--neg)}
+#trend{position:relative}
+svg text{font-family:inherit}.ax{fill:#7c8898;font-size:10.5px}.grid-l{stroke:#1f2a37;stroke-width:1}
+.tip{position:absolute;top:34px;display:none;pointer-events:none;background:#0b1118;border:1px solid #33455a;border-radius:8px;padding:8px 10px;font-size:11.5px;min-width:160px;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.tip b{display:block;margin-bottom:4px}.tip div{display:flex;justify-content:space-between;gap:14px}.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.tip .e{margin-top:5px;color:var(--warn);display:block;max-width:240px}
+.lg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin-top:4px}.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+.evs{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-top:10px;font-size:11.5px}
+.evs div{display:flex;gap:6px;align-items:baseline}.evs b{flex:none;display:grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--warn);color:#000;font-size:10px}
+.evs span{color:var(--mut);flex:none}.evs em{font-style:normal;color:var(--warn);flex:none;margin-left:auto}
+.ins{display:flex;flex-direction:column;gap:8px;max-height:470px;overflow:auto;padding-right:4px}
+.in{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--panel2)}
+.in .tg{display:inline-block;font-size:10px;padding:1px 7px;border-radius:99px;margin-right:6px;font-weight:700}
+.tg.opp{background:#0b3d2e;color:#4ade80}.tg.risk{background:#4a1220;color:#fb7185}.tg.sign{background:#3b2f0b;color:#fbbf24}.tg.fact{background:#14304a;color:#60a5fa}
+.in b{font-size:12.5px}.in p{margin:4px 0 0;color:#aeb9c7;font-size:12px}
+.two{display:grid;grid-template-columns:5fr 7fr;gap:16px}
+#treemap{position:relative;border-radius:8px;overflow:hidden}
+.tmc{position:absolute;border-radius:4px;padding:5px 7px;overflow:hidden;color:#fff;display:flex;flex-direction:column;font-size:11px;line-height:1.35;transition:filter .15s}
+.tmc.link{cursor:pointer}.tmc.link:hover{filter:brightness(1.25);outline:2px solid #fff}
+.tmc b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tmc span{opacity:.85;white-space:nowrap}
+.scale{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--mut);margin-top:6px}.scale i{flex:1;height:6px;border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{color:var(--mut);font-weight:400;font-size:11px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:5px 6px;border-bottom:1px solid #1b2531;text-align:right;white-space:nowrap}
+th:nth-child(2),td:nth-child(2){text-align:left}
+td:nth-child(2){max-width:210px;overflow:hidden;text-overflow:ellipsis}
+tr.link{cursor:pointer}tr.link:hover td{background:#17202c}
+.sb{display:flex;height:8px;width:90px;border-radius:4px;overflow:hidden;margin-left:auto}.sb i{display:block;height:100%}
+.shb{display:inline-block;height:6px;border-radius:3px;background:var(--acc);vertical-align:middle;margin-right:6px;opacity:.8}
+.go{color:var(--acc)}
+.sent{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sl{font-size:12px;display:grid;gap:4px}.sl i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}.sl small{color:var(--mut);margin-left:6px}
+.brow{display:grid;grid-template-columns:128px 1fr 46px 56px;gap:8px;align-items:center;margin:6px 0;font-size:12px}
+.bl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bt{position:relative;height:10px;background:#1b2531;border-radius:5px}
+.bt i{position:absolute;left:0;top:0;bottom:0;border-radius:5px}.bt u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;opacity:.75}
+.bv{text-align:right}.bd{text-align:right;font-size:11px}
+.cap{color:var(--mut);font-size:11px;margin-top:6px}
+.kwgrid{display:grid;grid-template-columns:1fr 210px;gap:16px}
+.cloud{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:center;min-height:210px;padding:6px}
+.cloud span{line-height:1.15;white-space:nowrap}
+.rise div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #1b2531;font-size:12px}
+.heat{display:grid;grid-template-columns:22px repeat(24,1fr);gap:2px;font-size:10px;color:var(--mut)}
+.heat b{font-weight:400;text-align:center}.heat i{display:block;height:20px;border-radius:3px}
+.stk{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:6px 0 4px}.stk i{display:block;height:100%}
+.posts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.post{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2);display:flex;flex-direction:column;gap:6px}
+.pu{display:flex;gap:8px;align-items:center}.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
+.pu b{font-size:12.5px}.pu small{color:var(--mut);display:block;font-size:11px}
+.pt{font-size:13px;flex:1}.pm{display:flex;gap:12px;color:var(--mut);font-size:11px;flex-wrap:wrap;align-items:center}
+.st{font-size:10px;padding:1px 7px;border-radius:99px;margin-left:auto}.st.pos{background:#0b3d2e;color:#4ade80}.st.neg{background:#4a1220;color:#fb7185}.st.neu{background:#263241;color:#aab4c0}
+.th{font-size:10.5px;color:var(--acc)}
+@media(max-width:1180px){.app{grid-template-columns:1fr}.side{display:none}.kpis{grid-template-columns:repeat(3,1fr)}.c8,.c7,.c6,.c5,.c4,.c3{grid-column:span 12}.two,.kwgrid{grid-template-columns:1fr}.posts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><b>𝕏</b><div>Conversation Lens<small>発話トピック分析（モック）</small></div></div>
+    <div class="sec">トピック階層（マクロ → ミクロ）</div>
+    <div id="tree"></div>
+    <div class="sec">デモ導線（クリックで遷移）</div>
+    <div id="quick"></div>
+    <div class="note">※ 表示している数値・ポスト・アカウント名はすべてモック用に生成した<b>ダミーデータ</b>です。イベント日付は実際の出来事を参考にしていますが、発話量・センチメント等は架空です。</div>
+  </aside>
+  <main>
+    <header class="top">
+      <div id="crumbs"></div>
+      <div class="meta"><span class="badge">期間 2025/04/01 – 06/30（91日）</span><span class="badge">対象：日本語ポスト</span><span class="badge w">DUMMY DATA</span></div>
+    </header>
+    <div class="wrap">
+      <div class="nav2" id="nav2"></div>
+      <section class="grid">
+        <div class="kpis" id="kpis"></div>
+
+        <div class="card c8">
+          <div class="hd"><h3>発話量の推移 <small>スパイク要因つき</small></h3><div id="trendCtl"></div></div>
+          <div id="trend"></div><div class="lg" id="trendLg"></div><div class="evs" id="evs"></div>
+        </div>
+        <div class="card c4">
+          <div class="hd"><h3>インサイト <small>定性メモ＋データ検知</small></h3></div>
+          <div class="ins" id="ins"></div>
+        </div>
+
+        <div class="card c12">
+          <div class="hd"><h3 id="brkT"></h3><div id="brkCtl"></div></div>
+          <div class="two"><div><div id="treemap"></div><div class="scale" id="tmScale"></div></div><div style="overflow:auto"><table id="brkTable"></table></div></div>
+        </div>
+
+        <div class="card c6">
+          <div class="hd"><h3>トピック・ポジショニング <small>伸長率 × ネットセンチメント（円＝発話量）</small></h3></div>
+          <div id="bubble"></div>
+        </div>
+        <div class="card c6">
+          <div class="hd"><h3>センチメント／感情 <small id="emoCap"></small></h3></div>
+          <div class="sent"><div id="donut"></div><div class="sl" id="sentLg"></div><div id="radar" style="margin-left:auto"></div></div>
+          <div id="rate"></div>
+        </div>
+
+        <div class="card c4">
+          <div class="hd"><h3>発話インテント <small>何のための発話か</small></h3></div>
+          <div id="intent"></div><div class="cap" id="intentCap"></div>
+        </div>
+        <div class="card c8">
+          <div class="hd"><h3>キーワード <small>大きさ＝出現量／色＝文脈センチメント</small></h3>
+            <div class="lg"><span><i style="background:var(--pos)"></i>ポジ文脈</span><span><i style="background:#cbd5e1"></i>中立</span><span><i style="background:var(--neg)"></i>ネガ文脈</span></div></div>
+          <div class="kwgrid"><div class="cloud" id="cloud"></div><div><div class="cap" style="margin:0 0 4px">急上昇ワード（前期比）</div><div class="rise" id="rise"></div></div></div>
+        </div>
+
+        <div class="card c6">
+          <div class="hd"><h3>曜日 × 時間帯ヒートマップ <small id="heatCap"></small></h3></div>
+          <div class="heat" id="heat"></div>
+        </div>
+        <div class="card c3">
+          <div class="hd"><h3>投稿者クラスタ</h3></div>
+          <div id="author"></div><div class="cap" id="authorCap"></div>
+        </div>
+        <div class="card c3">
+          <div class="hd"><h3>投稿形式・共起トピック</h3></div>
+          <div id="ptype"></div>
+          <div class="cap" style="margin-top:12px" id="coCap"></div><div id="co"></div>
+        </div>
+
+        <div class="card c12">
+          <div class="hd"><h3>代表ポスト <small>エンゲージメント順（ダミー）</small></h3><div id="postCtl"></div></div>
+          <div class="posts" id="posts"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+(()=>{'use strict';
+/* ========== 基本ユーティリティ ========== */
+const DAYS=91,START=new Date(2025,3,1);
+const LEVELS=['カテゴリ','セグメント','プラットフォーム／ジャンル','タイトル／IP','話題テーマ'];
+const C={acc:'#1d9bf0',pos:'#00ba7c',neg:'#f4425a',neu:'#64748b',warn:'#ffb020'};
+const PAL=['#1d9bf0','#00ba7c','#ffb020','#a78bfa','#f4425a','#22d3ee'];
+const DOW=['日','月','火','水','木','金','土'];
+const $=s=>document.querySelector(s);
+const sum=a=>a.reduce((x,y)=>x+y,0);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const median=a=>{const s=a.slice().sort((x,y)=>x-y);return s[Math.floor(s.length/2)]||1;};
+const fmt=n=>{n=Math.round(n);if(n>=1e8)return(n/1e8).toFixed(2)+'億';if(n>=1e4)return(n/1e4).toFixed(n>=1e6?0:1)+'万';return n.toLocaleString();};
+const pct=(v,d=1)=>(v*100).toFixed(d)+'%';
+const sgn=(v,d=1,u='%')=>(v>=0?'+':'')+v.toFixed(d)+u;
+const gfmt=g=>{const p=g*100;return(p>=0?'+':'')+(Math.abs(p)>=100?Math.round(p):p.toFixed(1))+'%';};
+const dateL=d=>{const x=new Date(2025,3,1+d);return(x.getMonth()+1)+'/'+x.getDate();};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function RNG(seed){let a=hash(seed);return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const D=(m,d)=>Math.round((new Date(2025,m-1,d)-START)/864e5);
+const E=(m,d,mult,label,o={})=>({d:D(m,d),m:mult,l:label,s:o.s||0,k:o.k||2.5,up:o.up||0});
+const T=(name,vol,g,pos,neg,ev,kw,x={})=>Object.assign({name,vol,g,pos,neg,ev,kw},x);
+
+/* ========== ダミーデータ定義（階層ツリー） ========== */
+const EMO=['喜び・楽しさ','期待・ワクワク','驚き','愛着・尊い','不満・イライラ','怒り','不安・心配','落胆・悲しみ'];
+const INT=['感想・レビュー','購入意向・検討','ニュース・情報共有','質問・相談','攻略・Tips','不満・要望','ネタ・ミーム','ファンアート・UGC','プレイ報告・スクショ'];
+const AUT=['コアゲーマー','ライト・カジュアル層','ファミリー・親世代','配信者・VTuber','クリエイター・絵師','メディア・公式','懐古・大人ゲーマー'];
+const PTY=['オリジナル','リポスト','引用','リプライ'],MED=['テキストのみ','画像付き','動画付き','リンク付き'];
+const APRI={game:[.3,.25,.08,.08,.1,.07,.12],mobile:[.3,.33,.03,.05,.17,.05,.07],hard:[.25,.28,.15,.05,.03,.12,.12],stream:[.33,.25,.01,.2,.08,.08,.05]};
+const IBIAS=[[/価格|購入|抽選|同梱/,1,4.5],[/攻略|編成|やり込み|レート/,4,4],[/アップデート|不具合|運営|要望/,5,3.5],[/アップデート|ラインナップ|結果/,2,2.5],[/キャラクター|二次創作/,7,5],[/配信|切り抜き|名シーン/,6,2.5],[/フリーラン|グラフィック|サバイバル/,8,2.2],[/ガチャ/,8,2],[/スペック|周辺/,3,2.5]];
+const NEGW=new Set(['落選','転売','バグ','不具合','高い','値上げ','回線落ち','爆死','ナーフ','インフレ','ランダム選択','初期不良','エラー','敗退','回線','メンテ','チーター','価格改定','炎上','改善要望','おま国','最適化','エンドコンテンツ','円安','修理','すり抜け','アプデ待ち']);
+const POSW=new Set(['神引き','当選','優勝','かわいい','神回','推し','ファンアート','逆転','爆笑','泣いた','GOTY候補','サントラ','BGM','ウシ']);
+const GEN={
+ game:[['ストーリー・世界観',['ストーリー','ネタバレ注意','世界観','エンディング','考察'],.06],['キャラクター・二次創作',['推し','ファンアート','キャラデザ','かわいい','コスプレ'],.14],['マルチ・オンライン',['マルチ','フレンド募集','マッチング','回線','協力プレイ'],-.04],['アップデート・不具合',['アプデ','バグ','修正パッチ','メンテ','ナーフ'],-.2],['攻略・やり込み',['攻略','周回','ビルド','裏技','やり込み'],.02],['グラフィック・音楽',['グラフィック','BGM','サントラ','演出','フォトモード'],.12],['価格・購入検討',['予約','セール','買った','DL版','パッケージ版'],-.06],['配信・実況',['実況','配信','切り抜き','初見プレイ','同時視聴'],.05]],
+ mobile:[['ガチャ・課金',['ガチャ','天井','神引き','爆死','無料10連'],-.08],['イベント・コラボ',['イベント','コラボ','周回','報酬','ランキング'],.04],['キャラクター・二次創作',['推し','ファンアート','新キャラ','かわいい','ボイス'],.16],['アップデート・不具合',['アプデ','メンテ','詫び石','バグ','調整'],-.2],['ストーリー・世界観',['ストーリー','最新章','ネタバレ注意','考察','泣いた'],.1],['攻略・編成',['編成','攻略','高難易度','リセマラ','育成論'],0],['運営・要望',['運営','改善要望','インフレ','周年','ロードマップ'],-.22]],
+ hard:[['購入・抽選・在庫',['抽選','当選','落選','予約','転売'],-.1],['価格・コスパ',['価格','値上げ','高い','コスパ','円安'],-.16],['スペック・性能',['性能','スペック','ロード時間','4K','フレームレート'],.1],['周辺機器・アクセサリ',['コントローラー','SDカード','ケース','保護フィルム','ドック'],.06],['不具合・サポート',['不具合','修理','初期不良','サポート','エラー'],-.28],['ラインナップ・期待',['ローンチ','新作','互換','独占','ダイレクト'],.14]],
+ stream:[['名シーン・切り抜き',['切り抜き','神回','名場面','クリップ','爆笑'],.14],['出演者・チーム',['メンバー','チーム','推し','コラボ','初絡み'],.1],['大会結果・戦績',['優勝','決勝','敗退','逆転','MVP'],.02],['視聴・応援',['同接','応援','リアタイ','現地','ウォッチパーティ'],.08],['運営・ルール',['運営','ルール','進行','日程','炎上'],-.26],['グッズ・スポンサー',['グッズ','スポンサー','チケット','物販','コラボカフェ'],0]]
+};
+
+const TREE={name:'ゲーム',ins:[
+  {tag:'兆し',t:'「買えない」ことが最大の話題装置に',b:'Switch 2の抽選・在庫に関する発話がカテゴリ全体の波形を左右。当落報告は自虐ネタ化して拡散しやすく、発売前から“参加型イベント”として機能している。'},
+  {tag:'機会',t:'「観るゲーム」と「遊ぶゲーム」の話題が連動',b:'新作の発売週は配信・切り抜き関連の発話も同時に伸びる。発売直後の配信者施策がUGCを増幅させる構造。'},
+  {tag:'リスク',t:'運営型タイトルは“更新の空白”でネガが蓄積',b:'モバイル／オンライン系は「アップデート・不具合」「運営・要望」テーマのネガ率が高い。告知の間隔が空くと不満が顕在化しやすい。'}],
+ children:[
+ {name:'コンシューマーゲーム',type:'game',ins:[
+   {tag:'兆し',t:'世代交代期は「本体 × ローンチタイトル」がセットで語られる',b:'ハード単体のスペック議論より「何を遊ぶために買うか」の文脈が中心。本体とソフトの同時言及率が高い。'},
+   {tag:'機会',t:'価格上昇で“失敗したくない”相談型の発話が増加',b:'購入意向・質問系のインテントが目立つ。レビューまとめや比較コンテンツへの需要が大きい。'},
+   {tag:'リスク',t:'大型タイトルは発売月以降の話題維持が課題',b:'発売直後に集中した発話が、エンドコンテンツ不足や最適化への不満へ転化するケースが見られる。'}],
+  children:[
+  {name:'Nintendo Switch / Switch 2',ins:[
+    {tag:'兆し',t:'抽選→当落→開封→プレイ報告へ、“発話の主語”が移り変わる',b:'4月は価格・抽選、6月は開封とプレイ報告が中心。フェーズごとに響くメッセージが異なる。'},
+    {tag:'機会',t:'ファミリー・ライト層の比率が他プラットフォームより高い',b:'「子どもと遊ぶ」「久々にゲーム機を買う」といった文脈が多く、コア層以外への広がりが強み。'},
+    {tag:'リスク',t:'落選・転売への不満は公式発信のたびに再燃',b:'抽選結果の発表日はネガ率が急上昇。供給見通しの発信有無がセンチメントを左右する。'}],
+   children:[
+    T('Switch 2 本体・抽選販売',4200,5.8,.36,.3,[E(4,2,9,'Switch 2 Direct（価格・発売日発表）',{k:3}),E(4,24,7,'マイニンテンドーストア抽選結果発表',{s:-.22,k:2}),E(5,15,2.2,'第3回抽選結果・量販店抽選',{s:-.12}),E(6,5,8,'Switch 2 発売',{s:.15,k:5,up:.8})],['マイニンテンドーストア','49,980円','多言語版','ゲームチャット','マウス操作','Proコン2'],{type:'hard',alias:'Switch 2',posts:[
+      ['neg','購入・抽選・在庫','Switch 2、今回の抽選も落選。もはや落選メールが毎月の風物詩になってきた',D(5,15)],
+      ['pos','購入・抽選・在庫','当選した！！！！！6/5が楽しみすぎて今日はもう仕事にならん',D(4,24)],
+      ['neu','価格・コスパ','Switch 2が49,980円、ソフト入れたら6万近いのか…。性能考えたら妥当だけど家計会議が必要',D(4,2)],
+      ['pos','スペック・性能','Switch 2届いた。画面でかいしロード速いし、初代から8年分の進化をちゃんと感じる',D(6,5)]]}),
+    T('マリオカート ワールド',2850,3.2,.58,.13,[E(4,2,6,'マリオカート ワールド初公開'),E(4,17,5,'マリオカート ワールド Direct',{s:.08}),E(6,5,9,'マリオカート ワールド発売',{s:.1,k:6,up:1.6}),E(6,25,2.4,'マリオカート ワールド Ver.1.1.2（オンライン仕様変更）',{s:-.25,k:3})],[],{alias:'マリカワールド',aud:{2:2.6,1:1.3},
+     themes:[
+      ['フリーラン・オープンワールド',.19,.68,.08,['フリーラン','オープンワールド','Pスイッチ','寄り道','ドライブ','フォトモード','レールスライド'],[1.4,1.5,1,.3]],
+      ['サバイバル（24人レース）',.17,.62,.12,['サバイバル','24人','ノックアウト','初1位','脱落','チェックポイント'],[1,1.3,1.2,.5]],
+      ['オンライン対戦・レート',.15,.36,.34,['オンライン','レート','ランダム選択','道中コース','回線落ち','フレンド戦','3周コース'],[0,.2,.9,3.5],65],
+      ['キャラクター・コスチューム',.14,.74,.05,['ウシ','コスチューム','ドッスン','ポリーン','着せ替え','推しキャラ','ごはん'],[1.6,1,.8,.2]],
+      ['Switch 2同梱版・価格',.13,.34,.33,['同梱版','8,980円','価格','抽選','DL版','セット','高い'],[1.8,.6,.7,.1]],
+      ['コース・BGM',.10,.72,.07,['レインボーロード','BGM','アレンジ','新コース','リメイクコース','ショートカット'],[.6,1.2,1.1,.4]],
+      ['配信・実況・大会',.07,.6,.08,['実況','視聴者参加型','大会','切り抜き','初見プレイ','コラボ配信'],[.2,.4,1.4,.8],62],
+      ['アップデート・要望',.05,.25,.42,['アプデ','Ver.1.1.2','修正','要望','200cc','バトルモード'],[0,.1,.4,5],65]],
+     posts:[
+      ['pos','フリーラン・オープンワールド','マリカワールド、レースそっちのけでフリーランしてたら2時間溶けた。ただ走ってるだけで楽しいの何…？',D(6,7)],
+      ['neg','オンライン対戦・レート','アプデでオンラインのコース選びが変わって道中ばっかりになったのつらい…。普通に3周コース走らせてほしい',D(6,26)],
+      ['pos','キャラクター・コスチューム','ウシが使えるって聞いて買ったけど、本当にウシがバイク乗ってて笑ってる。任天堂ありがとう🐄',D(6,6)],
+      ['pos','サバイバル（24人レース）','サバイバル初1位！！！24人から最後の4人に残った時の心拍数やばい。これは新しいマリカだ',D(6,9)],
+      ['neg','Switch 2同梱版・価格','ソフト単体8,980円はさすがに悩む。同梱版が当たればよかったんだけど抽選3連敗中…',D(5,16)],
+      ['pos','コース・BGM','歴代BGMのアレンジがランダムで流れるの反則でしょ。ドライブしながら懐かしくて泣きそうになった',D(6,12)],
+      ['pos','フリーラン・オープンワールド','5歳の娘がフリーランでずっと寄り道してる。レースじゃなくても遊べるの、親としては本当に助かる',D(6,14)],
+      ['neu','配信・実況・大会','今夜21時から視聴者参加型でマリカワールドやります！サバイバル中心、初見さんも歓迎〜',D(6,20)],
+      ['neg','アップデート・要望','200ccとバトルモードのルール追加はよ。あとフリーランをフレンドともっとちゃんと遊べるようにしてほしい',D(6,27)]],
+     ins:[
+      {tag:'機会',t:'“レースしない遊び方”がライト層・親世代の発話を牽引',b:'フリーラン関連はポジ率が最も高く、「子どもが寄り道して遊んでいる」「ドライブ感覚」など従来のマリカにない文脈が発生。訴求軸として有望。'},
+      {tag:'兆し',t:'「ウシ」に代表されるキャラクターのミーム化がUGCの入口に',b:'発表直後からファンアート・ネタ投稿が継続。ゲーム未購入層にも届く“語りやすい記号”として機能している。'},
+      {tag:'リスク',t:'発売後はオンライン仕様への不満が継続的な火種',b:'6/25のアップデート以降「ランダム選択」「道中コース」がネガ文脈で急増。コア層の不満が配信者経由で可視化されやすい。'}],
+     co:[['Switch 2 本体・抽選販売',41.2],['マリオカート8 デラックス（前作比較）',12.6],['ドンキーコング バナンザ',6.3],['スプラトゥーン3',4.8],['VTuberゲーム実況',4.1],['大乱闘スマッシュブラザーズ',2.9]]}),
+    T('ポケモン（Z-A／SV）',1300,.35,.6,.1,[E(5,28,4,'Pokémon LEGENDS Z-A 発売日発表')],['Z-A','メガシンカ','ミアレシティ','色違い','レイドバトル','御三家'],{alias:'ポケモン',aud:{2:1.5,4:1.4}}),
+    T('スプラトゥーン3',980,.12,.5,.17,[E(5,10,1.8,'スプラトゥーン3 フェス開催'),E(6,10,5,'スプラトゥーン レイダース発表・大型アプデ告知')],['フェス','ガチマッチ','ギア','サーモンラン','ブキ調整','Xマッチ'],{alias:'スプラ3'}),
+    T('あつまれ どうぶつの森',620,-.08,.7,.05,[],['島クリ','住民','マイデザイン','カブ価','離島ガチャ','DIY'],{alias:'あつ森',aud:{2:2,1:1.5,4:1.5}}),
+    T('ゼルダの伝説（ティアキン／ブレワイ）',540,.4,.68,.06,[E(4,2,3,'ゼルダ Switch 2 Edition 発表'),E(6,5,3.5,'ゼルダ Switch 2 Edition 配信開始',{s:.08,k:4})],['Switch 2 Edition','ゼルダノート','ハイラル','ゾナウギア','60fps','コログ'],{alias:'ゼルダ'}),
+    T('ドンキーコング バナンザ',480,9,.66,.06,[E(4,2,5,'ドンキーコング バナンザ発表'),E(6,18,4.5,'ドンキーコング バナンザ Direct',{s:.1})],['バナンザ','破壊','ポリーン','変身','地下世界','7月17日'],{alias:'DKバナンザ'}),
+    T('カービィ（エアライダー ほか）',360,1.9,.72,.05,[E(4,2,6,'カービィのエアライダー発表',{s:.1})],['エアライダー','桜井さん','シティトライアル','スターリーワールド','ワドルディ'],{alias:'カービィ',aud:{4:1.6}})
+   ]},
+  {name:'PlayStation 5',children:[
+    T('モンスターハンターワイルズ',1450,-.52,.42,.25,[E(4,4,3.2,'モンハンワイルズ 無料アプデ第1弾',{s:.06}),E(5,28,1.8,'モンハンワイルズ 追加モンスター配信'),E(6,30,2.5,'モンハンワイルズ 無料アプデ第2弾',{k:2})],['タマミツネ','歴戦王','アーティア武器','集会所','エンドコンテンツ','最適化','ラギアクルス'],{alias:'ワイルズ'}),
+    T('ELDEN RING NIGHTREIGN',610,2.6,.55,.16,[E(5,30,8,'ELDEN RING NIGHTREIGN 発売',{k:5,up:1.2})],['夜の王','3人協力','ソロ','遺物','リムベルド','野良'],{alias:'ナイトレイン'}),
+    T('DEATH STRANDING 2',430,3.1,.69,.07,[E(6,26,7,'DEATH STRANDING 2 発売',{s:.08,k:4,up:1})],['小島監督','配送','オーストラリア','国道復旧','サム','映像美'],{alias:'デススト2'}),
+    T('Ghost of Yōtei',290,1.4,.7,.05,[E(4,23,4.5,'Ghost of Yōtei 発売日発表',{s:.08})],['羊蹄山','蝦夷','10月2日','一騎討ち','PS5 Pro','トレーラー'],{alias:'Ghost of Yōtei'}),
+    T('ドラゴンクエスト／FF',520,.1,.55,.12,[E(5,27,3.5,'「ドラクエの日」新情報発表')],['ドラクエの日','リメイク','HD-2D','FF7リバース','堀井さん','スクエニ'],{alias:'ドラクエ',aud:{6:2}}),
+    T('PS5本体・PS Plus',380,-.1,.38,.24,[E(6,5,3.5,'State of Play 放送')],['PS5 Pro','フリープレイ','State of Play','DualSense','PSポータル'],{type:'hard',alias:'PS5'})
+   ]},
+  {name:'Xbox',children:[
+    T('Xbox本体・Game Pass',230,.25,.36,.28,[E(5,1,4,'Xbox 本体・周辺機器の価格改定',{s:-.22}),E(6,9,3,'Xbox Games Showcase')],['Game Pass','価格改定','Series X','day one','クラウド','マルチ展開'],{type:'hard',alias:'Xbox'}),
+    T('ROG Xbox Ally（携帯機）',170,12,.56,.12,[E(6,9,10,'ROG Xbox Ally 発表',{k:3,up:.5})],['携帯機','ROG Ally','Steam Deck比較','Windows','価格予想','年内発売'],{type:'hard',alias:'ROG Xbox Ally'}),
+    T('Xbox Showcase 発表タイトル',140,.6,.5,.13,[E(6,9,6,'Xbox Games Showcase 新作発表')],['アウターワールド2','ペルソナ4 リバイバル','Gears','Fable','ショーケース'],{alias:'Xbox新作'})
+   ]}
+  ]},
+ {name:'モバイルゲーム',type:'mobile',children:[
+  {name:'RPG・ガチャ',children:[
+    T('原神',1250,-.05,.52,.16,[E(5,7,2.6,'原神 新バージョン配信'),E(6,18,2.8,'原神 新バージョン配信')],['ナタ','螺旋','聖遺物','予告番組','原石','探索'],{}),
+    T('崩壊：スターレイル',880,.08,.54,.15,[E(4,9,2.5,'スターレイル 新バージョン配信'),E(5,21,2.5,'スターレイル 新バージョン配信')],['オンパロス','模擬宇宙','光円錐','すり抜け','星玉','開拓クエスト'],{alias:'スタレ'}),
+    T('Fate/Grand Order',940,-.1,.5,.17,[E(4,29,2.2,'FGO GW記念キャンペーン'),E(6,11,2,'FGO 新イベント開催')],['奏章','聖晶石','福袋','宝具5','マスター','霊衣'],{alias:'FGO'}),
+    T('ブルーアーカイブ',1020,.04,.6,.12,[E(4,23,2.4,'ブルアカ 新イベント開催'),E(6,25,2,'ブルアカ 夏イベント告知')],['先生','総力戦','青輝石','メモロビ','ブルアカらいぶ','透き通る世界観'],{alias:'ブルアカ',aud:{4:1.8}}),
+    T('ウマ娘 プリティーダービー',1100,.15,.57,.13,[E(4,24,2,'ウマ娘 新育成ウマ娘実装'),E(6,26,3,'ウマ娘 英語版リリースが話題',{s:.1})],['育成','チャンミ','サポカ','因子周回','シンデレラグレイ','ライブ'],{alias:'ウマ娘',aud:{4:1.5}}),
+    T('学園アイドルマスター',760,.3,.62,.11,[E(5,16,5,'学マス 1周年',{s:.1,k:3})],['1周年','プロデュース','NIA','コンテスト','親愛度','初星学園'],{alias:'学マス',aud:{4:1.6}})
+   ]},
+  {name:'パズル・カジュアル',children:[
+    T('モンスターストライク',720,-.06,.47,.18,[E(5,2,2.6,'モンスト コラボ開催'),E(6,14,2,'モンスト 新限定キャラ発表')],['轟絶','オーブ','マルチ募集','獣神化','モンストニュース'],{alias:'モンスト'}),
+    T('パズル&ドラゴンズ',410,-.12,.45,.19,[E(4,28,2.4,'パズドラ GWイベント')],['魔法石','ゴッドフェス','新フェス限','ランダン','周回編成'],{alias:'パズドラ',aud:{6:1.6}}),
+    T('Pokémon TCG Pocket',830,-.2,.5,.17,[E(4,30,4.5,'ポケポケ 新拡張パック配信'),E(5,29,3.5,'ポケポケ 新拡張パック配信')],['新パック','トレード','ゴッドパック','ランクマ','クラウン','デッキレシピ'],{alias:'ポケポケ'}),
+    T('ディズニー ツムツム',260,-.03,.58,.08,[],['新ツム','スキルチケット','コイン稼ぎ','ビンゴ','セレボ'],{alias:'ツムツム',aud:{1:1.6,2:1.5}})
+   ]},
+  {name:'位置情報・おでかけ',children:[
+    T('ポケモンGO',690,.1,.6,.1,[E(5,29,4,'Pokémon GO Fest 大阪 開幕',{s:.1,k:4})],['GOフェス','色違い','レイド','コミュニティ・デイ','リモートパス','万博記念公園'],{alias:'ポケモンGO',aud:{6:1.8,2:1.4}}),
+    T('ドラゴンクエストウォーク',380,-.04,.52,.14,[E(4,26,2.2,'DQウォーク 新イベント開始')],['ジェム','ふくびき','こころ','メガモン','ウォークモード','お土産'],{alias:'DQウォーク',aud:{6:2.2}}),
+    T('ピクミン ブルーム',150,.06,.74,.04,[],['デコピクミン','おつかい','花植え','歩数','キノコ'],{alias:'ピクブル',aud:{1:1.6,2:1.5}})
+   ]}
+  ]},
+ {name:'PCゲーム',type:'game',children:[
+  {name:'Steam・インディー',children:[
+    T('Clair Obscur: Expedition 33',340,20,.78,.05,[E(4,24,7,'Clair Obscur: Expedition 33 発売',{s:.1,k:6,up:1})],['ターン制RPG','パリィ','GOTY候補','フランス産JRPG','エクスペディション'],{alias:'Expedition 33'}),
+    T('PEAK',310,30,.75,.04,[E(6,16,9,'PEAK 発売・配信者間で流行',{k:6,up:2})],['登山','滑落','バナナ','4人コラボ','山頂'],{alias:'PEAK',aud:{3:2.2}}),
+    T('R.E.P.O.',220,-.55,.66,.06,[E(4,12,1.5,'R.E.P.O. アップデート')],['ホラー協力','回収','絶叫','コラボ配信','アプデ待ち'],{alias:'R.E.P.O.',aud:{3:2}}),
+    T('Steamセール・Steam Deck',450,.2,.56,.1,[E(6,27,6,'Steam サマーセール開始',{k:3})],['サマーセール','積みゲー','ウィッシュリスト','Steam Deck','おま国','返金'],{alias:'Steam'})
+   ]},
+  {name:'FPS・対戦',children:[
+    T('VALORANT',900,.05,.48,.2,[E(6,22,3,'VCT Masters Toronto 決勝')],['コンペ','ランク','新エージェント','エイム','スキン','フルパ募集'],{alias:'VALORANT',aud:{3:1.5}}),
+    T('Apex Legends',560,-.18,.42,.24,[E(5,7,2.6,'Apex 新シーズン開幕')],['新シーズン','チーター','武器調整','カスタム','キャラコン'],{alias:'Apex',aud:{3:1.5}}),
+    T('ストリートファイター6',640,.22,.55,.14,[E(5,9,2.5,'EVO Japan 2025'),E(6,5,3.2,'スト6 Year 3開幕・Switch 2版発売',{s:.06})],['マスター','ランクマ','モダン','コンボ','新キャラ','対空'],{alias:'スト6',aud:{3:1.4}}),
+    T('League of Legends',280,.02,.44,.22,[E(6,27,2.2,'LoL MSI 2025 開幕')],['メタ','パッチノート','ソロQ','LJL','チャンピオン'],{alias:'LoL'})
+   ]},
+  {name:'MMO・サンドボックス',children:[
+    T('ファイナルファンタジーXIV',520,-.08,.55,.14,[E(5,27,2.4,'FF14 パッチ7.25 公開')],['パッチ7.25','零式','ハウジング','光の戦士','PLL','ミラプリ'],{alias:'FF14'}),
+    T('Minecraft',470,.45,.63,.07,[E(4,25,4,'映画『マインクラフト／ザ・ムービー』日本公開',{s:.08,k:4})],['マイクラ','建築','MOD','サバイバル生活','映画','統合版'],{alias:'マイクラ',aud:{2:1.8,3:1.5}})
+   ]}
+  ]},
+ {name:'ゲーム配信・eスポーツ',type:'stream',children:[
+  {name:'ストリーマー・VTuber',children:[
+    T('VTuberゲーム実況',1500,.08,.66,.07,[E(5,3,1.6,'GW大型コラボ配信'),E(6,5,1.8,'Switch 2 発売日の配信ラッシュ')],['耐久配信','初見プレイ','歌枠','同時視聴','新衣装','マリカ杯'],{alias:'VTuber配信'}),
+    T('ストリーマーサーバー企画',980,.3,.62,.1,[E(4,19,3.5,'大型ストリーマーサーバー企画 開幕',{k:6}),E(6,14,3,'大型ストリーマーサーバー企画 第2弾',{k:5})],['ロールプレイ','警察','ギャング','救急隊','最終日','GTA'],{alias:'ストリーマーサーバー'}),
+    T('配信者カスタム大会',540,.1,.6,.1,[E(4,27,4,'配信者大会（Apex）開催',{k:2}),E(6,1,3.6,'配信者大会（スト6）開催',{k:2})],['スクリム','顔合わせ','コーチ','チーム発表','本番','エモい'],{alias:'配信者大会'})
+   ]},
+  {name:'eスポーツ大会',children:[
+    T('EVO Japan 2025',260,.5,.7,.06,[E(5,9,12,'EVO Japan 2025 開幕',{k:2}),E(5,11,10,'EVO Japan 2025 決勝日',{s:.1,k:2})],['東京ビッグサイト','TOP8','スト6部門','鉄拳8','サイドトーナメント'],{alias:'EVO Japan'}),
+    T('VCT（VALORANT Champions Tour）',420,.15,.56,.14,[E(5,11,3,'VCT Pacific Stage 1 決勝'),E(6,22,5,'VCT Masters Toronto 決勝',{k:2})],['Masters Toronto','Pacific','日本チーム','クラッチ','プレイオフ'],{alias:'VCT'}),
+    T('ストリートファイターリーグ',180,.05,.6,.09,[E(6,7,2.5,'SFリーグ 新シーズン情報')],['SFL','ドラフト','チームオーナー','プロ選手','ホーム&アウェイ'],{alias:'SFリーグ'})
+   ]}
+  ]}
+ ]};
+
+/* ========== データ生成・集計 ========== */
+const NODES={};let uid=0;
+const HB=[.5,.35,.2,.12,.08,.1,.2,.4,.5,.45,.45,.5,.8,.6,.5,.55,.6,.7,.85,1,1.2,1.35,1.3,.95];
+function heatOf(type,r,V){const a=[];let s=0;for(let dw=0;dw<7;dw++)for(let h=0;h<24;h++){let v=HB[h];const we=dw===0||dw===6;
+  if(we&&h>=9&&h<=17)v*=1.5;if(dw===5&&h>=21)v*=1.2;if(dw===6&&h>=21)v*=1.15;
+  if(type==='mobile'){if(h===7||h===8)v*=1.6;if(h===12)v*=1.4;if(h===0)v*=1.5;if(h===18)v*=1.2;}
+  if(type==='stream'&&(h>=21||h<=2))v*=1.6;
+  if(type==='hard'&&h>=10&&h<=13)v*=1.5;
+  v*=.85+r()*.3;a.push(v);s+=v;}return a.map(v=>v/s*V);}
+function makeThemes(t){const r=RNG('th|'+t.name);
+  if(t.themes)return t.themes.map(a=>({name:a[0],vol:t.vol*a[1],pos:a[2],neg:a[3],kw:a[4],f:a[5],start:a[6],g:(1+t.g)*(.7+r()*.7)-1}));
+  const defs=GEN[t.type],sh=defs.map((d,i)=>(.5+r())/(1+i*.18)),ss=sum(sh);
+  return defs.map((d,i)=>{const kw=d[1].slice();t.kw.forEach((k,j)=>{if(j%defs.length===i)kw.unshift(k);});
+    return{name:d[0],vol:t.vol*sh[i]/ss,pos:clamp(t.pos+d[2]+(r()-.5)*.16,.08,.85),neg:clamp(t.neg-d[2]*.8+(r()-.5)*.1,.03,.6),kw,f:t.ev.map(()=>.3+r()*1.5),g:(1+t.g)*(.7+r()*.7)-1};});}
+function leafStats(n){const t=n.parent,r=RNG('L|'+t.name+'|'+n.name),V=n.vol*1000,w=[],pr=[],nr=[];
+  for(let d=0;d<DAYS;d++){const dow=(2+d)%7;let b=1+(dow===0||dow===6?.3:dow===5?.1:0)+(r()-.5)*.3,e=0,up=0,sp=0,sn=0;
+    t.ev.forEach((x,i)=>{const f=n.f[i]!=null?n.f[i]:1,dd=d-x.d;
+      if(dd>=0){e+=x.m*f*Math.exp(-dd/x.k);up+=x.up*Math.min(1,f);const sd=Math.exp(-dd/(x.k*1.6));if(x.s>0)sp+=x.s*sd;else sn+=-x.s*sd*Math.min(1.5,f);}
+      else if(dd>=-2)e+=x.m*f*.1*(3+dd)/2;});
+    let v=b*(1+up+e);if(n.start!=null&&d<n.start)v*=.03;w.push(v);
+    let p=clamp(n.pos+(r()-.5)*.08+sp-sn*.5,.03,.9),q=clamp(n.neg+(r()-.5)*.05+sn-sp*.3,.02,.85);
+    if(p+q>.96){const z=.96/(p+q);p*=z;q*=z;}pr.push(p);nr.push(q);}
+  const k=V/sum(w);n.sv=w.map(v=>v*k);n.sp=n.sv.map((v,i)=>v*pr[i]);n.sn=n.sv.map((v,i)=>v*nr[i]);
+  n.V=V;n.P=sum(n.sp);n.N=sum(n.sn);n.prev=V/(1+n.g);
+  const ew=[1,.8,.4,.55,1,.45,.4,.5].map(x=>x*(.6+r()*.8)),ps=sum(ew.slice(0,4)),ns=sum(ew.slice(4));
+  n.emo=ew.map((x,i)=>i<4?x/ps*n.P:x/ns*n.N);
+  let iw=[1,.35,.6,.3,.4,.25+n.neg*2,.5,.3,.8].map(x=>x*(.6+r()*.8));IBIAS.forEach(b=>{if(b[0].test(n.name))iw[b[1]]*=b[2];});
+  let s=sum(iw);n.intent=iw.map(x=>x/s*V);
+  let aw=APRI[t.type].map((x,i)=>x*(.7+r()*.6)*((t.aud&&t.aud[i])||1));
+  if(/キャラクター/.test(n.name))aw[4]*=2.5;if(/配信|切り抜き/.test(n.name))aw[3]*=2.5;if(/攻略|レート|やり込み/.test(n.name))aw[0]*=1.6;
+  s=sum(aw);n.author=aw.map(x=>x/s*V);
+  let pw=[.38,.34,.1,.18].map(x=>x*(.75+r()*.5));s=sum(pw);n.ptype=pw.map(x=>x/s*V);
+  let mw=[.46,.3,.12,.12].map(x=>x*(.75+r()*.5));if(/キャラクター|グラフィック|フリーラン/.test(n.name))mw[1]*=1.8;if(/配信|切り抜き|名シーン/.test(n.name))mw[2]*=2.2;
+  s=sum(mw);n.media=mw.map(x=>x/s*V);
+  n.heat=heatOf(t.type,r,V);
+  n.eng=V*(6+r()*24)*(/キャラクター|名シーン/.test(n.name)?1.6:1);n.imp=V*(600+r()*1600);n.authors=V*(.35+r()*.25);
+  const net=(n.P-n.N)/V;
+  n.kws=n.kw.map((kk,i)=>{let sc=net*1.2+(r()-.5)*.5;if(NEGW.has(kk))sc=-.35-r()*.4;if(POSW.has(kk))sc=.5+r()*.3;
+    return{t:kk,w:V*.5/(i+1.6)*(.7+r()*.6),s:clamp(sc,-1,1),g:(1+n.g)*(.5+r()*1.6)-1};}).sort((a,b)=>b.w-a.w);}
+function aggregate(n){const cs=n.children;
+  ['sv','sp','sn','emo','intent','author','ptype','media','heat'].forEach(k=>{n[k]=cs[0][k].map((_,i)=>sum(cs.map(c=>c[k][i])));});
+  ['V','P','N','prev','eng','imp'].forEach(k=>{n[k]=sum(cs.map(c=>c[k]));});
+  n.authors=sum(cs.map(c=>c.authors))*.86;n.g=n.V/n.prev-1;
+  const m=new Map();cs.forEach(c=>c.kws.forEach(k=>{const o=m.get(k.t);if(o){o.s=(o.s*o.w+k.s*k.w)/(o.w+k.w);o.g=(o.g*o.w+k.g*k.w)/(o.w+k.w);o.w+=k.w;}else m.set(k.t,Object.assign({},k));}));
+  if(n.level===3)m.set(n.alias,{t:n.alias,w:n.V*.45,s:(n.P-n.N)/n.V,g:n.g});
+  n.kws=[...m.values()].sort((a,b)=>b.w-a.w).slice(0,80);
+  cs.sort((a,b)=>b.V-a.V);}
+function build(n,parent,level,type){n.id=uid++;n.parent=parent;n.level=level;n.type=n.type||type;NODES[n.id]=n;
+  if(level===3){n.alias=n.alias||n.name;n.children=makeThemes(n);}
+  if(n.children){n.children.forEach(c=>build(c,n,level+1,n.type));aggregate(n);}else leafStats(n);}
+build(TREE,null,0,'game');
+const ROOT=TREE;
+const pathOf=n=>{const p=[];for(let x=n;x;x=x.parent)p.unshift(x);return p;};
+const titles=n=>n.level===3?[n]:n.level===4?[n.parent]:n.children.flatMap(titles);
+const weekly=a=>{const o=[];for(let i=0;i<DAYS;i+=7)o.push(sum(a.slice(i,i+7)));return o;};
+function items(n){
+  if(n.children)return n.children.map(c=>({name:c.name,V:c.V,g:c.g,posR:c.P/c.V,negR:c.N/c.V,net:(c.P-c.N)/c.V,sv:c.sv,node:c}));
+  return n.kws.slice(0,8).map(k=>{const p=clamp(.36+k.s*.45,.03,.9),q=clamp(.16-k.s*.4,.02,.8);return{name:k.t,V:k.w,g:k.g,posR:p,negR:q,net:p-q};});}
+function eventsOf(n){if(n._ev)return n._ev;let list;
+  if(n.level===4)list=n.parent.ev.filter((x,i)=>(n.f[i]!=null?n.f[i]:1)>.25&&!(n.start!=null&&x.d<n.start)).map(x=>({d:x.d,l:x.l}));
+  else{const m=new Map();titles(n).forEach(t=>t.ev.forEach(x=>{const imp=x.m*t.V/DAYS,o=m.get(x.d)||{d:x.d,imp:0,ls:[]};o.imp+=imp;o.ls.push([imp,x.l]);m.set(x.d,o);}));
+    const avg=n.V/DAYS;
+    list=[...m.values()].filter(o=>o.imp>avg*.12).sort((a,b)=>b.imp-a.imp).slice(0,6).map(o=>{o.ls.sort((a,b)=>b[0]-a[0]);return{d:o.d,l:o.ls.slice(0,2).map(x=>x[1]).join(' ／ ')+(o.ls.length>2?' ほか'+(o.ls.length-2)+'件':'')};}).sort((a,b)=>a.d-b.d);}
+  const med=median(n.sv);list.forEach(e=>{e.r=Math.max(n.sv[e.d],n.sv[Math.min(DAYS-1,e.d+1)])/med;});
+  return n._ev=list;}
+
+/* ========== 代表ポスト生成 ========== */
+const USERS=[['ゆうき@ゲーム垢','yuki_gamelog'],['もち','mochi_mochi_gg'],['たけ🎮','take_play'],['ねこまる','nekomaru_25'],['社会人ゲーマーK','k_after5'],['りん','rin_snap'],['しろくま実況','shirokuma_live'],['ぱぱゲーマー','papa_gamer_'],['あおい','aoi_0v0'],['ゲームメモ帳','game_memo'],['ハル','haru_gg'],['週末ゲーマーのん','non_weekend'],['まめ太','mameta_pad'],['そら🎧','sora_fps']];
+const TPL={
+ game:{pos:['{n}の「{k}」、想像以上に良かった。しばらくこの話しかしないと思う','今日の{n}は{k}がハイライト。スクショ貼っとく','{k}きっかけで{n}に復帰したけど、やっぱり楽しいな','#{n} {k}最高だった…同じ気持ちの人いたら語りたい'],
+       neu:['{n}の{k}について、みんなの意見を聞きたい。どう思う？','【メモ】{n}／{k}まわりの情報まとめ。あとで見返す用','今夜{n}やる人いる？{k}の話しながらのんびり遊びたい','{n}の{k}、公式の続報待ち。'],
+       neg:['{n}の{k}、さすがに改善してほしい…。好きなゲームだけにもったいない','{k}の件で{n}のモチベがちょっと下がり気味。しばらく様子見かな','{n}、{k}まわりは正直ストレス。次のアプデに期待してる']},
+ hard:{pos:['{n}、{k}の話を見てたら欲しくなってきた。これは買うしかない','{k}の情報きた！{n}まわり、久々にワクワクしてる'],
+       neu:['{n}の{k}、結局どうするのが正解なんだろう。詳しい人教えて','【共有】{n}の{k}について公式情報が更新されてた'],
+       neg:['{n}の{k}、正直しんどい…。もう少しなんとかならないのかな','{k}の件、{n}は欲しいけど今回は見送りかも']},
+ stream:{pos:['{n}、{k}のシーンで声出して笑った。今年ベスト級','{k}が熱すぎた…{n}はリアタイで見て正解だった'],
+       neu:['{n}の{k}、切り抜きで追う予定。おすすめのシーンある？','今夜の{n}、{k}は何時から？'],
+       neg:['{n}の{k}、ちょっとモヤモヤが残った。運営はルールを明確にしてほしい','{k}の件で{n}の空気が荒れてるの悲しい']}};
+TPL.mobile=TPL.game;
+function mkPost(text,sent,theme,title,r,day){const u=USERS[Math.floor(r()*USERS.length)],like=Math.round(Math.pow(r(),3)*18000+20);
+  return{text,sent,theme,title,u,like,rp:Math.round(like*(.08+r()*.3)),rep:Math.round(like*(.01+r()*.06)),imp:like*(18+Math.round(r()*60)),d:day!=null?day:Math.floor(r()*DAYS),h:Math.floor(r()*24)};}
+function genPosts(t,theme,count){const r=RNG('post|'+t.name+'|'+(theme?theme.name:'')),out=[],seq=['pos','neu','neg','pos','neu','pos','neg','neu'];
+  const rel=(t.ev.find(x=>x.up>0)||{d:0}).d;
+  for(let i=0;i<count;i++){const th=theme||t.children[Math.floor(r()*Math.min(5,t.children.length))],sent=seq[i%seq.length];
+    let pool=th.kws.filter(k=>sent==='neg'?k.s<.05:sent==='pos'?k.s>0:true);if(!pool.length)pool=th.kws;
+    const k=pool[Math.floor(r()*Math.min(5,pool.length))],tp=TPL[t.type][sent];
+    const text=tp[Math.floor(r()*tp.length)].replace('{n}',t.alias).replace('{k}',k.t);
+    const minD=Math.max(rel,th.start||0);out.push(mkPost(text,sent,th.name,t.name,r,minD+Math.floor(r()*(DAYS-minD))));}
+  return out;}
+function postsOf(n){
+  if(n.level===4){const t=n.parent,r=RNG('hp|'+t.name);const hand=(t.posts||[]).map(p=>mkPost(p[2],p[0],p[1],t.name,r,p[3])).filter(p=>p.theme===n.name);return hand.concat(genPosts(t,n,Math.max(0,7-hand.length)));}
+  if(n.level===3){const r=RNG('hp|'+n.name);const hand=(n.posts||[]).map(p=>mkPost(p[2],p[0],p[1],n.name,r,p[3]));return hand.concat(genPosts(n,null,Math.max(0,9-hand.length)));}
+  const out=[];titles(n).sort((a,b)=>b.V-a.V).slice(0,5).forEach((t,i)=>{out.push(...postsOf(t).slice(0,i<2?3:1));});return out;}
+
+/* ========== 共起・インサイト ========== */
+function coOf(n){if(n.co)return n.co;
+  if(n.level===0)return[['配信・YouTube',18.4],['アニメ・マンガ',14.2],['ガジェット・PC',9.6],['VTuber',8.8],['音楽・サントラ',5.1],['映画・ドラマ',3.9]];
+  const r=RNG('co|'+n.name),c=n.parent.children.filter(s=>s!==n).map(s=>[s.name,(3+r()*22)*Math.sqrt(s.V/n.parent.V)*1.6]);
+  if(n.level===2||n.level===3)n.parent.parent.children.filter(p=>p!==n.parent).forEach(p=>{c.push([p.children[0].name,1+r()*6]);});
+  return c.sort((a,b)=>b[1]-a[1]).slice(0,6);}
+function autoInsights(n){const out=[],its=items(n).slice().sort((a,b)=>b.V-a.V),unit=n.children?LEVELS[n.level+1]:'キーワード',tot=sum(its.map(i=>i.V));
+  const evs=eventsOf(n);
+  if(evs.length){const top=evs.slice().sort((a,b)=>b.r-a.r)[0];out.push({tag:'スパイク',t:`最大の山は ${dateL(top.d)}「${top.l}」`,b:`当日前後の発話量は平常時（期間中央値）の約${top.r.toFixed(1)}倍。期間中に検知した主要スパイクは${evs.length}件。`});}
+  if(its.length>1){const a=its[0],b=its[1];out.push({tag:'牽引',t:`${unit}別では「${a.name}」が最大（${pct(a.V/tot,0)}）`,b:`2位は「${b.name}」（${pct(b.V/tot,0)}）。上位2つで${pct((a.V+b.V)/tot,0)}を占める。`});}
+  const gr=its.filter(i=>i.V/tot>.03).sort((a,b)=>b.g-a.g)[0];
+  if(gr&&gr.g>.15)out.push({tag:'急伸',t:`「${gr.name}」が前期比 ${gfmt(gr.g)}`,b:`${unit}の中で最も伸びが大きい。ネットセンチメントは ${sgn(gr.net*100,0,'pt')}。`});
+  const rk=its.filter(i=>i.V/tot>.04).sort((a,b)=>b.negR-a.negR)[0];
+  if(rk)out.push({tag:'ネガ要因',t:`ネガ率が最も高いのは「${rk.name}」（${pct(rk.negR,0)}）`,b:`全体のネガ率 ${pct(n.N/n.V,0)} に対して ${sgn((rk.negR-n.N/n.V)*100,0,'pt')}。ネガ文脈の主なワード：${n.kws.filter(k=>k.s<-.1).slice(0,3).map(k=>'「'+k.t+'」').join('') || '—'}`});
+  const wv=weekly(n.sv),wn=weekly(n.sn),rates=wn.map((v,i)=>v/wv[i]),mi=rates.indexOf(Math.max(...rates));
+  out.push({tag:'感情推移',t:`ネガ率のピークは ${dateL(mi*7)}週（${pct(rates[mi],0)}）`,b:`期間平均 ${pct(n.N/n.V,0)} から ${sgn((rates[mi]-n.N/n.V)*100,1,'pt')}。該当週のイベントと合わせて要因確認を推奨。`});
+  if(n.parent){const a=n.author.map((v,i)=>v/n.V/(n.parent.author[i]/n.parent.V)),ai=a.indexOf(Math.max(...a));
+    out.push({tag:'投稿者',t:`「${AUT[ai]}」の比率が上位階層より高い（指数 ${Math.round(a[ai]*100)}）`,b:`${n.parent.name} 全体を100としたときの特化度。構成比は ${pct(n.author[ai]/n.V,0)}。`});}
+  return out.map(o=>Object.assign(o,{cls:'fact'}));}
+
+/* ========== 描画ヘルパー ========== */
+const S={id:0,mode:'vol',gran:'day',tm:'net',pf:'all'};
+const seg=(key,opts)=>`<span class="seg">${opts.map(o=>`<button class="${S[key]===o[0]?'on':''}" data-set="${key}:${o[0]}">${o[1]}</button>`).join('')}</span>`;
+function mix(a,b,t){const pa=a.match(/\w\w/g).map(h=>parseInt(h,16)),pb=b.match(/\w\w/g).map(h=>parseInt(h,16));return'rgb('+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t)).join(',')+')';}
+const netColor=v=>v>=.1?mix('#2f3b4c','#00a870',clamp((v-.1)/.5,0,1)):mix('#2f3b4c','#e0364f',clamp((.1-v)/.4,0,1));
+const growColor=g=>g>=0?mix('#2f3b4c','#1d8fe0',clamp(Math.log1p(g)/Math.log1p(4),0,1)):mix('#2f3b4c','#d97706',clamp(-g/.5,0,1));
+function niceMax(v){const p=Math.pow(10,Math.floor(Math.log10(v||1))),f=v/p;return(f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
+function spark(arr,color,w=90,h=24){const mx=Math.max(...arr),mn=Math.min(...arr);const pts=arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-2-(v-mn)/((mx-mn)||1)*(h-4)).toFixed(1)}`).join(' ');return`<svg width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/></svg>`;}
+function squarify(list,x,y,w,h){const tot=sum(list.map(i=>i.v)),sc=w*h/tot,out=[];let rest=list.slice().sort((a,b)=>b.v-a.v),rx=x,ry=y,rw=w,rh=h;
+  while(rest.length){const L=Math.min(rw,rh);
+    const worst=row=>{const a=row.map(r=>r.v*sc),s=sum(a);return Math.max(L*L*Math.max(...a)/(s*s),s*s/(L*L*Math.min(...a)));};
+    let row=[rest[0]],i=1;while(i<rest.length&&worst(row.concat(rest[i]))<=worst(row)){row.push(rest[i]);i++;}
+    const s=sum(row.map(r=>r.v*sc)),th=s/L;let off=0;
+    row.forEach(r=>{const len=r.v*sc/th;if(rw>=rh)out.push({item:r,x:rx,y:ry+off,w:th,h:len});else out.push({item:r,x:rx+off,y:ry,w:len,h:th});off+=len;});
+    if(rw>=rh){rx+=th;rw-=th;}else{ry+=th;rh-=th;}rest=rest.slice(i);}
+  return out;}
+function bars(el,labels,vals,pvals,color){const t=sum(vals),pt=pvals?sum(pvals):1;
+  const rows=labels.map((l,i)=>({l,v:vals[i]/t,p:pvals?pvals[i]/pt:null})).sort((a,b)=>b.v-a.v);
+  const mx=Math.max(...rows.map(r=>Math.max(r.v,r.p||0)));
+  el.innerHTML=rows.map(r=>{const d=r.p!=null?(r.v-r.p)*100:null;
+    return`<div class="brow"><span class="bl" title="${esc(r.l)}">${esc(r.l)}</span><div class="bt"><i style="width:${r.v/mx*100}%;background:${color}"></i>${r.p!=null?`<u style="left:${r.p/mx*100}%"></u>`:''}</div><span class="bv">${pct(r.v)}</span><span class="bd ${d==null?'':d>=0?'up':'dn'}">${d==null?'':sgn(d,1,'pt')}</span></div>`;}).join('');}
+
+/* ========== 各パネル描画 ========== */
+function renderSide(n){const pset=new Set(pathOf(n).map(p=>p.id));
+  const row=x=>{const open=pset.has(x.id)&&x.children,mx=x.parent?Math.max(...x.parent.children.map(c=>c.V)):x.V;
+    let h=`<div class="trow ${x.id===n.id?'on':''} ${pset.has(x.id)?'inpath':''}" style="padding-left:${8+x.level*11}px" data-go="${x.id}" title="${esc(x.name)}"><span class="tw">${x.children?(open?'▾':'▸'):'·'}</span><span class="tn">${esc(x.name)}</span><span class="tv">${fmt(x.V)}</span><i style="width:${x.V/mx*100}%"></i></div>`;
+    if(open)h+=x.children.map(row).join('');return h;};
+  $('#tree').innerHTML=row(ROOT);
+  const q=['ゲーム','コンシューマーゲーム','Nintendo Switch / Switch 2','マリオカート ワールド','フリーラン・オープンワールド'];
+  $('#quick').innerHTML=q.map((name,i)=>{const x=Object.values(NODES).find(o=>o.name===name);return`<button class="qj" data-go="${x.id}"><small>Lv.${i+1}</small>${esc(name)}</button>`;}).join('');}
+function renderNav(n){const path=pathOf(n);
+  $('#crumbs').innerHTML=path.map((p,i)=>`<button class="crumb ${p===n?'on':''}" data-go="${p.id}"><small>Lv.${i+1} ${LEVELS[i]}</small><span>${esc(p.name)}</span></button>`).join('<i class="sep">›</i>')+(n.children?`<i class="sep">›</i><span class="crumb ghost"><small>Lv.${n.level+2} ${LEVELS[n.level+1]}</small><span>下のチップ／図から選択</span></span>`:'');
+  const evs=eventsOf(n),top=evs.slice().sort((a,b)=>b.r-a.r)[0],its=items(n).slice().sort((a,b)=>b.V-a.V);
+  let h=`<div class="meter"><span>マクロ</span>${LEVELS.map((l,i)=>`<i class="${i===n.level?'on':i<n.level?'past':''}" title="${l}"></i>`).join('')}<span>ミクロ</span>　<b style="color:#fff">現在の粒度：Lv.${n.level+1} ${LEVELS[n.level]}</b></div>`;
+  if(n.children)h+=`<div class="nv"><label>▼ 一段ミクロへ<br>（${LEVELS[n.level+1]}）</label><div class="chips">${n.children.map(c=>`<button class="chip" data-go="${c.id}">${esc(c.name)}<em>${fmt(c.V)}</em></button>`).join('')}</div></div>`;
+  if(n.parent)h+=`<div class="nv"><label>◀▶ 同じ粒度で比較<br>▲ 一段マクロへ</label><div class="chips"><button class="chip up" data-go="${n.parent.id}">▲ ${esc(n.parent.name)}</button>${n.parent.children.filter(c=>c!==n).map(c=>`<button class="chip" data-go="${c.id}">${esc(c.name)}<em>${fmt(c.V)}</em></button>`).join('')}</div></div>`;
+  h+=`<div class="summary">📝 <b>サマリー：</b>「${esc(n.name)}」の発話は期間合計 <b>${fmt(n.V)}件</b>（前期比 ${gfmt(n.g)}）。ポジ ${pct(n.P/n.V,0)}／ネガ ${pct(n.N/n.V,0)}。${top?`最大の山は ${dateL(top.d)}「${esc(top.l)}」（平常比×${top.r.toFixed(1)}）。`:''}${n.children?LEVELS[n.level+1]:'キーワード'}別の最大は「${esc(its[0].name)}」。</div>`;
+  $('#nav2').innerHTML=h;}
+function renderKPI(n){const net=(n.P-n.N)/n.V*100,pn=n.parent?(n.parent.P-n.parent.N)/n.parent.V*100:null,r=RNG('kpi|'+n.name+n.level);
+  const rank=n.parent?n.parent.children.indexOf(n)+1:1,wv=weekly(n.sv),ws=weekly(n.sp).map((v,i)=>(v-weekly(n.sn)[i])/wv[i]);
+  const ga=n.g*(.7+r()*.2),ge=n.g*(.9+r()*.4);
+  const k=[
+   ['投稿数',fmt(n.V),'件',`<span class="${n.g>=0?'up':'dn'}">前期比 ${gfmt(n.g)}</span>`,spark(wv,C.acc)],
+   ['ユニーク投稿者',fmt(n.authors),'人',`<span class="${ga>=0?'up':'dn'}">${gfmt(ga)}</span>・1人あたり ${(n.V/n.authors).toFixed(1)}件`,''],
+   ['エンゲージメント総数',fmt(n.eng),'',`<span class="${ge>=0?'up':'dn'}">${gfmt(ge)}</span>・1ポスト平均 ${(n.eng/n.V).toFixed(1)}`,''],
+   ['推定インプレッション',fmt(n.imp),'',`1ポスト平均 ${fmt(n.imp/n.V)}`,''],
+   ['ネットセンチメント',sgn(net,1,''),'pt',`ポジ ${pct(n.P/n.V,0)}／ネガ ${pct(n.N/n.V,0)}${pn!=null?`・<span class="${net-pn>=0?'up':'dn'}">上位比 ${sgn(net-pn,1,'pt')}</span>`:''}`,spark(ws,net>=0?C.pos:C.neg)],
+   ['上位階層内シェア',n.parent?pct(n.V/n.parent.V):'100%','',n.parent?`${esc(n.parent.name)} 内 ${rank}位／${n.parent.children.length}`:'最上位階層','']];
+  $('#kpis').innerHTML=k.map(x=>`<div class="kpi"><label>${x[0]}</label><div class="v">${x[1]}<small>${x[2]}</small></div><div class="f"><span>${x[3]}</span>${x[4]}</div></div>`).join('');}
+function renderTrend(n){const its=items(n),canB=!!its[0].sv;if(S.mode==='brk'&&!canB)S.mode='vol';
+  $('#trendCtl').innerHTML=seg('mode',[['vol','投稿数'],['sent','センチメント別']].concat(canB?[['brk',LEVELS[n.level+1]+'別']]:[]))+seg('gran',[['day','日次'],['week','週次']]);
+  const bin=a=>S.gran==='day'?a:weekly(a);let series;
+  if(S.mode==='vol')series=[{name:'投稿数',color:C.acc,data:bin(n.sv)}];
+  else if(S.mode==='sent'){const p=bin(n.sp),q=bin(n.sn),v=bin(n.sv);series=[{name:'ネガティブ',color:C.neg,data:q},{name:'ニュートラル',color:C.neu,data:v.map((x,i)=>x-p[i]-q[i])},{name:'ポジティブ',color:C.pos,data:p}];}
+  else{series=its.slice(0,6).map((t,i)=>({name:t.name,color:PAL[i],data:bin(t.sv)}));if(its.length>6){const tv=bin(n.sv),top=series.slice();series.push({name:'その他',color:'#475569',data:tv.map((v,i)=>Math.max(0,v-sum(top.map(s=>s.data[i]))))});}}
+  const el=$('#trend'),W=el.clientWidth||800,H=300,m={l:52,r:14,t:30,b:24},L=series[0].data.length,single=series.length===1;
+  const tot=Array.from({length:L},(_,i)=>sum(series.map(s=>s.data[i]))),max=niceMax(Math.max(...tot));
+  const x=i=>m.l+(W-m.l-m.r)*i/(L-1),y=v=>H-m.b-(H-m.t-m.b)*v/max;
+  let g='<defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d9bf0" stop-opacity=".45"/><stop offset="1" stop-color="#1d9bf0" stop-opacity=".02"/></linearGradient></defs>';
+  for(let i=0;i<=5;i++){const v=max*i/5;g+=`<line class="grid-l" x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${m.l-8}" y="${y(v)+4}" text-anchor="end">${fmt(v)}</text>`;}
+  for(let i=0;i<L;i+=(S.gran==='day'?14:2))g+=`<text class="ax" x="${x(i)}" y="${H-6}" text-anchor="middle">${dateL(S.gran==='day'?i:i*7)}${S.gran==='week'?'週':''}</text>`;
+  let base=new Array(L).fill(0);
+  series.forEach(s=>{const top=s.data.map((v,i)=>base[i]+v);
+    const up=top.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)),dn=base.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).reverse();
+    g+=`<path d="M${up.join(' L')} L${dn.join(' L')} Z" fill="${single?'url(#gr)':s.color}" fill-opacity="${single?1:.8}"/>`;
+    if(single)g+=`<path d="M${up.join(' L')}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;base=top;});
+  const evs=eventsOf(n),used={};
+  evs.forEach((e,k)=>{const xi=S.gran==='day'?e.d:Math.floor(e.d/7);used[xi]=(used[xi]||0)+1;const ex=x(xi)+(used[xi]-1)*17;
+    g+=`<line x1="${x(xi)}" x2="${x(xi)}" y1="${m.t-4}" y2="${H-m.b}" stroke="${C.warn}" stroke-dasharray="3 3" stroke-opacity=".6"/><circle cx="${ex}" cy="${m.t-14}" r="8" fill="${C.warn}"/><text x="${ex}" y="${m.t-10.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#000">${k+1}</text>`;});
+  g+=`<line class="guide" y1="${m.t}" y2="${H-m.b}" stroke="#fff" stroke-opacity=".5" style="display:none"/>`;
+  el.innerHTML=`<svg width="${W}" height="${H}">${g}</svg><div class="tip"></div>`;
+  const svg=el.querySelector('svg'),guide=el.querySelector('.guide'),tip=el.querySelector('.tip');
+  svg.onmousemove=ev=>{const r=svg.getBoundingClientRect(),i=clamp(Math.round((ev.clientX-r.left-m.l)/(W-m.l-m.r)*(L-1)),0,L-1);
+    guide.style.display='';guide.setAttribute('x1',x(i));guide.setAttribute('x2',x(i));
+    const d0=S.gran==='day'?i:i*7,head=S.gran==='day'?`${dateL(i)}（${DOW[(2+i)%7]}）`:`${dateL(d0)} 〜 ${dateL(d0+6)}`;
+    const ev2=evs.filter(e=>(S.gran==='day'?e.d:Math.floor(e.d/7))===i);
+    tip.innerHTML=`<b>${head}</b>`+series.slice().reverse().map(s=>`<div><span><i style="background:${s.color}"></i>${esc(s.name)}</span><span>${fmt(s.data[i])}${single?'':'（'+pct(s.data[i]/tot[i],0)+'）'}</span></div>`).join('')+(single?'':`<div><span>合計</span><span>${fmt(tot[i])}</span></div>`)+ev2.map(e=>`<span class="e">★ ${esc(e.l)}</span>`).join('');
+    tip.style.display='block';if(x(i)>W*.6){tip.style.left=(x(i)-12)+'px';tip.style.transform='translateX(-100%)';}else{tip.style.left=(x(i)+12)+'px';tip.style.transform='none';}};
+  svg.onmouseleave=()=>{guide.style.display='none';tip.style.display='none';};
+  $('#trendLg').innerHTML=single?'':series.slice().reverse().map(s=>`<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('');
+  $('#evs').innerHTML=evs.length?evs.map((e,k)=>`<div><b>${k+1}</b><span>${dateL(e.d)}</span>${esc(e.l)}<em>平常比×${e.r.toFixed(1)}</em></div>`).join(''):'<div style="color:var(--mut)">この粒度では顕著なスパイクは検知されていません（定常的な発話）。</div>';}
+function renderInsights(n){const tagCls={'機会':'opp','リスク':'risk','兆し':'sign'};
+  const list=(n.ins||[]).map(i=>Object.assign({cls:tagCls[i.tag]||'fact'},i)).concat(autoInsights(n));
+  $('#ins').innerHTML=list.map(i=>`<div class="in"><span class="tg ${i.cls}">${i.tag}</span><b>${esc(i.t)}</b><p>${esc(i.b)}</p></div>`).join('');}
+function renderBreakdown(n){const its=items(n).slice().sort((a,b)=>b.V-a.V),tot=sum(its.map(i=>i.V)),unit=n.children?LEVELS[n.level+1]:'キーワード';
+  $('#brkT').innerHTML=`${unit}別の内訳 <small>${n.children?'クリックで一段ミクロへドリルダウン':'最下層のためキーワード単位で表示（ドリルダウン不可）'}</small>`;
+  $('#brkCtl').innerHTML='<span style="color:var(--mut);font-size:11px">色：</span>'+seg('tm',[['net','センチメント'],['grow','前期比']]);
+  const el=$('#treemap'),W=el.clientWidth||400,H=330;el.style.height=H+'px';
+  el.innerHTML=squarify(its.map(i=>({v:i.V,i})),0,0,W,H).map(q=>{const i=q.item.i,big=q.w>90&&q.h>50,mid=q.w>44&&q.h>20;
+    return`<div class="tmc ${i.node?'link':''}" ${i.node?`data-go="${i.node.id}"`:''} title="${esc(i.name)}｜${fmt(i.V)}件（${pct(i.V/tot)}）｜前期比 ${gfmt(i.g)}｜ネット ${sgn(i.net*100,0,'pt')}" style="left:${q.x}px;top:${q.y}px;width:${Math.max(0,q.w-2)}px;height:${Math.max(0,q.h-2)}px;background:${S.tm==='net'?netColor(i.net):growColor(i.g)}">${mid?`<b>${esc(i.name)}</b>`:''}${big?`<span>${fmt(i.V)}件・${pct(i.V/tot,0)}</span><span>${S.tm==='net'?'ネット '+sgn(i.net*100,0,'pt'):'前期比 '+gfmt(i.g)}</span>`:''}</div>`;}).join('');
+  $('#tmScale').innerHTML=S.tm==='net'?'<span>ネガ優勢</span><i style="background:linear-gradient(90deg,#e0364f,#2f3b4c,#00a870)"></i><span>ポジ優勢</span>':'<span>減少</span><i style="background:linear-gradient(90deg,#d97706,#2f3b4c,#1d8fe0)"></i><span>急伸</span>';
+  $('#brkTable').innerHTML=`<tr><th>#</th><th>${unit}</th><th>投稿数</th><th>シェア</th><th>前期比</th><th>ポジ／中立／ネガ</th>${n.children?'<th>週次推移</th><th></th>':''}</tr>`+its.map((i,k)=>`<tr class="${i.node?'link':''}" ${i.node?`data-go="${i.node.id}"`:''}><td>${k+1}</td><td title="${esc(i.name)}">${esc(i.name)}</td><td>${fmt(i.V)}</td><td><span class="shb" style="width:${i.V/its[0].V*50}px"></span>${pct(i.V/tot)}</td><td class="${i.g>=0?'up':'dn'}">${gfmt(i.g)}</td><td><div class="sb"><i style="width:${i.posR*100}%;background:${C.pos}"></i><i style="width:${(1-i.posR-i.negR)*100}%;background:${C.neu}"></i><i style="width:${i.negR*100}%;background:${C.neg}"></i></div></td>${n.children?`<td>${spark(weekly(i.sv),'#7cc4f8',80,20)}</td><td class="go">→</td>`:''}</tr>`).join('');}
+function renderBubble(n){const el=$('#bubble'),its=items(n),W=el.clientWidth||500,H=310,m={l:44,r:16,t:14,b:34};
+  const fx=p=>Math.sign(p)*Math.log10(1+Math.abs(p)/25),gs=its.map(i=>i.g*100),ns=its.map(i=>i.net*100);
+  const x0=fx(Math.min(-40,Math.min(...gs)*1.2)),x1=fx(Math.max(120,Math.max(...gs)*1.4)),y0=Math.min(-5,Math.min(...ns)-8),y1=Math.max(40,Math.max(...ns)+12);
+  const X=p=>m.l+(fx(p)-x0)/(x1-x0)*(W-m.l-m.r),Y=v=>H-m.b-(v-y0)/(y1-y0)*(H-m.t-m.b),mxV=Math.max(...its.map(i=>i.V)),avg=(n.P-n.N)/n.V*100;
+  let g='';
+  [-50,0,50,100,300,1000,3000].filter(p=>fx(p)>=x0&&fx(p)<=x1).forEach(p=>{g+=`<line class="grid-l" x1="${X(p)}" x2="${X(p)}" y1="${m.t}" y2="${H-m.b}" ${p===0?'style="stroke:#4b5b6e"':''}/><text class="ax" x="${X(p)}" y="${H-m.b+14}" text-anchor="middle">${p>0?'+':''}${p}%</text>`;});
+  for(let v=Math.ceil(y0/20)*20;v<=y1;v+=20)g+=`<line class="grid-l" x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ax" x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${v>0?'+':''}${v}</text>`;
+  g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(avg)}" y2="${Y(avg)}" stroke="#4b5b6e" stroke-dasharray="4 3"/><text class="ax" x="${W-m.r-2}" y="${Y(avg)-4}" text-anchor="end">全体平均 ${sgn(avg,0,'pt')}</text>`;
+  g+=`<text class="ax" x="${W-m.r-4}" y="${m.t+10}" text-anchor="end" fill-opacity=".8">追い風（急伸×好意的）</text><text class="ax" x="${W-m.r-4}" y="${H-m.b-6}" text-anchor="end">要注意（急伸×否定的）</text><text class="ax" x="${m.l+4}" y="${m.t+10}">定着（鈍化×好意的）</text><text class="ax" x="${m.l+4}" y="${H-m.b-6}">離反懸念（鈍化×否定的）</text>`;
+  g+=`<text class="ax" x="${(W+m.l)/2}" y="${H-4}" text-anchor="middle">前期比 伸長率（対数軸）→</text>`;
+  its.slice().sort((a,b)=>b.V-a.V).forEach(i=>{const r=6+Math.sqrt(i.V/mxV)*26,cx=X(i.g*100),cy=Y(i.net*100);
+    g+=`<g ${i.node?`data-go="${i.node.id}" style="cursor:pointer"`:''}><title>${esc(i.name)}｜${fmt(i.V)}件｜前期比 ${gfmt(i.g)}｜ネット ${sgn(i.net*100,0,'pt')}</title><circle cx="${cx}" cy="${cy}" r="${r}" fill="${netColor(i.net)}" fill-opacity=".75" stroke="#fff" stroke-opacity=".5"/><text x="${cx}" y="${cy-r-3}" text-anchor="middle" font-size="10.5" fill="#dbe3ec">${esc(i.name.length>14?i.name.slice(0,13)+'…':i.name)}</text></g>`;});
+  el.innerHTML=`<svg width="${W}" height="${H}">${g}</svg>`;}
+function renderSent(n){const p=n.P/n.V,q=n.N/n.V,u=1-p-q,par=n.parent;
+  const R=52,Cc=2*Math.PI*R;let off=0;
+  const arcs=[[p,C.pos],[u,C.neu],[q,C.neg]].map(a=>{const len=Cc*a[0],s=`<circle cx="70" cy="70" r="${R}" fill="none" stroke="${a[1]}" stroke-width="16" stroke-dasharray="${len} ${Cc-len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;off+=len;return s;}).join('');
+  $('#donut').innerHTML=`<svg width="140" height="140">${arcs}<text x="70" y="66" text-anchor="middle" fill="#8b98a8" font-size="10">ネット</text><text x="70" y="86" text-anchor="middle" fill="#fff" font-size="19" font-weight="700">${sgn((p-q)*100,0,'')}</text></svg>`;
+  const d=(v,pv)=>par?`<small class="${v-pv>=0?'up':'dn'}">上位比 ${sgn((v-pv)*100,1,'pt')}</small>`:'';
+  $('#sentLg').innerHTML=`<div><i style="background:${C.pos}"></i>ポジティブ <b>${pct(p)}</b>${d(p,par?par.P/par.V:0)}</div><div><i style="background:${C.neu}"></i>ニュートラル <b>${pct(u)}</b></div><div><i style="background:${C.neg}"></i>ネガティブ <b>${pct(q)}</b>${par?`<small class="${q-par.N/par.V<=0?'up':'dn'}">上位比 ${sgn((q-par.N/par.V)*100,1,'pt')}</small>`:''}</div>`;
+  const a=n.emo.map(v=>v/sum(n.emo)),b=par?par.emo.map(v=>v/sum(par.emo)):null,W=300,H=230,cx=150,cy=115,RR=78,N=a.length,mx=Math.max(...a,...(b||[0]))*1.1;
+  const pt=(v,i)=>{const ang=-Math.PI/2+i*2*Math.PI/N;return[(cx+Math.cos(ang)*RR*v/mx).toFixed(1),(cy+Math.sin(ang)*RR*v/mx).toFixed(1)];};
+  let g='';[.33,.66,1].forEach(f=>{g+=`<polygon points="${a.map((_,i)=>pt(mx*f,i).join(',')).join(' ')}" fill="none" stroke="#243040"/>`;});
+  EMO.forEach((l,i)=>{const e=pt(mx,i),t=pt(mx*1.2,i),c=Math.cos(-Math.PI/2+i*2*Math.PI/N);g+=`<line x1="${cx}" y1="${cy}" x2="${e[0]}" y2="${e[1]}" stroke="#243040"/><text x="${t[0]}" y="${+t[1]+4}" font-size="10" fill="${i<4?'#7ee0b8':'#fda4af'}" text-anchor="${c>.3?'start':c<-.3?'end':'middle'}">${l}</text>`;});
+  if(b)g+=`<polygon points="${b.map((v,i)=>pt(v,i).join(',')).join(' ')}" fill="none" stroke="#94a3b8" stroke-dasharray="4 3"/>`;
+  g+=`<polygon points="${a.map((v,i)=>pt(v,i).join(',')).join(' ')}" fill="#1d9bf0" fill-opacity=".3" stroke="#1d9bf0" stroke-width="2"/>`;
+  $('#radar').innerHTML=`<svg width="${W}" height="${H}">${g}</svg>`;
+  $('#emoCap').textContent=par?`実線＝${n.name}／破線＝上位階層（${par.name}）`:'感情8分類の構成比';
+  const wv=weekly(n.sv),wp=weekly(n.sp).map((v,i)=>v/wv[i]*100),wn=weekly(n.sn).map((v,i)=>v/wv[i]*100),el=$('#rate'),W2=el.clientWidth||500,H2=92,mm={l:34,r:8,t:16,b:16},m2=Math.max(...wp,...wn)*1.15;
+  const xx=i=>mm.l+(W2-mm.l-mm.r)*i/(wp.length-1),yy=v=>H2-mm.b-(H2-mm.t-mm.b)*v/m2,ln=(arr,c)=>`<polyline points="${arr.map((v,i)=>xx(i).toFixed(1)+','+yy(v).toFixed(1)).join(' ')}" fill="none" stroke="${c}" stroke-width="2"/>`+arr.map((v,i)=>`<circle cx="${xx(i)}" cy="${yy(v)}" r="2.5" fill="${c}"><title>${dateL(i*7)}週：${v.toFixed(1)}%</title></circle>`).join('');
+  el.innerHTML=`<svg width="${W2}" height="${H2}"><text class="ax" x="0" y="10">週次 ポジ率／ネガ率（%）</text><line class="grid-l" x1="${mm.l}" x2="${W2-mm.r}" y1="${yy(0)}" y2="${yy(0)}"/><text class="ax" x="${mm.l-6}" y="${yy(0)+3}" text-anchor="end">0</text><text class="ax" x="${mm.l-6}" y="${yy(m2)+8}" text-anchor="end">${Math.round(m2)}</text>${ln(wp,C.pos)}${ln(wn,C.neg)}${wp.map((_,i)=>i%2===0?`<text class="ax" x="${xx(i)}" y="${H2-3}" text-anchor="middle">${dateL(i*7)}</text>`:'').join('')}</svg>`;}
+function renderIntent(n){bars($('#intent'),INT,n.intent,n.parent?n.parent.intent:null,'#a78bfa');
+  $('#intentCap').textContent=n.parent?`白線＝上位階層（${n.parent.name}）の構成比／右端＝差分`:'発話の目的別の構成比';}
+function renderKeywords(n){const own=n.level===3?n.alias:null,ks=n.kws.filter(k=>k.t!==own).slice(0,38);if(!ks.length)return;
+  const mx=ks[0].w,r=RNG('cl|'+n.name+n.level),sh=ks.map(k=>[r(),k]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+  $('#cloud').innerHTML=sh.map(k=>{const fs=11+Math.sqrt(k.w/mx)*24,c=k.s>.25?C.pos:k.s<-.12?C.neg:'#cbd5e1';
+    return`<span style="font-size:${fs.toFixed(1)}px;color:${c};font-weight:${fs>22?700:500};opacity:${(.6+Math.sqrt(k.w/mx)*.4).toFixed(2)}" title="${esc(k.t)}｜${fmt(k.w)}件｜前期比 ${gfmt(k.g)}">${esc(k.t)}</span>`;}).join('');
+  $('#rise').innerHTML=ks.slice().sort((a,b)=>b.g-a.g).slice(0,8).map(k=>`<div><span style="color:${k.s>.25?C.pos:k.s<-.12?C.neg:'#cbd5e1'}">${esc(k.t)}</span><span class="${k.g>=0?'up':'dn'}">${k.g>=0?'↑':'↓'} ${gfmt(k.g)}</span></div>`).join('');}
+function renderHeat(n){const mx=Math.max(...n.heat),mi=n.heat.indexOf(mx);let h='<b></b>';
+  for(let i=0;i<24;i++)h+=`<b>${i%3===0?i:''}</b>`;
+  [1,2,3,4,5,6,0].forEach(dw=>{h+=`<b>${DOW[dw]}</b>`;for(let i=0;i<24;i++){const v=n.heat[dw*24+i];h+=`<i style="background:rgba(29,155,240,${(.06+v/mx*.94).toFixed(2)})" title="${DOW[dw]}曜 ${i}時台：${fmt(v)}件"></i>`;}});
+  $('#heat').innerHTML=h;$('#heatCap').textContent=`ピーク：${DOW[Math.floor(mi/24)]}曜 ${mi%24}時台`;}
+function renderAuthor(n){bars($('#author'),AUT,n.author,n.parent?n.parent.author:null,'#22d3ee');
+  $('#authorCap').textContent=n.parent?'白線＝上位階層の構成比／右端＝差分':'プロフィール・投稿傾向から推定したクラスタ（ダミー）';}
+function renderPtype(n){const st=(title,labels,vals,cols)=>{const t=sum(vals);return`<div class="cap" style="margin-top:0">${title}</div><div class="stk">${vals.map((v,i)=>`<i style="width:${v/t*100}%;background:${cols[i]}" title="${labels[i]} ${pct(v/t)}"></i>`).join('')}</div><div class="lg" style="margin-bottom:10px">${labels.map((l,i)=>`<span><i style="background:${cols[i]}"></i>${l} ${pct(vals[i]/t,0)}</span>`).join('')}</div>`;};
+  $('#ptype').innerHTML=st('投稿タイプ',PTY,n.ptype,['#1d9bf0','#00ba7c','#ffb020','#a78bfa'])+st('メディア',MED,n.media,['#64748b','#22d3ee','#f472b6','#facc15']);
+  const co=coOf(n),mx=Math.max(...co.map(c=>c[1]));
+  $('#coCap').textContent=n.level===0?'ゲーム以外の共起カテゴリ（同時言及率）':'一緒に語られるトピック（同時言及率）';
+  $('#co').innerHTML=co.map(c=>`<div class="brow" style="grid-template-columns:1fr 70px 40px"><span class="bl" title="${esc(c[0])}">${esc(c[0])}</span><div class="bt"><i style="width:${c[1]/mx*100}%;background:${C.warn}"></i></div><span class="bv">${c[1].toFixed(1)}%</span></div>`).join('');}
+function renderPosts(n){$('#postCtl').innerHTML=seg('pf',[['all','すべて'],['pos','ポジ'],['neu','中立'],['neg','ネガ']]);
+  const lab={pos:'ポジティブ',neu:'ニュートラル',neg:'ネガティブ'};
+  const ps=postsOf(n).filter(p=>S.pf==='all'||p.sent===S.pf).sort((a,b)=>(b.like+b.rp)-(a.like+a.rp)).slice(0,9);
+  $('#posts').innerHTML=ps.length?ps.map(p=>`<div class="post"><div class="pu"><div class="av" style="background:hsl(${hash(p.u[1])%360},55%,42%)">${esc(p.u[0][0])}</div><div><b>${esc(p.u[0])}</b><small>@${p.u[1]}・${dateL(p.d)} ${p.h}:${String(hash(p.text)%60).padStart(2,'0')}</small></div><span class="st ${p.sent}">${lab[p.sent]}</span></div><div class="pt">${esc(p.text)}</div><div class="th">#${esc(p.title)}　›　${esc(p.theme)}</div><div class="pm"><span>💬 ${fmt(p.rep)}</span><span>🔁 ${fmt(p.rp)}</span><span>♥ ${fmt(p.like)}</span><span>📊 ${fmt(p.imp)}</span></div></div>`).join(''):'<div style="color:var(--mut)">該当するポストがありません。</div>';}
+
+/* ========== 制御 ========== */
+function render(){const n=NODES[S.id];renderSide(n);renderNav(n);renderKPI(n);renderTrend(n);renderInsights(n);renderBreakdown(n);renderBubble(n);renderSent(n);renderIntent(n);renderKeywords(n);renderHeat(n);renderAuthor(n);renderPtype(n);renderPosts(n);}
+function go(id){S.id=id;S.pf='all';render();window.scrollTo({top:0,behavior:'smooth'});}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){go(+g.dataset.go);return;}
+  const s=e.target.closest('[data-set]');if(s){const kv=s.dataset.set.split(':');S[kv[0]]=kv[1];render();}});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,150);});
+render();
+})();
+</script>
+</body>
+</html>
