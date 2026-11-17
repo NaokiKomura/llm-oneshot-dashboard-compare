@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xポスト 発話トピック・インサイト分析ダッシュボード（ゲーム領域）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .tree-node-active {
+      background-color: #eff6ff;
+      color: #1d4ed8;
+      border-right: 3px solid #2563eb;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+  <!-- トップヘッダー -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold text-lg shadow-sm">
+        𝕏
+      </div>
+      <div>
+        <h1 class="text-base font-bold text-slate-900 leading-tight">Social Topic & Insight Explorer</h1>
+        <p class="text-xs text-slate-500">Xポスト発話トレンド・多階層インサイト分析ダッシュボード（ダミーデータ）</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <!-- 期間フィルター -->
+      <div class="flex items-center bg-slate-100 p-1 rounded-lg text-xs font-medium">
+        <button onclick="setPeriod('7d')" id="btn-7d" class="period-btn px-3 py-1.5 rounded-md transition text-slate-600 hover:text-slate-900">過去7日間</button>
+        <button onclick="setPeriod('14d')" id="btn-14d" class="period-btn px-3 py-1.5 rounded-md transition bg-white text-slate-900 shadow-sm">過去14日間</button>
+        <button onclick="setPeriod('30d')" id="btn-30d" class="period-btn px-3 py-1.5 rounded-md transition text-slate-600 hover:text-slate-900">過去30日間</button>
+      </div>
+      <div class="hidden md:flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>分析対象期間: 2025/04/01 〜 04/30</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテナ -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- 左サイドバー: 階層ツリーナビゲーション -->
+    <aside class="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 hidden lg:flex">
+      <div class="p-4 border-b border-slate-100">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">粒度階層（ドリルダウン）</div>
+        <p class="text-xs text-slate-500">トピックを選択してマクロ〜ミクロの視点を切り替えます</p>
+      </div>
+      <div id="hierarchy-tree" class="flex-1 overflow-y-auto custom-scrollbar py-2 text-sm">
+        <!-- JSで階層ツリーを生成 -->
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
+        <div class="font-semibold text-slate-700 mb-1">分析ヒント</div>
+        例：「ゲーム」→「コンシューマーゲーム」→「任天堂スイッチ」→「マリオカートワールド」の順に掘り下げると、市場全体から個別タイトルの課題まで把握できます。
+      </div>
+    </aside>
+
+    <!-- メインコンテンツエリア -->
+    <main class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+
+      <!-- パンくずリスト & 現在の粒度バッジ -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center gap-1.5 text-sm" id="breadcrumbs">
+          <!-- JSで生成 -->
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="granularity-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            Level 1: マクロ視点
+          </span>
+        </div>
+      </div>
+
+      <!-- 下位粒度（子トピック）へのドリルダウンカード -->
+      <section id="drilldown-section" class="hidden">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            下位トピックへ掘り下げる（クリックで遷移）
+          </h2>
+          <span class="text-xs text-slate-400">全体発話に占めるシェア</span>
+        </div>
+        <div id="child-cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <!-- JSで生成 -->
+        </div>
+      </section>
+
+      <!-- KPI サマリーカード -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpi-cards">
+        <!-- JSで生成 -->
+      </section>
+
+      <!-- チャート群 Row 1: 発話量推移 & 感情分析 -->
+      <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <!-- 発話量推移チャート (2/3幅) -->
+        <div class="xl:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900">発話量・センチメント推移</h3>
+              <p class="text-xs text-slate-500" id="trend-subtitle">日別の投稿ボリュームとポジティブ/ネガティブ推移</p>
+            </div>
+            <div id="spike-callout" class="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg font-medium">
+              <!-- スパイク要因 -->
+            </div>
+          </div>
+          <div class="relative flex-1 min-h-[260px]">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 感情分析 & 発話意図 (1/3幅) -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <div class="mb-3">
+            <h3 class="text-base font-bold text-slate-900">感情バランス（Sentiment）</h3>
+            <p class="text-xs text-slate-500">投稿テキストの感情極性判定</p>
+          </div>
+          <div class="relative h-48 flex items-center justify-center">
+            <canvas id="sentimentChart"></canvas>
+          </div>
+          <div id="sentiment-reasons" class="mt-4 space-y-2 text-xs border-t border-slate-100 pt-3">
+            <!-- ポジ・ネガの主な要因 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- チャート群 Row 2: 話題トピック分布 & 発話意図（ユーザー行動） -->
+      <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <!-- トピック・キーワード構成比 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-slate-900" id="topic-chart-title">主要サブトピック・言及テーマ</h3>
+              <p class="text-xs text-slate-500">この粒度内で特に発話が集中しているキーワード・話題</p>
+            </div>
+          </div>
+          <div class="relative h-64">
+            <canvas id="topicBarChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 発話意図（コンテキスト）多面分析 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div class="mb-4">
+            <h3 class="text-base font-bold text-slate-900">発話意図・コミュニケーション分類</h3>
+            <p class="text-xs text-slate-500">単なる「好き/嫌い」を超えたユーザー心理の構造化</p>
+          </div>
+          <div class="relative h-64">
+            <canvas id="intentChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- 多面的インサイトパネル（示唆・ペイン・アクション） -->
+      <section class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl p-6 shadow-md">
+        <div class="flex items-center gap-2.5 mb-4">
+          <span class="p-1.5 bg-blue-500/20 text-blue-300 rounded-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+          </span>
+          <div>
+            <h3 class="text-base font-bold">AIインサイト・多面的示唆サマリー</h3>
+            <p class="text-xs text-slate-300" id="insight-target-label">現在の粒度におけるユーザーインサイトと施策ヒント</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="insight-cards">
+          <!-- JSで生成 -->
+        </div>
+      </section>
+
+      <!-- 実際のXポスト（サンプルタイムライン） -->
+      <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">代表的なXポスト（ダミーVOCデータ）</h3>
+            <p class="text-xs text-slate-500">定量データとあわせて「生の声（定性）」を確認できます</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- 感情フィルタ -->
+            <div class="flex bg-slate-100 p-1 rounded-lg text-xs font-medium">
+              <button onclick="setPostFilter('all')" class="post-filter-btn px-2.5 py-1 rounded bg-white text-slate-900 shadow-sm" data-filter="all">すべて</button>
+              <button onclick="setPostFilter('positive')" class="post-filter-btn px-2.5 py-1 rounded text-emerald-700 hover:bg-white/60" data-filter="positive">ポジティブ</button>
+              <button onclick="setPostFilter('neutral')" class="post-filter-btn px-2.5 py-1 rounded text-slate-600 hover:bg-white/60" data-filter="neutral">ニュートラル</button>
+              <button onclick="setPostFilter('negative')" class="post-filter-btn px-2.5 py-1 rounded text-rose-700 hover:bg-white/60" data-filter="negative">ネガティブ</button>
+            </div>
+            <!-- キーワード検索 -->
+            <input type="text" id="post-search" oninput="renderPosts()" placeholder="投稿内を検索..." class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div id="posts-container" class="divide-y divide-slate-100 max-h-[520px] overflow-y-auto custom-scrollbar">
+          <!-- JSで生成 -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+<script>
+// ==========================================
+// 1. 階層データ & ダミーXポストデータ定義
+// ==========================================
+const dateLabels30 = Array.from({length: 30}, (_, i) => `4/${i + 1}`);
+
+const topicDatabase = {
+  "game": {
+    id: "game",
+    name: "ゲーム（市場全体）",
+    level: 1,
+    levelName: "マクロ：業界全体",
+    parentId: null,
+    children: ["consumer", "mobile", "pc_esports"],
+    kpis: {
+      mentions: 482500,
+      growth: "+18.4%",
+      uniqueUsers: 198400,
+      engagementRate: "4.2%",
+      positiveRatio: 58
+    },
+    spikeNote: "🔥 4/2〜4/3：大型ダイレクト発表・新ハード関連情報で発話急増",
+    trend30: [12000,14500,32000,28000,19000,16500,15000,14200,13800,15600,16200,18000,17500,16000,15200,14800,15900,17200,19800,21000,18500,16400,15800,16200,18900,20400,19100,17600,16800,17500],
+    sentiment: { positive: 58, neutral: 26, negative: 16 },
+    sentimentReasons: {
+      pos: "次世代機・大型新作の続報に対する純粋なワクワク感、シリーズ復活の喜び",
+      neg: "ハードやソフトの価格上昇懸念、転売対策への不安、容量不足への不満"
+    },
+    subTopics: [
+      { label: "次世代機・ハード価格", value: 98400 },
+      { label: "大型新作タイトル発表", value: 86200 },
+      { label: "ガチャ・課金システム", value: 64100 },
+      { label: "クロスプレイ・オンライン", value: 52300 },
+      { label: "スペック・最適化", value: 44800 },
+      { label: "リメイク・過去作移植", value: 38900 }
+    ],
+    intents: { "期待・賞賛": 42, "情報共有・考察": 28, "懸念・不満": 16, "ネタ・ミーム": 9, "質問・相談": 5 },
+    insights: [
+      { title: "ユーザー心理：価格感度の変化", body: "物価高やソフト単価の上昇（8,000〜1万円帯）に対し『価値があれば買うが、様子見も増えた』という選別消費の傾向が顕著。" },
+      { title: "プラットフォーム間の垣根低下", body: "PC（Steam）とコンシューマーの同時発売・クロスプレイが前提として語られるようになり、遊べる環境でハードを選ぶ層が拡大。" },
+      { title: "マーケティング示唆", body: "PV公開直後の熱狂を逃さず、価格に見合う「ボリューム・体験の新規性」を具体的なプレイ映像で早期に証明することが購買決定に直結。" }
+    ],
+    posts: [
+      { user: "ゲーム速報ウォッチャー", handle: "@game_watcher_jp", time: "2時間前", sentiment: "positive", likes: 3420, rts: 890, text: "今年のゲーム業界、次世代機の発表と大型タイトルのリリースが重なっててマジでお祭り状態だな。積む時間すら足りないｗ" },
+      { user: "けんた＠社会人ゲーマー", handle: "@kenta_play", time: "5時間前", sentiment: "neutral", likes: 412, rts: 58, text: "Steam版とSwitch版どっちで買うか迷うタイトルが増えてきた。持ち運び重視かフレームレート重視かの二択。" },
+      { user: "みさき", handle: "@misaki_gamelife", time: "8時間前", sentiment: "negative", likes: 1280, rts: 310, text: "最近の大作ゲーム、定価が1万円近いの普通になってきててお財布が厳しい…。だからこそハズレを引きたくなくて評価待ちしがち。" }
+    ]
+  },
+
+  "consumer": {
+    id: "consumer",
+    name: "コンシューマーゲーム",
+    level: 2,
+    levelName: "カテゴリ：家庭用ゲーム機",
+    parentId: "game",
+    children: ["switch", "ps5"],
+    kpis: {
+      mentions: 238000,
+      growth: "+26.1%",
+      uniqueUsers: 112000,
+      engagementRate: "4.8%",
+      positiveRatio: 64
+    },
+    spikeNote: "🔥 4/2〜4/4：任天堂関連の大型発表により家庭用ゲーム機全体が活性化",
+    trend30: [5800,7200,21000,18500,11000,8800,7900,7400,7100,8200,8500,9600,9100,8300,7800,7600,8100,8900,10400,11200,9800,8500,8100,8400,9900,10800,9700,8900,8500,8800],
+    sentiment: { positive: 64, neutral: 23, negative: 13 },
+    sentimentReasons: {
+      pos: "家族・友人と遊べる体験への期待、大型IPの正統進化、互換性対応への安心感",
+      neg: "本体供給量と抽選販売へのハードル、ダウンロード版とパッケージ版の価格差"
+    },
+    subTopics: [
+      { label: "任天堂スイッチ / 次世代機", value: 138000 },
+      { label: "PlayStation 5 / 大作RPG", value: 78000 },
+      { label: "本体予約・転売対策", value: 54000 },
+      { label: "パッケージ版 vs DL版", value: 31200 },
+      { label: "ローカルマルチ・家族プレイ", value: 27400 }
+    ],
+    intents: { "期待・賞賛": 48, "情報共有・考察": 25, "懸念・不満": 13, "ネタ・ミーム": 8, "質問・相談": 6 },
+    insights: [
+      { title: "ファミリー・ライト層の復帰", body: "スマホゲーム疲れの反動もあり、『買い切りで安心して子どもや友人と遊べる家庭用ゲーム』への再評価が高まっている。" },
+      { title: "予約・入手性への高い関心", body: "タイトルの面白さ以前に『本体を買えるのか』という流通・抽選条件への言及が全体の2割近くを占め、購入障壁への不安が強い。" },
+      { title: "プロモーション示唆", body: "本体同梱版やマイニンテンドーストア等の公式販売ルート案内を分かりやすく発信することで、ネガティブな離脱を防げる。" }
+    ],
+    posts: [
+      { user: "たかひろ", handle: "@taka_console", time: "1時間前", sentiment: "positive", likes: 1850, rts: 420, text: "やっぱりコンシューマーの買い切りゲームは終わりの美学があって最高。休日にリビングでみんなでワイワイ遊べるのも強み。" },
+      { user: "レトロ＆最新ゲーム好き", handle: "@retro_modern_g", time: "4時間前", sentiment: "negative", likes: 940, rts: 215, text: "家庭用ゲーム機、本体が高性能化した分、気軽に買える値段じゃなくなってきたし抽選当たるかも不安材料。" },
+      { user: "ゆうき", handle: "@yuki_ps_sw", time: "6時間前", sentiment: "neutral", likes: 230, rts: 19, text: "PS5で重厚なRPGやって、Switchでパーティゲームやるのが一番バランス良い運用な気がする。" }
+    ]
+  },
+
+  "switch": {
+    id: "switch",
+    name: "任天堂スイッチ / 次世代機",
+    level: 3,
+    levelName: "プラットフォーム：Nintendo",
+    parentId: "consumer",
+    children: ["mk_world", "zelda_echoes", "pokemon_za"],
+    kpis: {
+      mentions: 138000,
+      growth: "+42.8%",
+      uniqueUsers: 74500,
+      engagementRate: "5.4%",
+      positiveRatio: 68
+    },
+    spikeNote: "🔥 4/2：Switch 2＆ローンチタイトル発表で今月最大のバズを記録",
+    trend30: [3100,4000,16500,14200,8200,6100,5200,4800,4500,5100,5300,6200,5900,5200,4900,4700,5100,5600,6800,7200,6100,5200,4900,5100,6200,6900,6100,5500,5200,5400],
+    sentiment: { positive: 68, neutral: 21, negative: 11 },
+    sentimentReasons: {
+      pos: "ローンチラインアップの圧倒的な豪華さ、新機能（ゲームチャット等）の遊び心",
+      neg: "本体価格（特に日本語専用版と多言語版の差）や周辺機器価格、抽選倍率の高さ"
+    },
+    subTopics: [
+      { label: "マリオカートワールド", value: 52400 },
+      { label: "抽選応募条件・互換性", value: 38200 },
+      { label: "Pokémon LEGENDS Z-A", value: 31500 },
+      { label: "マイニンテンドーストア", value: 24800 },
+      { label: "120fps / 4K対応", value: 19600 }
+    ],
+    intents: { "期待・賞賛": 52, "情報共有・考察": 24, "懸念・不満": 11, "ネタ・ミーム": 8, "質問・相談": 5 },
+    insights: [
+      { title: "既存ユーザー優遇策への高評価", body: "プレイ時間やNintendo Switch Online加入期間を条件とした抽選方式が『転売対策として誠実』と熱狂的に支持された。" },
+      { title: "キラータイトルの牽引力", body: "本体発表とセットで語られるトピックの約4割が『マリオカートワールド』に集中しており、実質的な購入動機第1位となっている。" },
+      { title: "課題：ライト層への価格説明", body: "コアファンは納得している一方、ファミリー層からは『子ども用に複数台買うには高い』という声もあり、ソフトの価値訴求が鍵。" }
+    ],
+    posts: [
+      { user: "任天堂ファン＠待機中", handle: "@ninten_fan_2025", time: "30分前", sentiment: "positive", likes: 5620, rts: 1450, text: "Switch後継機の抽選条件、オンライン継続加入とプレイ時間で転売ヤー弾く姿勢が神すぎる。本体と一緒にマリカワールド絶対買う！" },
+      { user: "パパゲーマー日記", handle: "@papa_gamer_log", time: "3時間前", sentiment: "neutral", likes: 680, rts: 94, text: "旧Switchのソフトも互換で動くなら移行はスムーズそう。ただmicroSD Expressが必要になる点は事前によく確認しとかないと。" },
+      { user: "あやか", handle: "@ayaka_sw", time: "7時間前", sentiment: "negative", likes: 430, rts: 62, text: "本体もソフトも少し値上がりしたのは時代の流れだけど、プロコンとか周辺機器まで揃えると結構な出費になるな〜。" }
+    ]
+  },
+
+  "mk_world": {
+    id: "mk_world",
+    name: "マリオカートワールド",
+    level: 4,
+    levelName: "ミクロ：個別タイトル",
+    parentId: "switch",
+    children: [],
+    kpis: {
+      mentions: 52400,
+      growth: "+185.0%",
+      uniqueUsers: 36800,
+      engagementRate: "6.9%",
+      positiveRatio: 74
+    },
+    spikeNote: "🔥 4/2〜4/3：オープンワールド化＆24人対戦発表でトレンド1位独占",
+    trend30: [400,800,9800,8400,4500,3100,2400,2000,1800,2100,2200,2800,2500,2100,1900,1800,2000,2300,3100,3400,2600,2000,1800,1900,2500,2900,2400,2100,1900,2100],
+    sentiment: { positive: 74, neutral: 16, negative: 10 },
+    sentimentReasons: {
+      pos: "コースの境界を越えて繋がるオープンワールド構造、最大24人対戦のハチャメチャ感、ウシ等の新キャラ",
+      neg: "ソフト単体価格への驚き、24人レースでのアイテムカオス（運ゲー化）への一部ガチ勢の懸念"
+    },
+    subTopics: [
+      { label: "オープンワールド・フリーラン", value: 18400 },
+      { label: "最大24人対戦・サバイバル", value: 15200 },
+      { label: "ウシ（モーモー）等の参戦キャラ", value: 11800 },
+      { label: "価格・本体同梱セット", value: 9400 },
+      { label: "衣装チェンジ・新アクション", value: 7600 }
+    ],
+    intents: { "期待・賞賛": 55, "ネタ・ミーム": 18, "情報共有・考察": 15, "懸念・不満": 9, "質問・相談": 3 },
+    insights: [
+      { title: "「ウシ参戦」等ミーム的バズの威力", body: "システム面の革新だけでなく『モーモーカントリーの牛がカートに乗る』という視覚的インパクトがSNSで拡散され、非ゲーマー層にもリーチ。" },
+      { title: "コア層とライト層の興味の分化", body: "ライト層は『フレンドと広大な世界をドライブする自由度（フリーラン）』に期待し、ガチ勢は『24人対戦のアイテムバランスや新ドリフト挙動』を考察。" },
+      { title: "購買行動インサイト", body: "ダウンロード版の価格を見て『本体同梱版（セット）の方が圧倒的にお得』と気づいたユーザーがセット購入へ大きく傾いている。" }
+    ],
+    posts: [
+      { user: "カート勢のれお", handle: "@leo_kart_rta", time: "15分前", sentiment: "positive", likes: 8920, rts: 2340, text: "マリオカートワールド、コースとコースの間も実際に走って移動できるの革命すぎるだろｗｗ しかも24人対戦とか絶対カオスで楽しいやつ！" },
+      { user: "しろくま＠お絵描き", handle: "@shirokuma_art", time: "1時間前", sentiment: "positive", likes: 12400, rts: 3890, text: "マリオカートワールドに『ウシ』がプレイアブルキャラで参戦してるの何度見ても笑う。ハンドル握ってる姿かわいすぎでは？？" },
+      { user: "もりお", handle: "@morio_game_rev", time: "3時間前", sentiment: "neutral", likes: 540, rts: 78, text: "単体だと結構いいお値段するから、マリオカートワールド狙いの人は迷わず本体同梱セット予約するのが正解だねこれ。" },
+      { user: "トゲゾー回避マン", handle: "@togezo_dodge", time: "5時間前", sentiment: "negative", likes: 620, rts: 85, text: "24人対戦めちゃくちゃ盛り上がりそうだけど、アイテムの飛び交い方が凄まじそう…ラウンジとか競技勢のルールどうなるんだろう？" },
+      { user: "かなえ", handle: "@kanae_switch", time: "9時間前", sentiment: "positive", likes: 1120, rts: 190, text: "レースだけじゃなくて、好きなキャラの衣装集めながらみんなで世界を自由にドライブできる『フリーラン』モードが一番楽しみ！" }
+    ]
+  },
+
+  "zelda_echoes": {
+    id: "zelda_echoes",
+    name: "ゼルダの伝説 知恵のかりもの / シリーズ",
+    level: 4,
+    levelName: "ミクロ：個別タイトル",
+    parentId: "switch",
+    children: [],
+    kpis: {
+      mentions: 19400,
+      growth: "+12.4%",
+      uniqueUsers: 13200,
+      engagementRate: "4.6%",
+      positiveRatio: 79
+    },
+    spikeNote: "🔥 4/12：次世代機アップグレード・高フレームレート化への期待再燃",
+    trend30: [550,600,900,850,700,620,580,590,610,640,720,1450,1200,820,680,630,610,650,710,740,680,610,590,600,640,690,650,620,590,610],
+    sentiment: { positive: 79, neutral: 15, negative: 6 },
+    sentimentReasons: {
+      pos: "ブレワイ・ティアキンの高画質/60fps版への期待、ゼルダ姫主人公作品の創造性の高さ",
+      neg: "アップグレードパスの追加料金の有無やセーブデータ引き継ぎ仕様への疑問"
+    },
+    subTopics: [
+      { label: "60fps / 高解像度対応", value: 7800 },
+      { label: "ティアキン・ブレワイ再プレイ", value: 5600 },
+      { label: "カリモノの自由度・ネタ解法", value: 4200 },
+      { label: "ゼルダノート連携機能", value: 2900 }
+    ],
+    intents: { "期待・賞賛": 58, "情報共有・考察": 22, "ネタ・ミーム": 10, "質問・相談": 6, "懸念・不満": 4 },
+    insights: [
+      { title: "技術進化による『再体験』需要", body: "過去に遊び尽くした名作でも、フレームレート向上やロード短縮があれば『もう一度最初から遊びたい』という強い需要が存在。" },
+      { title: "スマホ連携機能への注目", body: "アプリ連動の『ゼルダノート』による設計図共有など、コミュニティプレイを拡張する試みがクリエイター気質のユーザーに好評。" },
+      { title: "示唆：休眠層の掘り起こし", body: "新作だけでなく既存IPの次世代アップデートを明確に訴求することで、初期ハード購入層の満足度底上げに寄与する。" }
+    ],
+    posts: [
+      { user: "ハイラルの旅人", handle: "@hyrule_walk", time: "2時間前", sentiment: "positive", likes: 2150, rts: 480, text: "60fpsでぬるぬる動くハイラルをもう一回旅できるとか最高すぎる。コログの森が重くならないだけでも感動ものだわ。" },
+      { user: "ナナミ", handle: "@nanami_zelda", time: "6時間前", sentiment: "neutral", likes: 310, rts: 42, text: "知恵のかりもののベッド積み上げて壁越えるの、相変わらずゼルダらしい発想ゲーで好き。" }
+    ]
+  },
+
+  "pokemon_za": {
+    id: "pokemon_za",
+    name: "Pokémon LEGENDS Z-A",
+    level: 4,
+    levelName: "ミクロ：個別タイトル",
+    parentId: "switch",
+    children: [],
+    kpis: {
+      mentions: 31500,
+      growth: "+34.2%",
+      uniqueUsers: 22100,
+      engagementRate: "5.8%",
+      positiveRatio: 69
+    },
+    spikeNote: "🔥 4/19：リアルタイムバトル要素・メガシンカ考察ポストが拡散",
+    trend30: [800,900,1400,1300,1000,920,880,850,840,910,950,1050,980,900,880,870,950,1100,2400,2100,1500,1200,1050,1020,1150,1220,1100,1020,980,1010],
+    sentiment: { positive: 69, neutral: 21, negative: 10 },
+    sentimentReasons: {
+      pos: "リアルタイム性の高い新しいバトルシステム、メガシンカの復活、ミアレシティの昼夜変化",
+      neg: "SV発売時の処理落ちの記憶からくるグラフィック・動作安定性への不安"
+    },
+    subTopics: [
+      { label: "新バトルシステム（リアルタイム）", value: 12400 },
+      { label: "メガシンカ追加予想", value: 9800 },
+      { label: "御三家（チコリータ等）", value: 6400 },
+      { label: "処理落ち・次世代機エディション", value: 5100 }
+    ],
+    intents: { "情報共有・考察": 38, "期待・賞賛": 36, "ネタ・ミーム": 12, "懸念・不満": 10, "質問・相談": 4 },
+    insights: [
+      { title: "「考察」がSNS発話のエンジン", body: "新メガシンカやストーリーの時系列に関する考察ポストが自然発生的にエンゲージメントを稼いでおり、発売前の熱量維持に貢献。" },
+      { title: "技術品質へのシビアな視線", body: "ゲーム体験への期待は高い一方、『快適に動くのか？』というパフォーマンス面の信頼回復がコアファンの注目点。" },
+      { title: "示唆", body: "実機プレイ映像で都市内の移動やエフェクトが滑らかに動く様子を見せることで、不安を払拭し予約転換率を高められる。" }
+    ],
+    posts: [
+      { user: "カロス研究員", handle: "@kalos_lab", time: "1時間前", sentiment: "positive", likes: 3890, rts: 910, text: "ZAのバトル、トレーナーも動きながら技のタイミング指示するのアニメのポケモンバトルに近づいててワクワクが止まらない！" },
+      { user: "たけし＠ポケモン勢", handle: "@takeshi_poke", time: "4時間前", sentiment: "negative", likes: 780, rts: 112, text: "期待してるけどSVの時の処理落ちだけは何とかしてくれ…次世代機版が出るならそっち一択かな。" }
+    ]
+  },
+
+  "ps5": {
+    id: "ps5",
+    name: "PlayStation 5",
+    level: 3,
+    levelName: "プラットフォーム：Sony",
+    parentId: "consumer",
+    children: ["mhwilds", "dq3_hd2d"],
+    kpis: {
+      mentions: 78000,
+      growth: "+14.5%",
+      uniqueUsers: 41000,
+      engagementRate: "4.1%",
+      positiveRatio: 59
+    },
+    spikeNote: "🔥 4/10〜4/15：モンハンワイルズのアップデート＆大型セール話題で推移上昇",
+    trend30: [2400,2600,2800,2700,2500,2400,2300,2200,2400,3100,3400,3200,2900,2700,3300,3100,2800,2600,2500,2400,2300,2400,2600,2700,2800,2900,2700,2500,2400,2500],
+    sentiment: { positive: 59, neutral: 25, negative: 16 },
+    sentimentReasons: {
+      pos: "モンハンワイルズ等の超美麗グラフィックス、ロード時間の快適さ、DualSenseの没入感",
+      neg: "PS5本体の価格改定によるハードルの高さ、PS5 Proとの棲み分けの分かりにくさ"
+    },
+    subTopics: [
+      { label: "モンスターハンターワイルズ", value: 42000 },
+      { label: "本体価格・レンタルサービス", value: 16400 },
+      { label: "PS Plus ゲームカタログ", value: 11200 },
+      { label: "PS5 Pro パフォーマンス", value: 8400 }
+    ],
+    intents: { "情報共有・考察": 32, "期待・賞賛": 35, "懸念・不満": 17, "質問・相談": 10, "ネタ・ミーム": 6 },
+    insights: [
+      { title: "「本体レンタル」など新ニーズの浮上", body: "本体価格が約8万円台となる中、『特定の大型タイトルを遊ぶ期間だけPS5をレンタルする』というライト〜ミドル層の動きが話題に。" },
+      { title: "PC（Steam）との比較議論", body: "ハイエンドタイトルはPC版と常に比較されており、『10万円以下で安定して大作が動くコスパ機』としての再定義が刺さっている。" },
+      { title: "施策ヒント", body: "モンハン等の人気作をフックに、手軽なレンタル施策や分割払い・下取りキャンペーンの認知を広げるとハード普及に効く。" }
+    ],
+    posts: [
+      { user: "ハンター歴15年", handle: "@hunter_15yr", time: "2時間前", sentiment: "positive", likes: 1620, rts: 290, text: "ワイルズ遊ぶためにPS5買ったけど、ロード爆速だしコントローラーの振動がリアルすぎて没入感ハンパないわ。" },
+      { user: "ガジェオタK", handle: "@gadget_k", time: "5時間前", sentiment: "neutral", likes: 890, rts: 185, text: "ゲオのPS5レンタルすぐ在庫埋まってるの見ると、本体買うほどじゃないけど話題作だけ遊びたい層って相当数いるんだな。" }
+    ]
+  },
+
+  "mhwilds": {
+    id: "mhwilds",
+    name: "モンスターハンターワイルズ",
+    level: 4,
+    levelName: "ミクロ：個別タイトル",
+    parentId: "ps5",
+    children: [],
+    kpis: {
+      mentions: 42000,
+      growth: "+21.0%",
+      uniqueUsers: 24500,
+      engagementRate: "5.1%",
+      positiveRatio: 61
+    },
+    spikeNote: "🔥 4/10：イベントクエスト・エンドコンテンツ調整への反応で盛り上がり",
+    trend30: [1200,1300,1400,1350,1250,1200,1150,1100,1300,2100,2400,2100,1800,1600,1500,1450,1400,1350,1300,1250,1200,1250,1350,1400,1450,1500,1400,1300,1250,1300],
+    sentiment: { positive: 61, neutral: 21, negative: 18 },
+    sentimentReasons: {
+      pos: "集中モードの爽快感、クロスプレイで友人と遊べる楽しさ、シームレスな生態系表現",
+      neg: "エンドコンテンツのボリューム感への意見、PC版の最適化やUIの使いにくさへの指摘"
+    },
+    subTopics: [
+      { label: "武器調整・環境スキル", value: 14800 },
+      { label: "歴戦個体・エンドコンテンツ", value: 11200 },
+      { label: "クロスプレイ・ロビー", value: 8900 },
+      { label: "重ね着・キャラクリ", value: 7100 }
+    ],
+    intents: { "情報共有・考察": 35, "期待・賞賛": 32, "懸念・不満": 18, "ネタ・ミーム": 9, "質問・相談": 6 },
+    insights: [
+      { title: "遊びやすさ向上とコア層の渇望", body: "ストーリーの導線や戦闘の快適さは過去最高レベルと評価される一方、やり込み勢からは早期のやり応えある追加モンスターを求める声が強い。" },
+      { title: "キャラクリ・重ね着文化の定着", body: "戦闘だけでなく『重ね着コーデ』や『ネタキャラ作成』のスクリーンショット投稿が非常に高いエンゲージメントを獲得している。" },
+      { title: "運営示唆", body: "アプデロードマップの透明性を保ちつつ、SNSでシェアしやすいフォトモード関連や季節イベントの頻度向上がリテンションに有効。" }
+    ],
+    posts: [
+      { user: "大剣しか愛せない", handle: "@greatsword_love", time: "40分前", sentiment: "positive", likes: 2430, rts: 410, text: "ワイルズの集中弱点攻撃と鍔迫り合い、決まった時の脳汁がヤバい。クロスプレイのおかげで別機種の友達ともすぐ狩り行けるの神。" },
+      { user: "HR300の民", handle: "@hr300_mh", time: "3時間前", sentiment: "negative", likes: 710, rts: 98, text: "アクションは過去一面白いだけに、もうちょっと周回したくなる高難易度クエストとUIの改善が早く来てほしいところ。" }
+    ]
+  },
+
+  "dq3_hd2d": {
+    id: "dq3_hd2d",
+    name: "ドラゴンクエストIII / HD-2Dシリーズ",
+    level: 4,
+    levelName: "ミクロ：個別タイトル",
+    parentId: "ps5",
+    children: [],
+    kpis: {
+      mentions: 14200,
+      growth: "+8.5%",
+      uniqueUsers: 9800,
+      engagementRate: "3.9%",
+      positiveRatio: 66
+    },
+    spikeNote: "🔥 4/15：ドラクエI＆II HD-2D版の続報待ち＆セール話題",
+    trend30: [420,450,480,460,430,410,400,390,410,440,460,490,470,450,820,760,580,510,470,450,430,440,460,480,500,520,490,460,440,450],
+    sentiment: { positive: 66, neutral: 23, negative: 11 },
+    sentimentReasons: {
+      pos: "HD-2Dの美しいドット＆ライティング表現、オーケストラ音源の感動、現代的な便利機能",
+      neg: "原作からの一部表現変更やゲームバランス（盗賊・まもの使いの強さ等）への賛否"
+    },
+    subTopics: [
+      { label: "HD-2Dグラフィック評価", value: 5200 },
+      { label: "職業バランス・転職ルート", value: 4100 },
+      { label: "ドラクエ1&2への期待", value: 3600 }
+    ],
+    intents: { "期待・賞賛": 44, "情報共有・考察": 28, "懸念・不満": 11, "質問・相談": 11, "ネタ・ミーム": 6 },
+    insights: [
+      { title: "30〜50代のノスタルジー消費", body: "かつてファミコン・スーファミで遊んだ層が『自分の子どもに勧める』『休日にじっくり懐かしむ』という温かい文脈での投稿が目立つ。" },
+      { title: "連続リリースへの期待", body: "IIIの物語と繋がるI＆IIへの期待値が非常に高く、シリーズ通しての完成度に注目が集まっている。" }
+    ],
+    posts: [
+      { user: "昭和レトロゲーマー", handle: "@showa_rpg", time: "4時間前", sentiment: "positive", likes: 1340, rts: 210, text: "HD-2Dのドラクエ3、ラーミア復活のシーンでBGMと映像が相まって普通に泣きそうになった。やっぱ名作は色褪せない。" }
+    ]
+  },
+
+  "mobile": {
+    id: "mobile",
+    name: "モバイル・スマホゲーム",
+    level: 2,
+    levelName: "カテゴリ：スマートフォン",
+    parentId: "game",
+    children: ["tcg_mobile", "gacha_rpg"],
+    kpis: {
+      mentions: 156000,
+      growth: "+11.2%",
+      uniqueUsers: 68200,
+      engagementRate: "3.7%",
+      positiveRatio: 52
+    },
+    spikeNote: "🔥 4/25〜4/27：GWキャンペーン・新パック/新キャラ実装で発話増加",
+    trend30: [4800,5100,4900,4700,4600,4500,4400,4300,4500,4800,5000,5200,5100,4900,4800,4700,5000,5300,5600,5800,5400,5100,5000,5200,6800,7400,6900,5900,5400,5500],
+    sentiment: { positive: 52, neutral: 28, negative: 20 },
+    sentimentReasons: {
+      pos: "無料10連などの豪華キャンペーン、推しキャラの実装・衣装、スキマ時間で遊べる手軽さ",
+      neg: "ガチャの渋さ・天井への不満、日課（デイリー）の重さによるソシャゲ疲れ"
+    },
+    subTopics: [
+      { label: "新キャラ・ガチャ結果報告", value: 58400 },
+      { label: "環境デッキ・ティア表", value: 39200 },
+      { label: "スタミナ・日課の負担", value: 26800 },
+      { label: "コラボイベント・GW特典", value: 24100 }
+    ],
+    intents: { "情報共有・考察": 30, "期待・賞賛": 29, "懸念・不満": 20, "ネタ・ミーム": 14, "質問・相談": 7 },
+    insights: [
+      { title: "「タイパ（時間効率）」重視の二極化", body: "重厚なストーリーを愛するコアファンがいる一方、一般層は『デイリー消化が1日3分で終わるか』を継続の絶対条件にしている。" },
+      { title: "無課金・微課金ユーザーの満足度管理", body: "SNSでのポジティブ拡散の多くは配布石や無料ガチャに依存しており、課金圧が強いイベント時はネガティブ比率が跳ね上がる傾向。" }
+    ],
+    posts: [
+      { user: "ソシャゲ掛け持ち勢", handle: "@soshage_multi", time: "1時間前", sentiment: "negative", likes: 980, rts: 195, text: "最近どのスマホゲーもコンテンツ増えすぎて、日課だけで1時間以上かかるのしんどい…。もっとサクッと遊ばせてくれ〜" },
+      { user: "りな＠ガチャ運こい", handle: "@rina_gacha", time: "3時間前", sentiment: "positive", likes: 450, rts: 28, text: "GWの無料ガチャで欲しかったキャラ一発ツモ！！今週ずっと仕事頑張れる！！" }
+    ]
+  },
+
+  "tcg_mobile": {
+    id: "tcg_mobile",
+    name: "ポケモンカード Pocket（ポケポケ）",
+    level: 3,
+    levelName: "ジャンル：デジタルTCG",
+    parentId: "mobile",
+    children: [],
+    kpis: {
+      mentions: 84000,
+      growth: "+19.5%",
+      uniqueUsers: 41200,
+      engagementRate: "4.5%",
+      positiveRatio: 57
+    },
+    spikeNote: "🔥 4/26：新拡張パック追加発表＆ランクマッチ環境変化で急増",
+    trend30: [2400,2500,2400,2300,2200,2100,2000,2100,2200,2400,2500,2600,2500,2400,2300,2300,2500,2700,2900,3000,2800,2600,2500,2700,3800,4500,4100,3400,3000,3100],
+    sentiment: { positive: 57, neutral: 25, negative: 18 },
+    sentimentReasons: {
+      pos: "毎日パックを開封する手軽さとコレクション性、新カードでのデッキ構築の楽しさ",
+      neg: "トレード機能の仕様や制限への不満、ランクマッチでの特定環境デッキへの偏り"
+    },
+    subTopics: [
+      { label: "新パック・レアカード引き報告", value: 31200 },
+      { label: "環境デッキ対策・勝率", value: 24800 },
+      { label: "トレード機能改善要望", value: 16400 },
+      { label: "イベントプロモカードドロップ", value: 11600 }
+    ],
+    intents: { "期待・賞賛": 34, "情報共有・考察": 31, "懸念・不満": 18, "ネタ・ミーム": 11, "質問・相談": 6 },
+    insights: [
+      { title: "「開封体験」の日常化", body: "対戦をガチでやらない層でも『1日2回のパック開封スクリーンショット』をXに投稿する習慣が定着し、高いオーガニック露出を維持。" },
+      { title: "コミュニティのペイン：トレードUX", body: "交換コストや検索のしづらさなど、ソーシャル機能に対する改善要望が根強く、ここが解消されれば休眠復帰が見込める。" }
+    ],
+    posts: [
+      { user: "ポケポケ毎日開封", handle: "@pokepoke_open", time: "25分前", sentiment: "positive", likes: 2100, rts: 180, text: "寝る前の日課でパック剥いたらイマーシブ来たーー！！演出マジで最高だからこれだけで続けちゃう。" },
+      { user: "カードゲーマーT", handle: "@tcg_player_t", time: "2時間前", sentiment: "negative", likes: 1450, rts: 320, text: "ランクマッチ面白いけど、環境が特定デッキ一強になりがちだからもう少しカードプール増えるか調整欲しいな。" }
+    ]
+  },
+
+  "gacha_rpg": {
+    id: "gacha_rpg",
+    name: "崩壊：スターレイル / 原神（HoYoverse系）",
+    level: 3,
+    levelName: "ジャンル：ハイエンドRPG",
+    parentId: "mobile",
+    children: [],
+    kpis: {
+      mentions: 72000,
+      growth: "+6.8%",
+      uniqueUsers: 29500,
+      engagementRate: "5.2%",
+      positiveRatio: 62
+    },
+    spikeNote: "🔥 4/18：新バージョン予告番組・周年イベント情報で盛り上がり",
+    trend30: [2100,2200,2100,2000,1900,1900,1800,1800,2000,2100,2200,2300,2200,2100,2000,2100,2400,3900,3400,2800,2500,2300,2200,2300,2600,2500,2300,2100,2000,2100],
+    sentiment: { positive: 62, neutral: 23, negative: 15 },
+    sentimentReasons: {
+      pos: "コンシューマー並みのストーリー演出・BGM、周年配布の豪華さ、キャラクター造形",
+      neg: "キャラクターの性能インフレ懸念、スマホのストレージ容量圧迫問題"
+    },
+    subTopics: [
+      { label: "新キャラ性能・ビルド考察", value: 26400 },
+      { label: "メインストーリー感想", value: 21200 },
+      { label: "インフレ議論・復刻計画", value: 14100 },
+      { label: "容量不足・PC/PS5移行", value: 10300 }
+    ],
+    intents: { "期待・賞賛": 41, "情報共有・考察": 29, "懸念・不満": 15, "ネタ・ミーム": 10, "質問・相談": 5 },
+    insights: [
+      { title: "ファンアート・二次創作のエコシステム", body: "公式のキャラPV公開から数時間以内に膨大なファンアートや考察が投稿され、ファンコミュニティが自走する構造が強固。" },
+      { title: "端末スペック・容量の壁", body: "クオリティ向上の副作用として『スマホ容量が足りずアンインストールを検討し、PCやPS5版へ乗り換える』ユーザーが急増中。" }
+    ],
+    posts: [
+      { user: "開拓者＠ストーリー勢", handle: "@trailblazer_jp", time: "50分前", sentiment: "positive", likes: 4300, rts: 980, text: "最新ストーリーの演出と劇中歌の入り方、もはや映画一本見たレベルの満足感だった…。ソシャゲの枠完全に超えてる。" },
+      { user: "スマホ容量ギリギリ", handle: "@storage_full", time: "4時間前", sentiment: "negative", likes: 890, rts: 140, text: "アプデのたびに容量ヤバくてとうとうスマホに入らなくなってきたｗ そろそろゲーミングPCかPS5に移行するしかないか。" }
+    ]
+  },
+
+  "pc_esports": {
+    id: "pc_esports",
+    name: "PCゲーム / eスポーツ",
+    level: 2,
+    levelName: "カテゴリ：Steam / PC",
+    parentId: "game",
+    children: ["fps_valorant", "indie_steam"],
+    kpis: {
+      mentions: 88500,
+      growth: "+15.3%",
+      uniqueUsers: 39800,
+      engagementRate: "4.0%",
+      positiveRatio: 54
+    },
+    spikeNote: "🔥 4/20：ストリーマー大会＆話題の協力インディーゲーム配信で急上昇",
+    trend30: [2600,2700,2500,2400,2300,2400,2500,2600,2700,2800,2900,3000,2800,2700,2600,2700,2900,3100,3500,4200,3900,3400,3100,3000,3100,3200,3000,2800,2700,2800],
+    sentiment: { positive: 54, neutral: 27, negative: 19 },
+    sentimentReasons: {
+      pos: "ストリーマー主催大会の盛り上がり、低価格で神ゲーに出会えるSteamインディーの魅力",
+      neg: "チーター・スマーフ問題、GPU価格高騰によるBTOパソコンの値段の高さ"
+    },
+    subTopics: [
+      { label: "ストリーマー大会・切り抜き", value: 31200 },
+      { label: "話題の協力インディーゲーム", value: 24500 },
+      { label: "チート対策・ランクマ不満", value: 18400 },
+      { label: "ゲーミングPC構成・GPU", value: 14400 }
+    ],
+    intents: { "情報共有・考察": 31, "期待・賞賛": 30, "懸念・不満": 19, "ネタ・ミーム": 14, "質問・相談": 6 },
+    insights: [
+      { title: "「観戦」と「プレイ」のシームレス化", body: "人気配信者が遊んだ翌日にSteamランキングが急変動する現象が定着。ゲームの面白さだけでなく『配信映え（ハプニング性）』がヒットの条件。" },
+      { title: "PC購入層の拡大と相談需要", body: "『モンハンやFPSを快適に遊びたいが予算20万円で足りるか？』といったハードウェア相談ポストが増加しており、ガジェット系アカウントとの親和性が高い。" }
+    ],
+    posts: [
+      { user: "PCゲーム生活", handle: "@pc_steam_life", time: "1時間前", sentiment: "positive", likes: 1580, rts: 310, text: "最近1,000円以下のSteamインディー協力ゲーを友達とやるのが一番コスパ良くて爆笑できるんだよな。" },
+      { user: "BTO検討中", handle: "@bto_beginner", time: "5時間前", sentiment: "neutral", likes: 240, rts: 15, text: "これからゲーミングPC買うならグラボ何積むのが一番コスパいいんだろう？RTX50系待つか4060Tiあたりで妥協するか迷う。" }
+    ]
+  },
+
+  "fps_valorant": {
+    id: "fps_valorant",
+    name: "VALORANT / Apex Legends（FPS）",
+    level: 3,
+    levelName: "ジャンル：対戦FPS",
+    parentId: "pc_esports",
+    children: [],
+    kpis: {
+      mentions: 49500,
+      growth: "+9.4%",
+      uniqueUsers: 22400,
+      engagementRate: "3.8%",
+      positiveRatio: 46
+    },
+    spikeNote: "🔥 4/20：公式大会・新エージェント/レジェンド調整パッチへの反応",
+    trend30: [1500,1550,1450,1400,1350,1400,1450,1500,1550,1600,1650,1700,1600,1550,1500,1550,1650,1750,1950,2400,2200,1900,1700,1650,1700,1750,1650,1550,1500,1550],
+    sentiment: { positive: 46, neutral: 26, negative: 28 },
+    sentimentReasons: {
+      pos: "eスポーツ大会のスーパープレイへの熱狂、フルパでの連携の楽しさ",
+      neg: "ランクマッチのマッチング格差、暴言・トロール・チーターへの強いストレス"
+    },
+    subTopics: [
+      { label: "VCT / ALGS 大会観戦", value: 18900 },
+      { label: "武器・キャラ調整パッチ", value: 13400 },
+      { label: "ランクマ・マッチング愚痴", value: 11200 },
+      { label: "デバイス（マウス/キーボード）", value: 6000 }
+    ],
+    intents: { "懸念・不満": 28, "期待・賞賛": 28, "情報共有・考察": 25, "ネタ・ミーム": 13, "質問・相談": 6 },
+    insights: [
+      { title: "「観戦専門（見る専）」層の定着", body: "ネガティブ率が高いランクマッチから離脱しつつも、大会や配信は熱心に追ってポストし続けるファンがコミュニティの厚みを支えている。" },
+      { title: "課題：治安・メンタルケア需要", body: "ソロランクでの疲弊を訴える投稿が多く、フレンド募集（@1など）やカジュアルモードの充実がプレイヤー維持に不可欠。" }
+    ],
+    posts: [
+      { user: "VCT観戦勢", handle: "@vct_watch", time: "20分前", sentiment: "positive", likes: 3100, rts: 640, text: "今のクラッチプレイ鳥肌立ちすぎた！！やっぱりオフライン大会の歓声と緊張感最高だわ！" },
+      { user: "ソロランの闇", handle: "@soloq_pain", time: "2時間前", sentiment: "negative", likes: 850, rts: 130, text: "昇格戦でトロール引いてポイント溶けた…。ランクマのマッチングどうにかならんのかほんとに。" }
+    ]
+  },
+
+  "indie_steam": {
+    id: "indie_steam",
+    name: "Steam インディーゲーム",
+    level: 3,
+    levelName: "ジャンル：インディー",
+    parentId: "pc_esports",
+    children: [],
+    kpis: {
+      mentions: 39000,
+      growth: "+24.7%",
+      uniqueUsers: 19600,
+      engagementRate: "4.9%",
+      positiveRatio: 76
+    },
+    spikeNote: "🔥 4/21：口コミから火がついた新作マルチホラー/ローグライクが話題",
+    trend30: [1000,1050,1000,950,900,950,1000,1050,1100,1150,1200,1250,1150,1100,1050,1100,1200,1300,1500,1750,1650,1450,1350,1300,1350,1400,1300,1200,1150,1200],
+    sentiment: { positive: 76, neutral: 18, negative: 6 },
+    sentimentReasons: {
+      pos: "ワンコイン〜2,000円台の圧倒的コスパ、尖ったゲームシステム、大企業には作れない独創性",
+      neg: "日本語ローカライズの機械翻訳感、マルチプレイサーバーの一時的不安定さ"
+    },
+    subTopics: [
+      { label: "ローグライク・デッキ構築", value: 14200 },
+      { label: "協力マルチホラー（R.E.P.O.系）", value: 11800 },
+      { label: "体験版（デモ）レビュー", value: 7600 },
+      { label: "日本語翻訳クオリティ", value: 5400 }
+    ],
+    intents: { "期待・賞賛": 50, "情報共有・考察": 28, "ネタ・ミーム": 13, "質問・相談": 5, "懸念・不満": 4 },
+    insights: [
+      { title: "「大作疲れ」の受け皿としてのインディー", body: "100時間かかるAAAタイトルに疲れたゲーマーが、数時間で濃い体験ができるインディー作品に癒やしと新鮮さを求めている。" },
+      { title: "インフルエンサー起点のバイラル構造", body: "短いクリップ動画（バグや物理演算による予想外の笑い）がXでバズり、ウィッシュリスト登録・即時購入に直結するスピード感が特徴。" }
+    ],
+    posts: [
+      { user: "インディー発掘隊", handle: "@indie_digger", time: "1時間前", sentiment: "positive", likes: 4820, rts: 1320, text: "最近遊んだ980円のインディーゲーム、アイデア一発勝負の完成度が異常に高くて気づいたら朝になってた。Steamの底なし沼最高。" },
+      { user: "翻訳チェックおじさん", handle: "@loc_check", time: "6時間前", sentiment: "neutral", likes: 310, rts: 45, text: "システムめっちゃ面白いんだけど、日本語訳だけ怪しいから有志Modか公式アプデに期待！" }
+    ]
+  }
+};
+
+// ==========================================
+// 2. アプリケーション状態管理
+// ==========================================
+let currentTopicId = "game";
+let currentPeriod = "14d"; // '7d' | '14d' | '30d'
+let currentPostFilter = "all";
+
+let trendChartInstance = null;
+let sentimentChartInstance = null;
+let topicBarChartInstance = null;
+let intentChartInstance = null;
+
+// ==========================================
+// 3. 初期化 & ナビゲーション制御
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  selectTopic("game");
+});
+
+function selectTopic(topicId) {
+  if (!topicDatabase[topicId]) return;
+  currentTopicId = topicId;
+  currentPostFilter = "all";
+  document.getElementById("post-search").value = "";
+  updateFilterButtons();
+  renderAll();
+}
+
+function setPeriod(period) {
+  currentPeriod = period;
+  document.querySelectorAll(".period-btn").forEach(btn => {
+    btn.classList.remove("bg-white", "text-slate-900", "shadow-sm");
+    btn.classList.add("text-slate-600");
+  });
+  const activeBtn = document.getElementById(`btn-${period}`);
+  activeBtn.classList.add("bg-white", "text-slate-900", "shadow-sm");
+  activeBtn.classList.remove("text-slate-600");
+  renderAll();
+}
+
+function setPostFilter(filter) {
+  currentPostFilter = filter;
+  updateFilterButtons();
+  renderPosts();
+}
+
+function updateFilterButtons() {
+  document.querySelectorAll(".post-filter-btn").forEach(btn => {
+    if (btn.dataset.filter === currentPostFilter) {
+      btn.classList.add("bg-white", "shadow-sm");
+    } else {
+      btn.classList.remove("bg-white", "shadow-sm");
+    }
+  });
+}
+
+// ==========================================
+// 4. 全体レンダリング
+// ==========================================
+function renderAll() {
+  const data = topicDatabase[currentTopicId];
+  renderHierarchyTree();
+  renderBreadcrumbs(data);
+  renderDrilldownCards(data);
+  renderKPIs(data);
+  renderCharts(data);
+  renderInsights(data);
+  renderPosts();
+}
+
+// 左サイドバー: 階層ツリー
+function renderHierarchyTree() {
+  const container = document.getElementById("hierarchy-tree");
+  container.innerHTML = buildTreeHTML("game", 0);
+}
+
+function buildTreeHTML(nodeId, depth) {
+  const node = topicDatabase[nodeId];
+  const isActive = nodeId === currentTopicId;
+  const paddingLeft = 16 + depth * 16;
+  const activeClass = isActive ? "tree-node-active" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
+  const icon = node.children.length > 0
+    ? `<svg class="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`
+    : `<span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-blue-600' : 'bg-slate-300'} shrink-0 ml-1 mr-1"></span>`;
+
+  let html = `
+    <button onclick="selectTopic('${node.id}')" style="padding-left: ${paddingLeft}px" class="w-full text-left pr-3 py-2 flex items-center justify-between gap-2 transition ${activeClass}">
+      <span class="flex items-center gap-2 truncate">
+        ${icon}
+        <span class="truncate">${node.name}</span>
+      </span>
+      <span class="text-[11px] text-slate-400 font-normal shrink-0">${(node.kpis.mentions / 1000).toFixed(1)}k</span>
+    </button>
+  `;
+
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(childId => {
+      html += buildTreeHTML(childId, depth + 1);
+    });
+  }
+  return html;
+}
+
+// パンくずリスト
+function renderBreadcrumbs(data) {
+  const chain = [];
+  let curr = data;
+  while (curr) {
+    chain.unshift(curr);
+    curr = curr.parentId ? topicDatabase[curr.parentId] : null;
+  }
+
+  const bcContainer = document.getElementById("breadcrumbs");
+  bcContainer.innerHTML = chain.map((item, idx) => {
+    const isLast = idx === chain.length - 1;
+    const separator = idx > 0 ? `<span class="text-slate-300 mx-1">/</span>` : "";
+    if (isLast) {
+      return `${separator}<span class="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md">${item.name}</span>`;
+    }
+    return `${separator}<button onclick="selectTopic('${item.id}')" class="text-blue-600 hover:text-blue-800 hover:underline font-medium px-1.5 py-0.5 rounded">${item.name}</button>`;
+  }).join("");
+
+  const badge = document.getElementById("granularity-badge");
+  const badgeColors = {
+    1: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    2: "bg-blue-50 text-blue-700 border-blue-200",
+    3: "bg-cyan-50 text-cyan-700 border-cyan-200",
+    4: "bg-emerald-50 text-emerald-700 border-emerald-200"
+  };
+  badge.className = `px-3 py-1 rounded-full text-xs font-semibold border ${badgeColors[data.level]}`;
+  badge.textContent = `粒度 Level ${data.level}｜${data.levelName}`;
+}
+
+// 下位トピックへのドリルダウンカード
+function renderDrilldownCards(data) {
+  const section = document.getElementById("drilldown-section");
+  const container = document.getElementById("child-cards");
+
+  if (!data.children || data.children.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("hidden");
+  const parentMentions = data.kpis.mentions;
+
+  container.innerHTML = data.children.map(childId => {
+    const child = topicDatabase[childId];
+    const share = Math.round((child.kpis.mentions / parentMentions) * 100);
+    return `
+      <button onclick="selectTopic('${child.id}')" class="group text-left bg-white hover:bg-blue-50/40 p-4 rounded-xl border border-slate-200 hover:border-blue-400 shadow-sm transition flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-2 w-full mb-2">
+          <div>
+            <span class="text-[11px] font-semibold text-blue-600 uppercase">${child.levelName}</span>
+            <h3 class="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition">${child.name}</h3>
+          </div>
+          <span class="p-1.5 rounded-lg bg-slate-100 group-hover:bg-blue-100 text-slate-500 group-hover:text-blue-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+          </span>
+        </div>
+        <div class="w-full">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span>発話数: <strong class="text-slate-800">${child.kpis.mentions.toLocaleString()}</strong></span>
+            <span class="text-emerald-600 font-semibold">シェア ${share}%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-blue-500 rounded-full" style="width: ${Math.min(share, 100)}%"></div>
+          </div>
+        </div>
+      </button>
+    `;
+  }).join("");
+}
+
+// KPIサマリーカード
+function renderKPIs(data) {
+  const periodFactor = currentPeriod === "7d" ? 0.25 : currentPeriod === "14d" ? 0.52 : 1;
+  const mentions = Math.round(data.kpis.mentions * periodFactor);
+  const users = Math.round(data.kpis.uniqueUsers * periodFactor);
+
+  const kpiHTML = `
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 mb-1">総発話ボリューム（ポスト数）</div>
+      <div class="flex items-baseline justify-between">
+        <div class="text-2xl font-bold text-slate-900">${mentions.toLocaleString()}</div>
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">${data.kpis.growth}</span>
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1">前期比成長トレンド</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 mb-1">推定ユニーク発話者数</div>
+      <div class="flex items-baseline justify-between">
+        <div class="text-2xl font-bold text-slate-900">${users.toLocaleString()}</div>
+        <span class="text-xs text-slate-500 font-medium">約${(mentions / users).toFixed(1)}投稿/人</span>
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1">ファン熱量・反復発話度合い</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 mb-1">ポジティブ感情比率</div>
+      <div class="flex items-baseline justify-between">
+        <div class="text-2xl font-bold text-emerald-600">${data.sentiment.positive}%</div>
+        <span class="text-xs text-rose-600 font-medium">ネガティブ ${data.sentiment.negative}%</span>
+      </div>
+      <div class="w-full h-1.5 bg-slate-100 rounded-full mt-2 flex overflow-hidden">
+        <div class="bg-emerald-500" style="width:${data.sentiment.positive}%"></div>
+        <div class="bg-slate-300" style="width:${data.sentiment.neutral}%"></div>
+        <div class="bg-rose-500" style="width:${data.sentiment.negative}%"></div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 mb-1">平均エンゲージメント率</div>
+      <div class="flex items-baseline justify-between">
+        <div class="text-2xl font-bold text-blue-600">${data.kpis.engagementRate}</div>
+        <span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">拡散性：高</span>
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1">いいね・RP・リプライ反応率</div>
+    </div>
+  `;
+  document.getElementById("kpi-cards").innerHTML = kpiHTML;
+}
+
+// ==========================================
+// 5. Chart.js 可視化
+// ==========================================
+function renderCharts(data) {
+  const sliceCount = currentPeriod === "7d" ? 7 : currentPeriod === "14d" ? 14 : 30;
+  const labels = dateLabels30.slice(-sliceCount);
+  const totalSeries = data.trend30.slice(-sliceCount);
+  const posSeries = totalSeries.map(v => Math.round(v * (data.sentiment.positive / 100)));
+  const negSeries = totalSeries.map(v => Math.round(v * (data.sentiment.negative / 100)));
+
+  document.getElementById("spike-callout").textContent = data.spikeNote;
+
+  // 1. 推移チャート
+  if (trendChartInstance) trendChartInstance.destroy();
+  const ctxTrend = document.getElementById("trendChart").getContext("2d");
+  trendChartInstance = new Chart(ctxTrend, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: "総発話数",
+          data: totalSeries,
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37, 99, 235, 0.08)",
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3
+        },
+        {
+          label: "ポジティブ発話",
+          data: posSeries,
+          borderColor: "#10b981",
+          borderWidth: 1.8,
+          borderDash: [4, 4],
+          fill: false,
+          tension: 0.35,
+          pointRadius: 0
+        },
+        {
+          label: "ネガティブ発話",
+          data: negSeries,
+          borderColor: "#f43f5e",
+          borderWidth: 1.8,
+          fill: false,
+          tension: 0.35,
+          pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // 2. 感情ドーナツチャート
+  if (sentimentChartInstance) sentimentChartInstance.destroy();
+  const ctxSent = document.getElementById("sentimentChart").getContext("2d");
+  sentimentChartInstance = new Chart(ctxSent, {
+    type: "doughnut",
+    data: {
+      labels: ["ポジティブ", "ニュートラル", "ネガティブ"],
+      datasets: [{
+        data: [data.sentiment.positive, data.sentiment.neutral, data.sentiment.negative],
+        backgroundColor: ["#10b981", "#cbd5e1", "#f43f5e"],
+        borderWidth: 0,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "66%",
+      plugins: {
+        legend: { position: "right", labels: { boxWidth: 12, font: { size: 11 } } }
+      }
+    }
+  });
+
+  document.getElementById("sentiment-reasons").innerHTML = `
+    <div class="flex items-start gap-2">
+      <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold shrink-0">POS要因</span>
+      <span class="text-slate-600 leading-relaxed">${data.sentimentReasons.pos}</span>
+    </div>
+    <div class="flex items-start gap-2">
+      <span class="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-semibold shrink-0">NEG要因</span>
+      <span class="text-slate-600 leading-relaxed">${data.sentimentReasons.neg}</span>
+    </div>
+  `;
+
+  // 3. サブトピック横棒グラフ
+  if (topicBarChartInstance) topicBarChartInstance.destroy();
+  const ctxTopic = document.getElementById("topicBarChart").getContext("2d");
+  topicBarChartInstance = new Chart(ctxTopic, {
+    type: "bar",
+    data: {
+      labels: data.subTopics.map(t => t.label),
+      datasets: [{
+        label: "言及ボリューム",
+        data: data.subTopics.map(t => t.value),
+        backgroundColor: "#3b82f6",
+        borderRadius: 6,
+        barThickness: 18
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11, weight: "500" } } }
+      }
+    }
+  });
+
+  // 4. 発話意図（ユーザー行動）チャート
+  if (intentChartInstance) intentChartInstance.destroy();
+  const ctxIntent = document.getElementById("intentChart").getContext("2d");
+  const intentLabels = Object.keys(data.intents);
+  const intentValues = Object.values(data.intents);
+
+  intentChartInstance = new Chart(ctxIntent, {
+    type: "bar",
+    data: {
+      labels: intentLabels,
+      datasets: [{
+        label: "構成比 (%)",
+        data: intentValues,
+        backgroundColor: ["#10b981", "#6366f1", "#f43f5e", "#f59e0b", "#64748b"],
+        borderRadius: 6,
+        barThickness: 28
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 70, grid: { color: "#f1f5f9" }, ticks: { callback: v => v + "%", font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ==========================================
+// 6. インサイトパネル生成
+// ==========================================
+function renderInsights(data) {
+  document.getElementById("insight-target-label").textContent = `対象：「${data.name}」（${data.levelName}）における多面的示唆`;
+  const container = document.getElementById("insight-cards");
+  container.innerHTML = data.insights.map((ins, i) => `
+    <div class="bg-white/10 backdrop-blur border border-white/10 rounded-lg p-4">
+      <div class="text-xs font-bold text-blue-300 mb-1.5 flex items-center gap-1.5">
+        <span class="w-5 h-5 rounded-full bg-blue-500/30 flex items-center justify-center text-[11px]">${i + 1}</span>
+        ${ins.title}
+      </div>
+      <p class="text-xs text-slate-200 leading-relaxed">${ins.body}</p>
+    </div>
+  `).join("");
+}
+
+// ==========================================
+// 7. ダミーXポスト収集（子階層のポストも集約して表示可能に）
+// ==========================================
+function collectPostsRecursive(nodeId) {
+  const node = topicDatabase[nodeId];
+  let collected = (node.posts || []).map(p => ({ ...p, topicName: node.name }));
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(cid => {
+      collected = collected.concat(collectPostsRecursive(cid));
+    });
+  }
+  return collected;
+}
+
+function renderPosts() {
+  const container = document.getElementById("posts-container");
+  const keyword = document.getElementById("post-search").value.trim().toLowerCase();
+
+  let posts = collectPostsRecursive(currentTopicId);
+
+  if (currentPostFilter !== "all") {
+    posts = posts.filter(p => p.sentiment === currentPostFilter);
+  }
+  if (keyword) {
+    posts = posts.filter(p => p.text.toLowerCase().includes(keyword) || p.user.toLowerCase().includes(keyword));
+  }
+
+  // いいね順に並べて上位を見せる
+  posts.sort((a, b) => b.likes - a.likes);
+
+  if (posts.length === 0) {
+    container.innerHTML = `<div class="p-8 text-center text-sm text-slate-400">該当するポストがありません</div>`;
+    return;
+  }
+
+  const sentBadge = {
+    positive: `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">ポジティブ</span>`,
+    neutral: `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">ニュートラル</span>`,
+    negative: `<span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200">ネガティブ</span>`
+  };
+
+  container.innerHTML = posts.map(post => `
+    <div class="p-4 hover:bg-slate-50/80 transition">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-slate-700 to-slate-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+            ${post.user.charAt(0)}
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="font-bold text-sm text-slate-900">${post.user}</span>
+              <span class="text-xs text-slate-400">${post.handle}</span>
+              <span class="text-xs text-slate-300">•</span>
+              <span class="text-xs text-slate-400">${post.time}</span>
+            </div>
+            <div class="text-[11px] text-blue-600 font-medium mt-0.5">トピック: ${post.topicName}</div>
+          </div>
+        </div>
+        <div class="shrink-0">${sentBadge[post.sentiment]}</div>
+      </div>
+
+      <p class="mt-2.5 text-sm text-slate-800 leading-relaxed pl-11">${post.text}</p>
+
+      <div class="mt-3 pl-11 flex items-center gap-6 text-xs text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          ${post.rts.toLocaleString()} RP
+        </span>
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+          ${post.likes.toLocaleString()} いいね
+        </span>
+      </div>
+    </div>
+  `).join("");
+}
+</script>
+</body>
+</html>
