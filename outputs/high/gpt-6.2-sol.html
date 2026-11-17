@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ゲーム発話ダッシュボード | Xポスト分析モック</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f7f6; --card: #fff; --ink: #16312b; --muted: #546961;
+    --line: #dce7e2; --green: #00795f; --pale: #e6f5ef;
+    --neutral: #a4b6c5; --negative: #ba6459;
+    --shadow: 0 2px 6px #16312b08;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, select { font: inherit; }
+  button { cursor: pointer; color: inherit; }
+  button:focus-visible, select:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--green); outline-offset: 3px;
+  }
+  button:disabled { cursor: default; opacity: .5; }
+  h1, h2, h3, p { margin: 0; }
+  h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.25; letter-spacing: -.035em; }
+  h2 { font-size: 17px; }
+  h3 { font-size: 14px; }
+  small, .muted { color: var(--muted); }
+  .topbar { display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; padding: 15px clamp(16px, 3vw, 36px);
+    background: #102f28; color: #fff; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+  .logo { display: grid; place-items: center; width: 30px; height: 30px;
+    border-radius: 8px; background: #a6edd3; color: #102f28; }
+  .badge { border-radius: 999px; padding: 3px 10px; font-size: 11px;
+    letter-spacing: .04em; background: #ffffff18; color: #d8f9ec; }
+  .layout { display: grid; grid-template-columns: 248px minmax(0, 1fr);
+    max-width: 1600px; min-height: calc(100vh - 60px); margin: auto; }
+  aside { padding: 23px 13px; background: #eaf1ee; border-right: 1px solid var(--line); }
+  aside summary { padding: 0 7px; cursor: pointer; font-weight: 750; }
+  .side-help { padding: 6px 7px 12px; }
+  .tree, .tree ul { margin: 0; padding: 0; list-style: none; }
+  .tree ul { margin: 2px 0 2px 10px; border-left: 1px solid #c9dcd3; padding-left: 5px; }
+  .tree button { width: 100%; text-align: left; padding: 6px 7px;
+    background: none; border: 0; border-radius: 7px; font-size: 12px; line-height: 1.45; }
+  .tree button:hover { background: #dcebe5; }
+  .tree button[aria-current="page"] { background: #cfece0; color: #005d48; font-weight: 750; }
+  main { min-width: 0; padding: clamp(16px, 3vw, 34px); }
+  .crumbs, .child-links, .toolbar, .legend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .crumbs { color: var(--muted); margin-bottom: 12px; font-size: 12px; }
+  .crumbs button { border: 0; padding: 0; background: none; color: var(--green); text-decoration: underline; }
+  .hero { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 14px; }
+  .eyebrow { color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+  .range-info { margin-top: 7px; font-size: 12px; }
+  .segment { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line);
+    border-radius: 10px; background: #eaf1ee; }
+  .segment button { background: transparent; border: 1px solid transparent;
+    border-radius: 7px; padding: 5px 10px; font-size: 12px; }
+  .segment button[aria-pressed="true"] {
+    background: #fff; border-color: var(--line); font-weight: 750; box-shadow: var(--shadow);
+  }
+  .child-links { margin-top: 13px; }
+  .pill, .action, select { background: #fff; border: 1px solid var(--line);
+    border-radius: 8px; padding: 5px 9px; font-size: 12px; color: var(--ink); }
+  .pill:hover, .action:not(:disabled):hover { border-color: var(--green); color: var(--green); }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; min-width: 0; box-shadow: var(--shadow); }
+  .kpi-label { font-size: 12px; color: var(--muted); }
+  .kpi-value { margin: 3px 0; font-size: clamp(22px, 3vw, 32px); line-height: 1.22;
+    font-weight: 750; font-variant-numeric: tabular-nums; }
+  .kpi-value.text { font-size: 19px; line-height: 1.4; }
+  .kpi-note { font-size: 11px; color: var(--muted); }
+  .up { color: var(--green); font-weight: 750; }
+  .down { color: #983f36; font-weight: 750; }
+  .split { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .panel-head p { font-size: 12px; margin-top: 2px; }
+  .legend { font-size: 11px; color: var(--muted); gap: 12px; }
+  .key { display: inline-block; width: 16px; margin-right: 4px; vertical-align: middle; border-top: 2px solid var(--green); }
+  .key.prev { border-top: 2px dashed #718599; }
+  .chart-wrap { position: relative; }
+  .chart-wrap svg { display: block; width: 100%; overflow: visible; }
+  .gridline { stroke: var(--line); }
+  .axis-text { fill: var(--muted); font: 11px system-ui, sans-serif; }
+  .hit { cursor: pointer; fill: transparent; }
+  .hit:hover { fill: #00795f0b; }
+  .chart-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 12px; }
+  .insights { display: grid; gap: 9px; }
+  .insight { padding: 10px 12px; border-radius: 9px; background: #edf7f3; }
+  .insight p { color: #3a554c; font-size: 12px; margin-top: 3px; }
+  .topic-row { text-align: left; display: grid; width: 100%; gap: 5px; padding: 6px 7px;
+    background: #fff; border: 1px solid transparent; border-radius: 8px; }
+  .topic-row:hover, .topic-row[aria-pressed="true"] { border-color: #9ed6c6; background: #f0faf6; }
+  .topic-label { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 3px 8px; }
+  .topic-label span:last-child { font-size: 12px; color: var(--muted); }
+  .track { height: 7px; background: #e8efec; border-radius: 999px; overflow: hidden; }
+  .bar { display: block; height: 100%; background: var(--green); border-radius: inherit; }
+  .sentiment { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 20px; margin: 16px 0; }
+  .donut { display: grid; place-items: center; width: 128px; height: 128px; border-radius: 50%; }
+  .donut > div { display: grid; place-content: center; width: 96px; height: 96px;
+    border-radius: 50%; background: #fff; text-align: center; }
+  .donut strong { font-size: 19px; line-height: 1.2; }
+  .sentiment-list { display: grid; gap: 6px; min-width: 146px; }
+  .sentiment-line { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  .posts { list-style: none; padding: 0; margin: 8px 0 12px; }
+  .post { padding: 10px 0; border-top: 1px solid var(--line); }
+  .post-meta { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-bottom: 4px; font-size: 11px; color: var(--muted); }
+  .tag { padding: 0 6px; border-radius: 4px; background: #e9f3ef; color: #285546; }
+  .post p { overflow-wrap: anywhere; }
+  .empty { padding: 15px 0; color: var(--muted); }
+  footer { color: var(--muted); font-size: 11px; margin: 14px 0 0; }
+  @media (max-width: 1050px) { .layout { grid-template-columns: 205px minmax(0, 1fr); } }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) {
+    .layout { display: block; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 13px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo" aria-hidden="true">▥</span> ゲーム発話ダッシュボード</div>
+  <span class="badge">Xポスト分析モック · 全件合成データ</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <details id="tree-panel" open>
+      <summary>分析対象を選ぶ</summary>
+      <p class="side-help muted"><small>上位カテゴリから個別タイトルへ</small></p>
+      <nav id="tree" aria-label="トピック階層"></nav>
+    </details>
+  </aside>
+
+  <main>
+    <nav id="crumbs" class="crumbs" aria-label="現在の階層"></nav>
+    <div class="hero">
+      <div>
+        <div class="eyebrow">SOCIAL LISTENING / GAME</div>
+        <h1 id="scope-title">ゲーム</h1>
+        <p id="range-info" class="range-info muted"></p>
+      </div>
+      <div class="segment" role="group" aria-label="集計期間">
+        <button type="button" data-range="7">7日</button>
+        <button type="button" data-range="14">14日</button>
+        <button type="button" data-range="30">30日</button>
+      </div>
+    </div>
+    <div class="child-links" id="children"></div>
+    <div class="kpis" id="kpis" aria-label="主要指標"></div>
+
+    <div class="split">
+      <section class="card" aria-labelledby="trend-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="trend-title">発話量の推移</h2>
+            <p class="muted">日別ポスト数。日付を選ぶと下のポスト一覧を絞り込めます。</p>
+          </div>
+          <div class="legend">
+            <span><i class="key"></i>対象期間</span>
+            <span><i class="key prev"></i>直前の同日数</span>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chart"></div>
+        <div class="chart-foot">
+          <label for="day-select">ポスト一覧の日付</label>
+          <select id="day-select"></select>
+          <span id="day-info" class="muted"></span>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="insights-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="insights-title">データから見えること</h2>
+            <p class="muted">表示中の集計から自動生成</p>
+          </div>
+        </div>
+        <div class="insights" id="insights"></div>
+      </section>
+    </div>
+
+    <div class="split">
+      <section class="card" aria-labelledby="topics-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="topics-title">発話トピックの内訳</h2>
+            <p class="muted">期間内の全ポストに占める割合。行を選ぶとポスト一覧を絞り込めます。</p>
+          </div>
+        </div>
+        <div id="topics"></div>
+      </section>
+
+      <section class="card" aria-labelledby="sentiment-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="sentiment-title">感情の内訳</h2>
+            <p class="muted">ダミーポストに付与した感情ラベルの構成</p>
+          </div>
+        </div>
+        <div class="sentiment" id="sentiment"></div>
+        <p class="muted"><small>ポストごとに主トピックと感情ラベルを1つずつ付与。</small></p>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="posts-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="posts-title">根拠ポストを読む</h2>
+          <p class="muted" id="post-status" aria-live="polite"></p>
+        </div>
+        <div class="toolbar">
+          <button id="reset" class="action" type="button">一覧の絞り込みを解除</button>
+          <button id="csv" class="action" type="button">該当ポストをCSV出力</button>
+        </div>
+      </div>
+      <ol class="posts" id="posts"></ol>
+      <button id="more" class="action" type="button">さらに8件表示</button>
+    </section>
+    <footer>
+      実在のXポスト・アカウントは使用していません。商品名は分類の例です。
+      発話の増減、感情ラベル、インサイトは合成データに基づき、実際の市場動向を示すものではありません。
+    </footer>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("ja-JP");
+const share = (n, total) => total ? n / total * 100 : 0;
+const pct = n => `${n.toFixed(1)}%`;
+const signed = n => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}`;
+const esc = s => String(s).replace(/[&<>"']/g, ch =>
+  ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[ch]);
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+const tree = {
+  game:       { name: "ゲーム", children: ["console", "pc", "mobile"] },
+  console:    { name: "コンシューマーゲーム", children: ["switch", "ps"] },
+  switch:     { name: "Nintendo Switch（シリーズ）", children: ["mario", "splatoon", "zelda"] },
+  ps:         { name: "PlayStation（シリーズ）", children: ["monster", "astro"] },
+  pc:         { name: "PCゲーム", children: ["steam"] },
+  steam:      { name: "Steam", children: ["stardew"] },
+  mobile:     { name: "モバイルゲーム", children: ["puzzle"] },
+  mario:      { name: "マリオカート ワールド" },
+  splatoon:   { name: "スプラトゥーン3" },
+  zelda:      { name: "ゼルダの伝説 ティアーズ オブ ザ キングダム" },
+  monster:    { name: "モンスターハンターワイルズ" },
+  astro:      { name: "ASTRO BOT" },
+  stardew:    { name: "Stardew Valley" },
+  puzzle:     { name: "モバイルパズル（架空タイトル）" }
+};
+
+for (const [id, node] of Object.entries(tree)) {
+  for (const child of node.children || []) tree[child].parent = id;
+}
+
+const topicNames = [
+  "プレイ体験", "フレンド・対戦", "価格・購入",
+  "アップデート", "攻略・情報", "動作・操作性"
+];
+const feelings = ["ポジティブ", "中立", "ネガティブ"];
+const colors = ["#00795f", "#a4b6c5", "#ba6459"];
+
+// [平日を基準にした発話数, トピックごとの重み]
+const profiles = {
+  mario:    [39, [28, 28, 17, 8, 12, 7]],
+  splatoon: [24, [24, 30,  5, 13, 20, 8]],
+  zelda:    [18, [31,  3,  7,  8, 42, 9]],
+  monster:  [30, [23, 20,  8, 22, 14, 13]],
+  astro:    [13, [49,  2, 17,  7, 15, 10]],
+  stardew:  [17, [30, 15,  8, 19, 23, 5]],
+  puzzle:   [22, [32,  7, 22, 13, 18, 8]]
+};
+
+// 各行は [ポジティブ, 中立, ネガティブ] の文例。ラベルと本文を対応させる。
+const messages = [
+  [
+    ["気づいたら予定より長く遊んでた。", "初見でも楽しくて、もう一度やりたくなる。"],
+    ["今日からプレイ開始。週末に続きをやる予定。", "昨日の続きから30分だけ遊んだ。"],
+    ["同じ展開が続いて途中で飽きてしまった。", "序盤のテンポが自分には合わなかった。"]
+  ],
+  [
+    ["フレンドと遊んだら一人のときより盛り上がった。", "みんなで遊ぶ日をまた決めたい。"],
+    ["夜にフレンドと遊べるか、予定を確認中。", "一緒に遊ぶ人がいたら時間を合わせたい。"],
+    ["集合時間や参加方法を合わせるのが思ったより大変。", "フレンドとの合流に時間がかかって少し残念。"]
+  ],
+  [
+    ["この価格なら自分には十分満足。", "買うのを迷ったけど、遊んでみたら納得の値段だった。"],
+    ["すぐに買うか、セールを待つかで迷ってる。", "予算と相談しながら購入を検討中。"],
+    ["気になるけど今の価格だと手が出ない。", "遊びたいけど今月の予算には収まらなかった。"]
+  ],
+  [
+    ["更新後の調整が好み。久しぶりに遊んでよかった。", "今回の変更で遊びやすくなった。"],
+    ["変更点を読んでから遊び直す予定。", "更新前後で何が変わったか確認中。"],
+    ["更新後の変更が好みに合わず、前のほうが好きだった。", "期待していた箇所が変わっていなくて残念。"]
+  ],
+  [
+    ["初心者向けの解説がわかりやすくて助かった。", "手順を見直したら、つまずいていたところを抜けられた。"],
+    ["効率のいい進め方を探しているところ。", "あとで見返せるように攻略メモを残しておく。"],
+    ["調べても知りたい手順が見つからなくて困った。", "序盤の説明だけでは進め方がわからなかった。"]
+  ],
+  [
+    ["操作が素直で、慣れたら気持ちよく動かせる。", "自分の環境では想像より滑らかだった。"],
+    ["操作設定をいくつか変えて試している。", "次は別の設定で動作を確認する予定。"],
+    ["操作が思ったとおりに反応しなくて苦戦中。", "ところどころ引っかかる感じがあって気になった。"]
+  ]
+];
+const moodWeights = [
+  [72, 21, 7], [61, 25, 14], [24, 36, 40],
+  [46, 36, 18], [54, 37, 9], [28, 29, 43]
+];
+
+// 2025/06/30を最終日とする60日分。前期間比較も同じ合成データから計算する。
+const DAYS = 60;
+const END = Date.UTC(2025, 5, 30);
+const dateAt = i => new Date(END - (DAYS - 1 - i) * 86400000);
+const iso = i => dateAt(i).toISOString().slice(0, 10);
+const shortDay = i => {
+  const d = dateAt(i);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+};
+let seed = 714204;
+function rnd() {
+  seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+  return seed / 4294967296;
+}
+function weighted(weights) {
+  let r = rnd() * sum(weights);
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r < 0) return i;
+  }
+  return weights.length - 1;
+}
+
+function makePosts() {
+  const data = [];
+  for (let day = 0; day < DAYS; day++) {
+    const weekend = [0, 6].includes(dateAt(day).getUTCDay());
+    for (const [leaf, [base, weights]] of Object.entries(profiles)) {
+      const burst = leaf === "mario" ? ({52: 27, 53: 104, 54: 53, 55: 19}[day] || 0)
+                   : leaf === "monster" && day === 43 ? 42 : 0;
+      const baseline = Math.round(base * (weekend ? 1.17 : 1) * (.80 + .40 * rnd()));
+      for (let j = 0; j < baseline + burst; j++) {
+        const topic = j >= baseline && rnd() < .83
+          ? (leaf === "mario" ? 1 : 3)
+          : weighted(weights);
+        const mood = weighted(moodWeights[topic]);
+        const variants = messages[topic][mood];
+        const author = `@demo_${String(1 + Math.floor(rnd() * 420)).padStart(3, "0")}`;
+        const minute = Math.floor(rnd() * 1440);
+        const time = `${String(Math.floor(minute / 60)).padStart(2,"0")}:${String(minute % 60).padStart(2,"0")}`;
+        const text = `【${tree[leaf].name}】${variants[Math.floor(rnd() * variants.length)]}`;
+        data.push({ day, leaf, topic, mood, author, minute, time, text });
+      }
+    }
+  }
+  return data.sort((a, b) => b.day - a.day || b.minute - a.minute);
+}
+
+const posts = makePosts();
+const leafIds = id => tree[id].children ? tree[id].children.flatMap(leafIds) : [id];
+const state = { node: "game", days: 30, day: null, topic: null, limit: 8 };
+let view;
+
+function stats(rows, start, length) {
+  const daily = Array(length).fill(0);
+  const topics = Array(topicNames.length).fill(0);
+  const moods = Array(feelings.length).fill(0);
+  for (const p of rows) {
+    daily[p.day - start]++;
+    topics[p.topic]++;
+    moods[p.mood]++;
+  }
+  return { total: rows.length, daily, topics, moods };
+}
+function collect() {
+  const start = DAYS - state.days;
+  const leaves = new Set(leafIds(state.node));
+  const rows = posts.filter(p => leaves.has(p.leaf));
+  const current = rows.filter(p => p.day >= start);
+  const previous = rows.filter(p => p.day >= start - state.days && p.day < start);
+  const now = stats(current, start, state.days);
+  const prev = stats(previous, start - state.days, state.days);
+  const peak = now.daily.indexOf(Math.max(...now.daily));
+  return {
+    start, current, now, prev, peak,
+    order: [...topicNames.keys()].sort((a, b) => now.topics[b] - now.topics[a])
+  };
+}
+function navButton(id, cls = "") {
+  const selected = state.node === id ? ' aria-current="page"' : "";
+  return `<button type="button" class="${cls}" data-node="${id}"${selected}>${esc(tree[id].name)}</button>`;
+}
+function treeHTML(id) {
+  const children = tree[id].children;
+  return `<li>${navButton(id)}${children ? `<ul>${children.map(treeHTML).join("")}</ul>` : ""}</li>`;
+}
+function renderScope() {
+  $("tree").innerHTML = `<ul class="tree">${treeHTML("game")}</ul>`;
+  const path = [];
+  for (let id = state.node; id; id = tree[id].parent) path.unshift(id);
+  $("crumbs").innerHTML = path.map((id, i) => i === path.length - 1
+    ? `<span aria-current="page">${esc(tree[id].name)}</span>` : navButton(id)
+  ).join('<span aria-hidden="true">›</span>');
+  $("scope-title").textContent = tree[state.node].name;
+  const children = tree[state.node].children || [];
+  $("children").innerHTML = children.length
+    ? `<small>さらに絞り込む：</small>${children.map(id => navButton(id, "pill")).join("")}`
+    : "";
+  $("range-info").textContent = `対象：${iso(view.start)} ～ ${iso(DAYS - 1)} ／ 比較：${iso(view.start - state.days)} ～ ${iso(view.start - 1)}`;
+  document.querySelectorAll("[data-range]").forEach(button => {
+    button.setAttribute("aria-pressed", Number(button.dataset.range) === state.days);
+  });
+}
+function renderKpis() {
+  const { now, prev, peak, start, order } = view;
+  const growth = prev.total ? (now.total / prev.total - 1) * 100 : null;
+  const positive = share(now.moods[0], now.total);
+  const pp = positive - share(prev.moods[0], prev.total);
+  const top = order[0];
+  const delta = (v, unit) => `<span class="${v > 0 ? "up" : v < 0 ? "down" : ""}">${signed(v)}${unit}</span>`;
+  const cards = [
+    ["総発話量", `${fmt(now.total)} 件`, `直前期間比 ${growth === null ? "—" : delta(growth, "%")}`],
+    ["日別ピーク", `${fmt(now.daily[peak])} 件`, `${shortDay(start + peak)} の発話量`],
+    ["ポジティブ率", pct(positive), `直前期間比 ${delta(pp, " pt")}`],
+    ["最多トピック", esc(topicNames[top]), `${fmt(now.topics[top])} 件 / ${pct(share(now.topics[top], now.total))}`]
+  ];
+  $("kpis").innerHTML = cards.map(([label, value, note], i) => `
+    <div class="card">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-value${i === 3 ? " text" : ""}">${value}</div>
+      <div class="kpi-note">${note}</div>
+    </div>`).join("");
+}
+function renderChart() {
+  const { now, prev, peak, start } = view;
+  const W = Math.max(265, Math.round($("chart").clientWidth || 550));
+  const H = 223, L = 40, R = 13, T = 13, B = 29;
+  const dx = (W - L - R) / (state.days - 1);
+  const max = Math.max(...now.daily, ...prev.daily, 1);
+  const rawStep = max / 4;
+  const power = 10 ** Math.floor(Math.log10(rawStep));
+  const step = ([1, 2, 2.5, 5, 10].find(k => k * power >= rawStep) || 10) * power;
+  const top = step * 4;
+  const x = i => L + i * dx;
+  const y = v => H - B - v / top * (H - B - T);
+  const line = values => values.map((v, i) => `${i ? "L" : "M"}${x(i)} ${y(v)}`).join(" ");
+  const area = `${line(now.daily)} L${x(state.days - 1)} ${y(0)} L${x(0)} ${y(0)} Z`;
+  const selected = state.day === null ? peak : state.day - start;
+  const ticks = Array.from({ length: W < 420 ? 4 : 6 }, (_, i, a) => i);
+  const labels = ticks.map(i => Math.round(i * (state.days - 1) / (ticks.length - 1)));
+  const grid = Array.from({ length: 5 }, (_, i) => {
+    const v = i * step;
+    return `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/>
+      <text class="axis-text" text-anchor="end" x="${L - 6}" y="${y(v) + 4}">${fmt(v)}</text>`;
+  }).join("");
+  const hitAreas = now.daily.map((v, i) => {
+    const left = i === 0 ? L - 7 : x(i) - dx / 2;
+    const right = i === state.days - 1 ? W : x(i) + dx / 2;
+    return `<rect class="hit" data-day="${start + i}" x="${left}" y="${T}" width="${right - left}" height="${y(0) - T}">
+      <title>${iso(start + i)}：${fmt(v)}件 ／ 比較 ${iso(start - state.days + i)}：${fmt(prev.daily[i])}件</title>
+    </rect>`;
+  }).join("");
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="対象期間と直前期間の日別ポスト数。対象期間の最大は${shortDay(start + peak)}の${now.daily[peak]}件。">
+    <defs><linearGradient id="area-fill" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#91d5c1" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="#e8f6f1" stop-opacity=".55"/>
+    </linearGradient></defs>
+    ${grid}
+    <path d="${area}" fill="url(#area-fill)"/>
+    <path d="${line(prev.daily)}" fill="none" stroke="#718599" stroke-width="2" stroke-dasharray="5 5"/>
+    <path d="${line(now.daily)}" fill="none" stroke="#00795f" stroke-width="2.5" stroke-linejoin="round"/>
+    <line x1="${x(selected)}" x2="${x(selected)}" y1="${T}" y2="${y(0)}" stroke="#00795f" stroke-opacity=".36" stroke-dasharray="3 4"/>
+    <circle cx="${x(selected)}" cy="${y(now.daily[selected])}" r="4.5" fill="#00795f" stroke="white" stroke-width="1.5"/>
+    ${labels.map(i => `<text class="axis-text" x="${x(i)}" y="${H - 7}" text-anchor="${i === state.days - 1 ? "end" : i === 0 ? "start" : "middle"}">${shortDay(start + i)}</text>`).join("")}
+    ${hitAreas}
+  </svg>`;
+  $("day-info").textContent = state.day === null
+    ? `ピーク：${shortDay(start + peak)} · ${fmt(now.daily[peak])}件`
+    : `${shortDay(state.day)}：${fmt(now.daily[selected])}件 ／ 比較 ${shortDay(state.day - state.days)}：${fmt(prev.daily[selected])}件`;
+}
+function renderInsights() {
+  const { start, peak, now, prev, current, order } = view;
+  const peakCount = now.daily[peak];
+  const otherMean = (now.total - peakCount) / (state.days - 1);
+  const peakRows = current.filter(p => p.day === start + peak);
+  const peakTopics = stats(peakRows, start + peak, 1).topics;
+  const peakTopic = peakTopics.indexOf(Math.max(...peakTopics));
+  const shifts = order.map(id => ({
+    id, delta: share(now.topics[id], now.total) - share(prev.topics[id], prev.total)
+  })).sort((a, b) => b.delta - a.delta);
+  const shift = shifts[0];
+  const negCounts = stats(current.filter(p => p.mood === 2), start, state.days).topics;
+  const negTopic = negCounts.indexOf(Math.max(...negCounts));
+  const cards = [
+    ["発話が最も多かった日",
+      `${shortDay(start + peak)}は${fmt(peakCount)}件${otherMean ? `で、他の日の平均の${(peakCount / otherMean).toFixed(1)}倍` : ""}。当日は「${topicNames[peakTopic]}」が${fmt(peakTopics[peakTopic])}件で最多でした。`],
+    ["構成比が最も伸びたトピック",
+      shift.delta > 0
+        ? `「${topicNames[shift.id]}」が${pct(share(prev.topics[shift.id], prev.total))}から${pct(share(now.topics[shift.id], now.total))}へ（${signed(shift.delta)}ポイント）。`
+        : "直前期間と比べて構成比が伸びたトピックはありません。"],
+    ["不満の内容を確認するなら",
+      now.moods[2] ? `ネガティブ${fmt(now.moods[2])}件のうち「${topicNames[negTopic]}」が${fmt(negCounts[negTopic])}件で最多。トピックを選ぶと関連ポストを読めます。`
+      : "対象期間にネガティブのラベルが付いたポストはありません。"]
+  ];
+  $("insights").innerHTML = cards.map(([title, text]) =>
+    `<article class="insight"><h3>${esc(title)}</h3><p>${esc(text)}</p></article>`).join("");
+}
+function renderBreakdowns() {
+  const { now, order } = view;
+  $("topics").innerHTML = order.map(id => {
+    const value = share(now.topics[id], now.total);
+    return `<button type="button" class="topic-row" data-topic="${id}" aria-pressed="${state.topic === id}">
+      <span class="topic-label"><strong>${esc(topicNames[id])}</strong>
+      <span>${fmt(now.topics[id])}件 · ${pct(value)}</span></span>
+      <span class="track" aria-hidden="true"><span class="bar" style="width:${value}%"></span></span>
+    </button>`;
+  }).join("");
+  const ratios = now.moods.map(n => share(n, now.total));
+  const cut = ratios[0] + ratios[1];
+  $("sentiment").innerHTML = `
+    <div class="donut" aria-hidden="true" style="background:conic-gradient(
+      ${colors[0]} 0 ${ratios[0]}%, ${colors[1]} ${ratios[0]}% ${cut}%, ${colors[2]} ${cut}% 100%)">
+      <div><strong>${pct(ratios[0])}</strong><small>ポジティブ</small></div>
+    </div>
+    <div class="sentiment-list">${feelings.map((label, i) => `
+      <div class="sentiment-line"><span><i class="dot" style="background:${colors[i]}"></i>${label}</span>
+      <span>${pct(ratios[i])} · ${fmt(now.moods[i])}件</span></div>`).join("")}
+    </div>`;
+}
+function filteredPosts() {
+  return view.current.filter(p =>
+    (state.day === null || p.day === state.day) &&
+    (state.topic === null || p.topic === state.topic));
+}
+function renderPosts() {
+  const rows = filteredPosts();
+  const visible = rows.slice(0, state.limit);
+  const tags = [
+    state.day === null ? "期間全体" : iso(state.day),
+    state.topic === null ? "全トピック" : topicNames[state.topic]
+  ];
+  $("post-status").textContent =
+    `${tags.join(" ／ ")} · ${fmt(rows.length)}件中${fmt(visible.length)}件を新着順で表示（合成）`;
+  $("posts").innerHTML = visible.length ? visible.map(p => `
+    <li class="post">
+      <div class="post-meta"><span>${iso(p.day)} ${p.time} JST</span><span>${esc(p.author)}</span>
+        <span class="tag">${esc(topicNames[p.topic])}</span><span class="tag">${feelings[p.mood]}</span>
+      </div>
+      <p>${esc(p.text)}</p>
+    </li>`).join("") : `<li class="empty">この条件に該当するポストはありません。</li>`;
+  $("more").hidden = visible.length >= rows.length;
+  $("reset").disabled = state.day === null && state.topic === null;
+  $("csv").disabled = rows.length === 0;
+}
+function renderAll() {
+  view = collect();
+  renderScope();
+  renderKpis();
+  renderBreakdowns();
+  renderInsights();
+  $("day-select").innerHTML = `<option value="">全日</option>` +
+    view.now.daily.map((n, i) =>
+      `<option value="${view.start + i}">${shortDay(view.start + i)}（${fmt(n)}件）</option>`).join("");
+  $("day-select").value = "";
+  renderChart();
+  renderPosts();
+}
+function selectDay(day) {
+  state.day = day;
+  state.limit = 8;
+  $("day-select").value = day === null ? "" : String(day);
+  renderChart();
+  renderPosts();
+}
+function resetFilters() {
+  state.day = null;
+  state.topic = null;
+  state.limit = 8;
+}
+const compact = window.matchMedia("(max-width: 700px)");
+if (compact.matches) $("tree-panel").open = false;
+
+document.addEventListener("click", event => {
+  const nodeButton = event.target.closest("[data-node]");
+  if (nodeButton) {
+    const inTree = $("tree").contains(nodeButton);
+    state.node = nodeButton.dataset.node;
+    resetFilters();
+    renderAll();
+    if (inTree && compact.matches) $("tree-panel").open = false;
+    if (inTree && !compact.matches) {
+      $("tree").querySelector('[aria-current="page"]')?.focus();
+    } else {
+      $("scope-title").setAttribute("tabindex", "-1");
+      $("scope-title").focus();
+    }
+    return;
+  }
+  const rangeButton = event.target.closest("[data-range]");
+  if (rangeButton) {
+    state.days = Number(rangeButton.dataset.range);
+    resetFilters();
+    renderAll();
+    return;
+  }
+  const topicButton = event.target.closest("[data-topic]");
+  if (topicButton) {
+    const id = Number(topicButton.dataset.topic);
+    state.topic = state.topic === id ? null : id;
+    state.limit = 8;
+    $("topics").querySelectorAll("[data-topic]").forEach(button => {
+      button.setAttribute("aria-pressed", Number(button.dataset.topic) === state.topic);
+    });
+    renderPosts();
+    return;
+  }
+  const dayMark = event.target.closest("[data-day]");
+  if (dayMark) {
+    const day = Number(dayMark.dataset.day);
+    selectDay(state.day === day ? null : day);
+  }
+});
+$("day-select").addEventListener("change", e => {
+  selectDay(e.target.value === "" ? null : Number(e.target.value));
+});
+$("reset").addEventListener("click", () => {
+  resetFilters();
+  $("topics").querySelectorAll("[data-topic]").forEach(button => button.setAttribute("aria-pressed", "false"));
+  selectDay(null);
+  $("day-select").focus();
+});
+$("more").addEventListener("click", () => {
+  state.limit += 8;
+  renderPosts();
+});
+$("csv").addEventListener("click", () => {
+  const rows = filteredPosts();
+  const values = [
+    ["日付", "時刻(JST)", "架空アカウント", "タイトル", "主トピック", "感情ラベル", "本文", "データ種別"],
+    ...rows.map(p => [iso(p.day), p.time, p.author, tree[p.leaf].name, topicNames[p.topic],
+      feelings[p.mood], p.text, "合成"])
+  ];
+  const csvCell = value => {
+    let s = String(value);
+    // 表計算ソフトで数式と解釈される可能性のある先頭文字を無効化。
+    if (/^[=+\-@\t\r\n]/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const text = values.map(row => row.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob(["\uFEFF", text], {type: "text/csv;charset=utf-8"}));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `synthetic-x-posts_${state.node}_${iso(DAYS - 1)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+renderAll();
+let resizeFrame;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(renderChart);
+});
+</script>
+</body>
+</html>
