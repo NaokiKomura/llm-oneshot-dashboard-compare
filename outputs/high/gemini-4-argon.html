@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X (Twitter) 発話分析ダッシュボード</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background-color: #f3f4f6; }
+        .chart-container { position: relative; height: 250px; width: 100%; }
+        .tweet-card { transition: all 0.2s; }
+        .tweet-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        /* Custom Scrollbar for Tweets */
+        .tweet-feed::-webkit-scrollbar { width: 6px; }
+        .tweet-feed::-webkit-scrollbar-track { background: #f1f1f1; }
+        .tweet-feed::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .tweet-feed::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-brands fa-x-twitter text-2xl text-sky-400"></i>
+                <h1 class="text-xl font-bold tracking-wider">Social Insight Analyzer</h1>
+                <span class="bg-sky-500/20 text-sky-300 text-xs px-2 py-1 rounded border border-sky-500/30">Demo Mode</span>
+            </div>
+            <div class="flex items-center space-x-4 text-sm">
+                <div class="bg-slate-800 px-3 py-1.5 rounded flex items-center space-x-2 border border-slate-700">
+                    <i class="fa-regular fa-calendar text-slate-400"></i>
+                    <span>2023/10/01 - 2023/10/07 (過去7日間)</span>
+                </div>
+                <button class="bg-sky-600 hover:bg-sky-500 px-3 py-1.5 rounded font-medium transition"><i class="fa-solid fa-download mr-1"></i> レポート出力</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- Navigation / Drill-down Bar -->
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 mb-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <div class="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">現在の分析粒度 (パンくずリストで上位へ戻れます)</div>
+                    <nav class="flex" aria-label="Breadcrumb">
+                        <ol id="breadcrumb-container" class="inline-flex items-center space-x-1 md:space-x-2 text-sm font-medium">
+                            <!-- JSで動的に生成 -->
+                        </ol>
+                    </nav>
+                </div>
+                <div id="drilldown-Section" class="flex flex-col items-start md:items-end">
+                    <div class="text-xs text-slate-400 font-semibold mb-1"><i class="fa-solid fa-magnifying-glass-chart mr-1"></i>さらにミクロな粒度へドリルダウン:</div>
+                    <div id="children-buttons" class="flex flex-wrap gap-2">
+                        <!-- JSで動的に生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">総発話数 (ポスト数)</p>
+                    <p id="kpi-volume" class="text-2xl font-bold text-slate-800 mt-1">-</p>
+                    <p id="kpi-volume-diff" class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-arrow-trend-up"></i> 前週比 +14.2%</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-sky-50 flex items-center justify-center text-sky-600 text-xl">
+                    <i class="fa-regular fa-comment-dots"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">総エンゲージメント (RT+いいね)</p>
+                    <p id="kpi-engagement" class="text-2xl font-bold text-slate-800 mt-1">-</p>
+                    <p class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-arrow-trend-up"></i> 前週比 +28.5%</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 text-xl">
+                    <i class="fa-regular fa-heart"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">ポジティブ発話率</p>
+                    <p id="kpi-positive" class="text-2xl font-bold text-emerald-600 mt-1">-</p>
+                    <p class="text-xs text-slate-400 font-medium mt-1">ネガティブ率: <span id="kpi-negative">-</span></p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl">
+                    <i class="fa-regular fa-face-smile"></i>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">主要発話ピーク日</p>
+                    <p id="kpi-peak" class="text-xl font-bold text-slate-800 mt-1">10月5日 (木)</p>
+                    <p id="kpi-peak-reason" class="text-xs text-indigo-600 font-medium mt-1 truncate w-40">新作発表イベントの影響</p>
+                </div>
+                <div class="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xl">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Trend Chart (2 cols) -->
+            <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold text-slate-800"><i class="fa-solid fa-chart-line text-sky-500 mr-2"></i>発話量・感情推移</h2>
+                    <span class="text-xs text-slate-400">※グラフ上のスパイクがトレンド発生箇所</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Topic Share Chart (1 col) -->
+            <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold text-slate-800"><i class="fa-solid fa-chart-pie text-indigo-500 mr-2"></i>サブトピック内訳</h2>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">構成比</span>
+                </div>
+                <div class="chart-container" style="height: 200px;">
+                    <canvas id="topicChart"></canvas>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100">
+                    <h3 class="text-xs font-bold text-slate-500 mb-2">感情バランス (Sentiment)</h3>
+                    <div class="w-full bg-slate-200 rounded-full h-3 flex overflow-hidden">
+                        <div id="bar-pos" class="bg-emerald-500 h-3" style="width: 60%" title="Positive"></div>
+                        <div id="bar-neu" class="bg-slate-400 h-3" style="width: 30%" title="Neutral"></div>
+                        <div id="bar-neg" class="bg-rose-500 h-3" style="width: 10%" title="Negative"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>ポジティブ</span>
+                        <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-slate-400 mr-1"></span>ニュートラル</span>
+                        <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-rose-500 mr-1"></span>ネガティブ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Insights & Actual Posts -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left: Insights & Keywords (7 cols) -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+                <!-- AI Insights -->
+                <div class="bg-gradient-to-br from-indigo-50/50 to-sky-50/50 p-5 rounded-lg shadow-sm border border-indigo-100 flex-1">
+                    <div class="flex items-center space-x-2 mb-3">
+                        <span class="bg-indigo-600 text-white p-1.5 rounded-md text-xs"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                        <h2 class="text-base font-bold text-indigo-950">発話データからの多面的インサイト (AI要約)</h2>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-3">現在の粒度「<span id="insight-target-name" class="font-bold text-slate-700"></span>」における特徴的な傾向と示唆：</p>
+                    <ul id="insight-list" class="space-y-3 text-sm text-slate-700">
+                        <!-- JSで動的に生成 -->
+                    </ul>
+                </div>
+
+                <!-- Co-occurrence Keywords -->
+                <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+                    <h2 class="text-base font-bold text-slate-800 mb-3"><i class="fa-solid fa-tags text-amber-500 mr-2"></i>共起キーワード・トレンドハッシュタグ</h2>
+                    <p class="text-xs text-slate-400 mb-3">発話内で頻繁に一緒に語られているワード（文字サイズは出現頻度と熱量に比例）</p>
+                    <div id="keyword-cloud" class="flex flex-wrap gap-2 items-center p-2 bg-slate-50 rounded border border-slate-100 min-h-[100px]">
+                        <!-- JSで動的に生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: X Post Feed (5 cols) -->
+            <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200 lg:col-span-5 flex flex-col h-[500px]">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                    <h2 class="text-base font-bold text-slate-800"><i class="fa-brands fa-x-twitter mr-2"></i>代表的な発話 (ダミーポスト)</h2>
+                    <span class="text-xs text-slate-400">エンゲージメント順</span>
+                </div>
+                <div id="tweet-feed" class="tweet-feed overflow-y-auto flex-1 space-y-3 pr-2">
+                    <!-- JSで動的に生成 -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. ダミーデータ定義 (マクロ〜ミクロの4階層)
+        // ==========================================
+        const dashboardData = {
+            "root": {
+                id: "root",
+                name: "ゲーム全般 (Macro)",
+                parent: null,
+                children: [
+                    { id: "console", name: "コンシューマーゲーム", active: true },
+                    { id: "mobile", name: "モバイル・アプリ", active: false },
+                    { id: "pc", name: "PCゲーム / Steam", active: false },
+                    { id: "esports", name: "eスポーツ", active: false }
+                ],
+                kpi: { volume: "1,245,000", engagement: "8,920,000", pos: 55, neu: 35, neg: 10, peakDate: "10月5日 (木)", peakReason: "各社秋の大型発表・TGS余波" },
+                trend: {
+                    labels: ["10/1", "10/2", "10/3", "10/4", "10/5", "10/6", "10/7"],
+                    total: [150000, 145000, 160000, 155000, 280000, 190000, 165000],
+                    positive: [80000, 75000, 85000, 82000, 170000, 105000, 90000]
+                },
+                topics: {
+                    labels: ["コンシューマー", "モバイルアプリ", "PC/Steam", "インディー", "eスポーツ/配信"],
+                    data: [42, 35, 12, 6, 5]
+                },
+                insights: [
+                    "<strong>【全体トレンド】</strong> 週末にかけて発話量が増加する傾向にある中、10/5(木)にコンシューマー領域での大型発表があり、市場全体の発話量が通常の約1.8倍にスパイクした。",
+                    "<strong>【プラットフォーム別特徴】</strong> モバイルゲームは日常的な発話（ガチャ結果、周回報告）が多くベースボリュームを支えているが、瞬発的なトレンド形成力・拡散力（RT数）はコンシューマーゲームが圧倒している。",
+                    "<strong>【インサイト】</strong> ユーザーの関心は「既存ゲームのアップデート」よりも「次世代体験・完全新作」に強く反応しており、マンネリ打破を求める声が潜在している。"
+                ],
+                keywords: [
+                    { text: "#NintendoDirect", size: "text-lg font-bold text-sky-600" },
+                    { text: "新作発表", size: "text-xl font-extrabold text-indigo-600" },
+                    { text: "ガチャ爆死", size: "text-sm text-slate-600" },
+                    { text: "神ゲー", size: "text-base font-bold text-emerald-600" },
+                    { text: "PS5", size: "text-base font-semibold text-blue-700" },
+                    { text: "Switch", size: "text-lg font-bold text-red-600" },
+                    { text: "周回", size: "text-xs text-slate-500" },
+                    { text: "インディーゲーム", size: "text-sm text-amber-600" },
+                    { text: "サーバー落ち", size: "text-sm text-rose-600" },
+                    { text: "積みゲー", size: "text-base text-slate-700" }
+                ],
+                tweets: [
+                    { user: "ゲーム総合情報局", handle: "@game_info_jp", time: "10/5 23:15", text: "【速報】今夜発表された新作タイトルまとめ！来年は豊作すぎて時間が足りないレベル。皆さんはどのタイトルが一番気になりましたか？ #ゲーム新作", likes: "45.2K", rts: "18.1K", sentiment: "pos" },
+                    { user: "ソシャゲ廃人A", handle: "@gacha_life99", time: "10/3 12:30", text: "新キャラ天井まで回してすり抜け3回…。確率どうなってるの？さすがにモチベ下がるわ。", likes: "1.2K", rts: "85", sentiment: "neg" },
+                    { user: "Kenta@PCGamer", handle: "@kenta_fps", time: "10/7 02:10", text: "週末はSteamのセールで買ったインディーゲームをひたすら消化する。1000円以下でこのクオリティは本当にすごい時代だ。", likes: "850", rts: "120", sentiment: "pos" },
+                    { user: "トレンドウォッチャー", handle: "@trend_watch", time: "10/5 23:40", text: "Xのトレンド1位から10位まで全部ゲーム関連で埋まってる！特にSwitch関連の勢いが凄まじい。", likes: "12.4K", rts: "3.4K", sentiment: "neu" }
+                ]
+            },
+
+            "console": {
+                id: "console",
+                name: "コンシューマーゲーム (Meso-1)",
+                parent: "root",
+                children: [
+                    { id: "switch", name: "Nintendo Switch", active: true },
+                    { id: "ps5", name: "PlayStation 5", active: false },
+                    { id: "xbox", name: "Xbox Series X|S", active: false }
+                ],
+                kpi: { volume: "522,900", engagement: "4,850,000", pos: 64, neu: 28, neg: 8, peakDate: "10月5日 (木)", peakReason: "任天堂の新作タイトル発表" },
+                trend: {
+                    labels: ["10/1", "10/2", "10/3", "10/4", "10/5", "10/6", "10/7"],
+                    total: [55000, 52000, 58000, 60000, 150000, 82000, 65900],
+                    positive: [32000, 30000, 35000, 38000, 108000, 52000, 40000]
+                },
+                topics: {
+                    labels: ["Nintendo Switch", "PlayStation 5", "Xbox", "レトロゲーム/他"],
+                    data: [65, 25, 6, 4]
+                },
+                insights: [
+                    "<strong>【ハードウェア別動向】</strong> 日本国内のX発話においては、Nintendo Switch関連が65%と圧倒的シェアを占める。10/5のスパイクもほぼSwitch関連の話題が牽引している。",
+                    "<strong>【PS5・Xboxの文脈】</strong> PS5はグラフィック性能や大型RPGに関するコアゲーマーの議論が中心。一方Switchはファミリー層・ライト層を含む幅広い「共感・プレイ共有」の発話が多い。",
+                    "<strong>【次世代機への関心】</strong> ソフトの話題と並行して、「ロード時間」「フレームレート」などハードのスペック限界を指摘し、次世代機を待望する声も一定の割合（約15%）で存在する。"
+                ],
+                keywords: [
+                    { text: "Nintendo Switch", size: "text-xl font-extrabold text-red-600" },
+                    { text: "PS5Pro", size: "text-base font-bold text-blue-600" },
+                    { text: "次世代機", size: "text-lg font-bold text-indigo-600" },
+                    { text: "パッケージ版", size: "text-sm text-slate-600" },
+                    { text: "予約開始", size: "text-base font-semibold text-emerald-600" },
+                    { text: "コントローラー", size: "text-xs text-slate-500" },
+                    { text: "独占タイトル", size: "text-sm text-amber-600" },
+                    { text: "容量不足", size: "text-sm text-rose-500" }
+                ],
+                tweets: [
+                    { user: "電撃ゲーマーズ", handle: "@dengeki_dummy", time: "10/5 22:05", text: "【アンケート】今年の冬、あなたが一番プレイしたいコンシューマー新作はどれ？リプライで教えてください！ #Switch #PS5", likes: "8.2K", rts: "2.1K", sentiment: "neu" },
+                    { user: "まるこ", handle: "@maruko_game", time: "10/5 22:45", text: "やっぱり任天堂のワクワク感は異常だよな〜。グラフィックだけならPS5なんだけど、みんなでワイワイ遊べるソフトの強さが段違い。", likes: "5.4K", rts: "890", sentiment: "pos" },
+                    { user: "Taka / ガジェット", handle: "@taka_tech", time: "10/6 10:15", text: "新作ラッシュなのは嬉しいけど、現行ハードだと処理落ちが心配になるタイトルもちらほら。そろそろ新型ハードのアナウンスも欲しいところ。", likes: "1.1K", rts: "150", sentiment: "neu" }
+                ]
+            },
+
+            "switch": {
+                id: "switch",
+                name: "Nintendo Switch (Meso-2)",
+                parent: "console",
+                children: [
+                    { id: "mariokart", name: "マリオカート ワールド", active: true },
+                    { id: "zelda", name: "ゼルダの伝説", active: false },
+                    { id: "splatoon", name: "スプラトゥーン3", active: false },
+                    { id: "hardware", name: "ハード/周辺機器", active: false }
+                ],
+                kpi: { volume: "339,885", engagement: "3,620,000", pos: 72, neu: 22, neg: 6, peakDate: "10月5日 (木) 22時台", peakReason: "「マリオカート ワールド」サプライズ発表" },
+                trend: {
+                    labels: ["10/1", "10/2", "10/3", "10/4", "10/5", "10/6", "10/7"],
+                    total: [30000, 28000, 32000, 35000, 115000, 58000, 41885],
+                    positive: [20000, 19000, 21000, 24000, 92000, 42000, 28000]
+                },
+                topics: {
+                    labels: ["マリオカート ワールド", "スプラトゥーン3", "ゼルダの伝説", "ポケモン", "次世代Switch噂"],
+                    data: [48, 20, 15, 10, 7]
+                },
+                insights: [
+                    "<strong>【特大トレンドの発生】</strong> 10/5の配信番組にて完全新作『マリオカート ワールド（仮）』が発表された瞬間、秒間ポスト数がピークに達し、Switch関連発話の約半分（48%）を独占した。",
+                    "<strong>【既存タイトルからの流入】</strong> 普段は『スプラトゥーン』や『ポケモン』について発話しているアカウント層が一斉にマリオカート新作に言及しており、IPの垣根を超えた関心の高さが伺える。",
+                    "<strong>【購買意欲への直結】</strong> ポジティブ率が72%と極めて高く、「Switch買い直す」「プロコン新調する」など周辺機器を含めた購買意欲を示す発話が急増している。"
+                ],
+                keywords: [
+                    { text: "#マリオカートワールド", size: "text-xl font-extrabold text-red-600" },
+                    { text: "マリカー新作", size: "text-lg font-bold text-amber-600" },
+                    { text: "スプラフェス", size: "text-base font-semibold text-indigo-600" },
+                    { text: "神発表", size: "text-lg font-bold text-emerald-600" },
+                    { text: "Joy-Conドリフト", size: "text-xs text-rose-500" },
+                    { text: "オンライン加入", size: "text-sm text-sky-600" },
+                    { text: "ゼルダ", size: "text-base font-medium text-emerald-700" }
+                ],
+                tweets: [
+                    { user: "任天堂株式会社(ダミー)", handle: "@Nintendo_Dummy", time: "10/5 22:30", text: "シリーズ完全新作『マリオカート ワールド』の映像を公開しました。今度の舞台は、世界中のコースがひとつに繋がるオープンワールドです。", likes: "185K", rts: "92.4K", sentiment: "pos" },
+                    { user: "いかちゃん＠スプラ", handle: "@ika_spla3", time: "10/5 22:35", text: "ちょっと待って！！マリカー完全新作きたあああああ！！8DXから何年待ったと思ってんの！？絶対買う！！", likes: "12.3K", rts: "2.1K", sentiment: "pos" },
+                    { user: "ゲーム好きのパパ", handle: "@papa_gamer", time: "10/6 08:15", text: "朝のニュースでもSwitchの新作やってて子供たちが大騒ぎ。今年のクリスマスプレゼントはこれで決まりだな…予約戦争に勝てるか心配。", likes: "3.4K", rts: "420", sentiment: "pos" }
+                ]
+            },
+
+            "mariokart": {
+                id: "mariokart",
+                name: "マリオカート ワールド (Micro)",
+                parent: "switch",
+                children: [], // 最下層
+                kpi: { volume: "163,140", engagement: "2,450,000", pos: 81, neu: 14, neg: 5, peakDate: "10月5日 (木) 22:35", peakReason: "トレーラー内の「オープンワールド要素」判明時" },
+                trend: {
+                    labels: ["10/1", "10/2", "10/3", "10/4", "10/5", "10/6", "10/7"],
+                    total: [500, 450, 600, 1200, 88000, 45000, 27390], // 発表前は噂レベル
+                    positive: [200, 180, 250, 600, 74000, 36000, 21000]
+                },
+                topics: {
+                    labels: ["オープンワールド要素", "新キャラクター/ゲスト", "オンライン100人対戦", "カスタムパーツ", "通信ラグ/サーバー懸念"],
+                    data: [40, 25, 18, 12, 5]
+                },
+                insights: [
+                    "<strong>【最大の魅力：オープンワールド化】</strong> 発話の40%が「コースの垣根を超えたオープンワールド仕様」に集中。『Forza Horizon』のようなドライブ感をマリオで楽しめる点に熱狂的なポジティブ反応（81%）。",
+                    "<strong>【キャラクター考察の盛り上がり】</strong> 映像に一瞬映った「カービィ」や「ピカチュウ」などの他社・他IPゲストキャラの参戦予想がミーム化し、画像付きポストの拡散（RT）を強力に牽引している。",
+                    "<strong>【一部懸念点（ネガティブ5%の内訳）】</strong> 「最大100人同時オンラインレース」という新機能に対し、Switchの無線通信環境での「ラグ」や「サーバー落ち」を危惧する声が過去の経験から挙げられている。"
+                ],
+                keywords: [
+                    { text: "オープンワールド", size: "text-xl font-extrabold text-emerald-600" },
+                    { text: "100人対戦", size: "text-lg font-bold text-indigo-600" },
+                    { text: "ゲストキャラ", size: "text-lg font-bold text-amber-500" },
+                    { text: "カービィ参戦", size: "text-base font-bold text-pink-500" },
+                    { text: "ドライブモード", size: "text-base font-semibold text-sky-600" },
+                    { text: "8DXから卒業", size: "text-sm text-slate-600" },
+                    { text: "回線落ち", size: "text-sm font-medium text-rose-600" },
+                    { text: "神ゲー確定", size: "text-lg font-bold text-red-500" },
+                    { text: "レインボーロード", size: "text-sm text-purple-600" }
+                ],
+                tweets: [
+                    { user: "マリオカートガチ勢", handle: "@mk_pro_racer", time: "10/5 22:40", text: "トレーラーの1分24秒あたりを一時停止してみて！背景の看板に『シティトライアル』って書いてあるし、コース間を自由に走れるオープンワールド仕様になってる！神ゲー確定演出すぎる… #マリオカートワールド", likes: "42.1K", rts: "15.3K", sentiment: "pos" },
+                    { user: "ゆい＠ゲーム垢", handle: "@yui_pink_game", time: "10/5 23:10", text: "新キャラでカービィとピカチュウ使えるの嬉しすぎる😭😭 カートのデザインもパステルカラー増えててめっちゃ可愛い！友達とドライブするだけでも楽しそう🚗💨", likes: "18.5K", rts: "3.2K", sentiment: "pos" },
+                    { user: "辛口ゲーマーZ", handle: "@critic_gamer_z", time: "10/6 01:20", text: "100人同時バトロワレースは面白そうだけど、今のSwitchのオンライン環境で同期ズレとかラグ大丈夫か？そこだけちゃんとしてくれれば文句なしなんだが。", likes: "2.8K", rts: "310", sentiment: "neg" },
+                    { user: "解説系YouTuber_K", handle: "@youtuber_k_game", time: "10/6 18:00", text: "【動画公開】『マリオカート ワールド』発表映像から判明した新要素15選！隠された過去作コースの小ネタを徹底考察しました。再生数がすでにヤバいです。", likes: "6.1K", rts: "890", sentiment: "neu" }
+                ]
+            }
+        };
+
+        // ==========================================
+        // 2. チャートインスタンス保持用変数
+        // ==========================================
+        let trendChartInstance = null;
+        let topicChartInstance = null;
+
+        // ==========================================
+        // 3. 初期化処理
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            renderDashboard('root'); // 初期表示はマクロ（ゲーム全般）
+        });
+
+        // チャートの初期枠組み作成
+        function initCharts() {
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            trendChartInstance = new Chart(ctxTrend, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            const ctxTopic = document.getElementById('topicChart').getContext('2d');
+            topicChartInstance = new Chart(ctxTopic, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 4. ダッシュボード描画更新関数 (Core Logic)
+        // ==========================================
+        function renderDashboard(nodeId) {
+            const data = dashboardData[nodeId];
+            if (!data) return;
+
+            // 1. パンくずリストの更新
+            updateBreadcrumbs(nodeId);
+
+            // 2. ドリルダウンボタンの更新
+            updateDrilldownButtons(data.children);
+
+            // 3. KPIの更新
+            document.getElementById('kpi-volume').innerText = data.kpi.volume;
+            document.getElementById('kpi-engagement').innerText = data.kpi.engagement;
+            document.getElementById('kpi-positive').innerText = data.kpi.pos + '%';
+            document.getElementById('kpi-negative').innerText = data.kpi.neg + '%';
+            document.getElementById('kpi-peak').innerText = data.kpi.peakDate;
+            document.getElementById('kpi-peak-reason').innerText = data.kpi.peakReason;
+
+            // 感情バーの更新
+            document.getElementById('bar-pos').style.width = data.kpi.pos + '%';
+            document.getElementById('bar-neu').style.width = data.kpi.neu + '%';
+            document.getElementById('bar-neg').style.width = data.kpi.neg + '%';
+
+            // 4. トレンドチャートの更新
+            trendChartInstance.data.labels = data.trend.labels;
+            trendChartInstance.data.datasets = [
+                {
+                    label: '総発話数',
+                    data: data.trend.total,
+                    borderColor: '#0284c7', // sky-600
+                    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'ポジティブ発話',
+                    data: data.trend.positive,
+                    borderColor: '#10b981', // emerald-500
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.3
+                }
+            ];
+            trendChartInstance.update();
+
+            // 5. トピック内訳チャートの更新
+            topicChartInstance.data.labels = data.topics.labels;
+            topicChartInstance.data.datasets = [{
+                data: data.topics.data,
+                backgroundColor: [
+                    '#4f46e5', // indigo-600
+                    '#0ea5e9', // sky-500
+                    '#10b981', // emerald-500
+                    '#f59e0b', // amber-500
+                    '#94a3b8'  // slate-400
+                ],
+                borderWidth: 0
+            }];
+            topicChartInstance.update();
+
+            // 6. インサイトの更新
+            document.getElementById('insight-target-name').innerText = data.name;
+            const insightList = document.getElementById('insight-list');
+            insightList.innerHTML = '';
+            data.insights.forEach(text => {
+                const li = document.createElement('li');
+                li.className = 'flex items-start space-x-2 bg-white/60 p-2.5 rounded border border-indigo-50/80';
+                li.innerHTML = `<i class="fa-solid fa-check-circle text-indigo-500 mt-1 flex-shrink-0"></i><span>${text}</span>`;
+                insightList.appendChild(li);
+            });
+
+            // 7. キーワードクラウドの更新
+            const kwCloud = document.getElementById('keyword-cloud');
+            kwCloud.innerHTML = '';
+            data.keywords.forEach(kw => {
+                const span = document.createElement('span');
+                span.className = `${kw.size} px-2 py-1 bg-white rounded shadow-sm border border-slate-100 cursor-pointer hover:scale-105 transition transform`;
+                span.innerText = kw.text;
+                kwCloud.appendChild(span);
+            });
+
+            // 8. Xポストフィードの更新
+            const tweetFeed = document.getElementById('tweet-feed');
+            tweetFeed.innerHTML = '';
+            data.tweets.forEach(t => {
+                let badge = '';
+                if(t.sentiment === 'pos') badge = '<span class="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0.5 rounded font-medium">Positive</span>';
+                if(t.sentiment === 'neg') badge = '<span class="bg-rose-100 text-rose-700 text-[10px] px-1.5 py-0.5 rounded font-medium">Negative</span>';
+                if(t.sentiment === 'neu') badge = '<span class="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded font-medium">Neutral</span>';
+
+                const card = document.createElement('div');
+                card.className = 'tweet-card bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-sm';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-slate-600 font-bold">
+                                ${t.user.charAt(0)}
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800 text-xs">${t.user}</div>
+                                <div class="text-slate-400 text-[10px]">${t.handle} ・ ${t.time}</div>
+                            </div>
+                        </div>
+                        ${badge}
+                    </div>
+                    <p class="text-slate-700 text-xs leading-relaxed mb-3">${t.text}</p>
+                    <div class="flex items-center space-x-6 text-slate-400 text-xs">
+                        <span class="flex items-center space-x-1 hover:text-sky-500 cursor-pointer"><i class="fa-regular fa-comment"></i> <span>12</span></span>
+                        <span class="flex items-center space-x-1 hover:text-emerald-500 cursor-pointer"><i class="fa-solid fa-retweet"></i> <span>${t.rts}</span></span>
+                        <span class="flex items-center space-x-1 hover:text-rose-500 cursor-pointer"><i class="fa-regular fa-heart"></i> <span>${t.likes}</span></span>
+                    </div>
+                `;
+                tweetFeed.appendChild(card);
+            });
+        }
+
+        // パンくずリスト生成ヘルパー
+        function updateBreadcrumbs(currentId) {
+            const container = document.getElementById('breadcrumb-container');
+            container.innerHTML = '';
+            
+            // ルートから現在地までのパスを配列化
+            let path = [];
+            let curr = dashboardData[currentId];
+            while (curr) {
+                path.unshift(curr);
+                curr = curr.parent ? dashboardData[curr.parent] : null;
+            }
+
+            path.forEach((node, index) => {
+                const isLast = index === path.length - 1;
+                const li = document.createElement('li');
+                li.className = 'inline-flex items-center';
+
+                if (index > 0) {
+                    li.innerHTML += `<i class="fa-solid fa-chevron-right text-slate-300 mx-2 text-xs"></i>`;
+                }
+
+                if (isLast) {
+                    li.innerHTML += `<span class="text-sky-600 font-bold bg-sky-50 px-2.5 py-1 rounded-md border border-sky-200">${node.name}</span>`;
+                } else {
+                    li.innerHTML += `<button onclick="renderDashboard('${node.id}')" class="text-slate-600 hover:text-sky-600 hover:underline px-1 py-1 transition">${node.name}</button>`;
+                }
+                container.appendChild(li);
+            });
+        }
+
+        // ドリルダウンボタン生成ヘルパー
+        function updateDrilldownButtons(children) {
+            const container = document.getElementById('children-buttons');
+            const section = document.getElementById('drilldown-Section');
+            container.innerHTML = '';
+
+            if (!children || children.length === 0) {
+                container.innerHTML = `<span class="text-xs text-slate-400 italic py-1"><i class="fa-solid fa-check mr-1"></i>最下層（ミクロ粒度）に到達しました</span>`;
+                return;
+            }
+
+            children.forEach(child => {
+                const btn = document.createElement('button');
+                if (child.active) {
+                    // デモ用にデータが用意されているパス
+                    btn.className = 'bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-sm transition flex items-center space-x-1 animate-pulse';
+                    btn.innerHTML = `<span>${child.name}</span> <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>`;
+                    btn.onclick = () => renderDashboard(child.id);
+                } else {
+                    // デモデータ未用意のパス（グレーアウト）
+                    btn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs font-medium px-3 py-1.5 rounded-full transition cursor-not-allowed';
+                    btn.innerHTML = `<span>${child.name}</span>`;
+                    btn.title = "※デモ版では青色のボタンのみドリルダウン可能です";
+                    btn.onclick = () => alert('デモ環境のため、「' + child.name + '」の詳細データは省略されています。青色のボタン（コンシューマー ▶ Switch ▶ マリオカート）をクリックして粒度遷移をお試しください。');
+                }
+                container.appendChild(btn);
+            });
+        }
+    </script>
+</body>
+</html>

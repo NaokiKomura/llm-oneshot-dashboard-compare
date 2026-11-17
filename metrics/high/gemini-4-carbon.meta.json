@@ -1,0 +1,27 @@
+{
+ "model": "gemini-4-carbon",
+ "max_tokens": 131072,
+ "effort": "high",
+ "elapsed_s": 422.7,
+ "ttft_s": 107.2,
+ "usage": {
+  "promptTokenCount": 174,
+  "candidatesTokenCount": 28347,
+  "totalTokenCount": 32585,
+  "promptTokensDetails": [
+   {
+    "modality": "TEXT",
+    "tokenCount": 174
+   }
+  ],
+  "candidatesTokensDetails": [
+   {
+    "modality": "TEXT",
+    "tokenCount": 28347
+   }
+  ],
+  "thoughtsTokenCount": 4064,
+  "stop_reason": "STOP"
+ },
+ "chars": 78571
+}

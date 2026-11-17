@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PULSE｜ゲーム発話分析ダッシュボード</title>
+<style>
+:root{
+  --bg:#f5f6fa;--card:#fff;--ink:#202338;--muted:#7b8097;
+  --line:#e9ebf2;--brand:#6558ec;--brand-light:#eeecff;
+  --positive:#29b395;--neutral:#a7aec5;--negative:#ef8196;
+  --sidebar:#191c30;--radius:18px;
+  --shadow:0 4px 22px rgba(30,35,70,.035);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",Meiryo,sans-serif;
+  font-size:14px;line-height:1.65}
+button,input,select{font:inherit}
+button,a,input,select,summary{-webkit-tap-highlight-color:transparent}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.4}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,
+summary:focus-visible,[tabindex]:focus-visible{outline:3px solid #aa9eff;outline-offset:3px}
+button{color:inherit}
+a{color:var(--brand)}
+svg{display:block;max-width:100%}
+h1,h2,h3,p{margin:0}
+button{transition:background .15s,box-shadow .15s,transform .15s}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:fixed;left:12px;top:-80px;z-index:99;background:white;padding:12px}
+.skip:focus{top:12px}
+.sidebar{position:fixed;inset:0 auto 0 0;width:244px;background:var(--sidebar);
+  color:#d3d6e7;padding:30px 17px 20px;display:flex;flex-direction:column;z-index:20}
+.logo{display:flex;align-items:center;gap:10px;margin:0 12px 32px}
+.logo-icon{width:36px;height:36px;border-radius:12px;background:var(--brand);
+  display:grid;place-items:center;color:#fff;font-size:23px;font-weight:800}
+.logo-name{font-size:22px;letter-spacing:3px;font-weight:800;color:white;line-height:1.2}
+.logo-sub{font-size:9px;letter-spacing:1.7px;color:#989db8;margin-top:5px}
+.side-section{font-size:10px;font-weight:700;letter-spacing:1.8px;
+  color:#858cae;margin:24px 12px 12px}
+.side-active{background:#2a2b4a;color:#e1ddff;padding:11px 14px;border-radius:10px;
+  display:flex;align-items:center;gap:10px;font-weight:700}
+.side-active i{font-style:normal;color:#a99fff}
+.tree{overflow:auto;flex:1;min-height:100px;margin:0 -4px;padding:0 4px}
+.tree-row{display:flex;align-items:center;gap:2px;margin:3px 0}
+.tree-toggle{border:0;background:none;color:#8f96b3;padding:6px 0;width:18px;
+  flex:0 0 18px;font-size:11px}
+.tree-label{border:0;background:transparent;color:#aeb5d1;text-align:left;
+  padding:8px 6px;flex:1;border-radius:8px;font-size:11px;line-height:1.5}
+.tree-label:hover{background:#242840;color:white}
+.tree-label.active{background:#38325b;color:#d8ceff;font-weight:700}
+.tree-dot{display:inline-block;width:5px;height:5px;margin-right:7px;
+  background:currentColor;border-radius:50%;vertical-align:middle}
+.side-bottom{border-top:1px solid #30334a;margin-top:20px;padding:18px 12px 0;
+  font-size:11px;color:#979ebd}
+.local{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;
+  letter-spacing:1px;color:#bbc0d9;margin-bottom:7px}
+.local::before{content:"";width:6px;height:6px;background:#6cd5b2;border-radius:50%}
+.side-bottom a{color:#c5baff;text-decoration:none;display:inline-block;margin-top:10px}
+main{margin-left:244px;padding:28px 36px 32px;max-width:1840px}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+.eyebrow{font-size:10px;letter-spacing:1.9px;font-weight:800;color:var(--muted)}
+.top-actions{display:flex;align-items:center;gap:12px}
+.reference-date{font-size:11px;color:var(--muted)}
+.btn{border:1px solid var(--line);border-radius:9px;padding:9px 14px;
+  background:white;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:7px}
+.btn:hover{background:#f8f7ff;border-color:#cfc9ff}
+.btn.primary{background:var(--brand);color:white;border-color:var(--brand)}
+.btn.primary:hover{background:#5548d4}
+.mock-banner{display:flex;align-items:center;gap:10px;background:#fff8e8;
+  border:1px solid #f1e5c6;border-radius:10px;padding:10px 14px;
+  color:#91703b;font-size:11px;margin-bottom:24px}
+.mock-badge{font-size:9px;font-weight:800;letter-spacing:1px;border-radius:4px;
+  padding:2px 6px;background:#ecdcb2;color:#705621;white-space:nowrap}
+.breadcrumbs{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.breadcrumbs button{padding:0;background:none;border:none;font-size:11px;color:var(--muted)}
+.breadcrumbs button:last-of-type{color:var(--brand);font-weight:700}
+.breadcrumbs .sep{color:#b9bece;font-size:11px}
+.title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
+h1{font-size:27px;letter-spacing:-.6px;line-height:1.45}
+.subtitle{font-size:12px;color:var(--muted);margin-top:5px}
+.level-badge{font-size:10px;letter-spacing:1px;background:var(--brand-light);
+  color:var(--brand);border:1px solid #e1ddff;border-radius:8px;padding:7px 10px;
+  white-space:nowrap;margin-top:5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow)}
+.filters{padding:17px 20px;margin-bottom:10px}
+.filter-grid{display:grid;grid-template-columns:145px 140px 170px minmax(180px,1fr) auto;
+  gap:14px;align-items:end}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:5px}
+.field select,.field input{border:1px solid var(--line);border-radius:8px;
+  height:38px;background:#fbfbfe;padding:0 10px;width:100%;font-size:12px;color:var(--ink)}
+.field input::placeholder{color:#a1a6ba}
+.filter-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  font-size:10px;color:var(--muted);padding-top:12px}
+.active-filters{display:flex;flex-wrap:wrap;gap:7px;min-height:20px;margin-bottom:18px}
+.filter-chip{border:1px solid #dbd6ff;background:#efedff;color:#6653cc;border-radius:20px;
+  font-size:10px;padding:4px 10px}
+.filter-chip span{padding-left:7px}
+.filter-hint{font-size:10px;color:var(--muted);padding:4px 0}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.kpi{padding:20px 21px;position:relative}
+.kpi-label{font-size:11px;color:var(--muted);font-weight:600}
+.kpi-icon{position:absolute;right:18px;top:17px;width:29px;height:29px;border-radius:9px;
+  background:#f2f0ff;color:#877bea;display:grid;place-items:center;font-size:13px}
+.kpi-value{font-size:32px;letter-spacing:-1.2px;font-weight:750;line-height:1.4;margin:12px 0 7px}
+.kpi-unit{font-size:11px;font-weight:500;letter-spacing:0;margin-left:5px;color:var(--muted)}
+.kpi-bottom{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.delta{border-radius:5px;background:var(--brand-light);padding:2px 5px;color:var(--brand);font-weight:700}
+.delta.down{background:#f1f2f7;color:#73788d}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  margin-bottom:12px}
+.section-head h2{font-size:14px;font-weight:750}
+.section-head p,.section-meta{font-size:10px;color:var(--muted)}
+.drill-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.drill-card{background:white;border:1px solid var(--line);border-radius:13px;
+  padding:15px 17px;text-align:left;position:relative}
+.drill-card:hover{border-color:#b5abfa;box-shadow:0 4px 14px #6558ec10;transform:translateY(-1px)}
+.drill-name{font-size:12px;font-weight:700;padding-right:20px}
+.drill-arrow{position:absolute;right:16px;top:14px;color:var(--brand);font-size:17px}
+.drill-number{font-size:19px;font-weight:700;margin-top:9px}
+.drill-number small{font-size:10px;font-weight:400;color:var(--muted);margin-left:7px}
+.mini-track{height:4px;background:#f0eff8;border-radius:8px;margin-top:9px;overflow:hidden}
+.mini-track span{display:block;height:100%;background:#9b8ff4;border-radius:8px}
+.leaf-message{grid-column:1/-1;background:#f0edff;border:1px dashed #d6d0fb;
+  border-radius:12px;color:#7364b4;font-size:12px;padding:17px 20px}
+.insights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.insight{background:#faf9ff;border:1px solid #e5e1f8;border-radius:13px;padding:17px 18px}
+.insight-tag{font-size:9px;letter-spacing:1.2px;font-weight:800;color:#8a7acb;
+  display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.insight h3{font-size:13px;line-height:1.65;margin-bottom:5px}
+.insight p{font-size:11px;color:#7a7892;line-height:1.85}
+.insight.rose{background:#fffafb;border-color:#f1e0e6}
+.insight.rose .insight-tag{color:#cb839a}
+.insight.green{background:#f7fcfa;border-color:#dceee7}
+.insight.green .insight-tag{color:#64a58b}
+.grid-main{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(290px,1fr);gap:18px;margin-bottom:18px}
+.grid-secondary{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;margin-bottom:18px}
+.panel{padding:21px 23px;min-width:0}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:17px}
+.panel-title{font-size:14px;font-weight:750}
+.panel-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.legend{display:flex;gap:13px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--muted)}
+.dot{width:7px;height:7px;display:inline-block;border-radius:50%;margin-right:5px}
+.legend-dash{display:inline-block;width:14px;border-top:2px dashed #b8bdcf;margin-right:5px;vertical-align:middle}
+.segment{display:inline-flex;background:#f3f3f8;border-radius:7px;padding:3px;gap:2px}
+.segment button{background:none;border:0;border-radius:5px;padding:4px 9px;
+  font-size:10px;color:var(--muted);white-space:nowrap}
+.segment button.on{background:white;box-shadow:0 1px 4px #20233812;color:var(--brand);font-weight:700}
+.chart-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px;flex-wrap:wrap}
+.trend-svg{width:100%;height:auto}
+.trend-note{font-size:10px;color:var(--muted);margin-top:2px}
+.data-details{margin-top:9px;font-size:10px;color:var(--muted)}
+.data-details summary{cursor:pointer}
+.data-details .data-scroll{max-height:190px;overflow:auto;margin-top:8px;border:1px solid var(--line)}
+.small-table{border-collapse:collapse;width:100%;font-size:10px}
+.small-table td,.small-table th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+.small-table td:first-child,.small-table th:first-child{text-align:left}
+.donut-wrap{display:flex;justify-content:center;margin:14px 0 18px}
+.donut{width:158px;height:158px;border-radius:50%;display:grid;place-items:center;position:relative}
+.donut-center{width:124px;height:124px;border-radius:50%;background:white;
+  display:flex;align-items:center;justify-content:center;flex-direction:column}
+.donut-number{font-size:29px;line-height:1.35;font-weight:750;letter-spacing:-1px}
+.donut-caption{font-size:10px;color:var(--muted)}
+.sentiment-list{display:grid;gap:7px}
+.sentiment-row{width:100%;display:flex;justify-content:space-between;align-items:center;
+  gap:10px;background:none;border:1px solid transparent;padding:6px 7px;border-radius:7px;font-size:11px}
+.sentiment-row:hover{background:#f7f7fc}
+.sentiment-row.active{border-color:#d9d1fa;background:#f8f6ff}
+.sentiment-row .count{font-size:10px;color:var(--muted);margin-left:auto}
+.sentiment-row strong{font-size:11px;min-width:46px;text-align:right}
+.theme-list{display:grid;gap:12px;margin-top:5px}
+.theme-row{background:none;border:0;padding:4px 0;text-align:left;width:100%;border-radius:6px}
+.theme-row:hover{background:#f9f9fd}
+.theme-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;margin-bottom:7px}
+.theme-top span:first-child{font-weight:600}
+.theme-top small{font-size:10px;color:var(--muted);font-weight:400;margin-left:7px}
+.theme-track{height:9px;border-radius:5px;background:#f3f4f8;overflow:hidden}
+.theme-inner{height:100%;display:flex;border-radius:5px;overflow:hidden}
+.theme-inner span{height:100%}
+.heatmap{display:grid;grid-template-columns:27px repeat(6,minmax(0,1fr));gap:5px;margin-top:8px}
+.heat-col{font-size:9px;color:var(--muted);text-align:center;padding-bottom:4px}
+.heat-day{font-size:10px;color:var(--muted);display:grid;place-items:center}
+.heat-cell{height:29px;border:1px solid transparent;border-radius:5px;font-size:9px;padding:0}
+.heat-cell:hover{outline:2px solid #b0a3ec}
+.heat-cell.selected{outline:2px solid #4731bd;outline-offset:1px}
+.heat-legend{display:flex;justify-content:flex-end;align-items:center;gap:5px;
+  font-size:9px;color:var(--muted);margin-top:13px}
+.heat-legend i{display:inline-block;width:13px;height:9px;border-radius:2px}
+.keywords-card{margin-bottom:18px}
+.keywords{display:flex;flex-wrap:wrap;gap:8px}
+.keyword{border:1px solid #e7e5f4;background:#faf9fe;border-radius:8px;padding:7px 11px;
+  font-size:11px;color:#625b85}
+.keyword:hover,.keyword.active{background:var(--brand-light);border-color:#b7abf8;color:var(--brand)}
+.keyword small{font-size:9px;color:#a39ab9;margin-left:7px}
+.posts-card{overflow:hidden;margin-bottom:18px}
+.posts-head{padding:22px 23px 15px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.order{border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:white;
+  font-size:10px;color:var(--muted)}
+.table-scroll{overflow:auto}
+.posts-table{width:100%;border-collapse:collapse;text-align:left}
+.posts-table th{background:#fafafe;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  font-size:10px;color:var(--muted);font-weight:500;padding:10px 22px}
+.posts-table td{padding:17px 22px;border-bottom:1px solid #f0f1f6;vertical-align:top}
+.posts-table th:first-child{width:62%}
+.posts-table th:nth-child(2){width:22%}
+.author-line{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:10px;color:var(--muted)}
+.avatar{width:26px;height:26px;flex:0 0 26px;border-radius:9px;display:grid;place-items:center;
+  color:#8374bb;background:#eee9fa;font-size:9px;font-weight:800}
+.author-name{font-weight:700;color:#6b6e82}
+.post-date{margin-left:auto;white-space:nowrap;font-size:9px}
+.post-text{font-size:11px;line-height:1.95;min-width:290px;word-break:break-word}
+.post-text mark{background:#eee7ff;color:#5d3eab;border-radius:3px;padding:1px}
+.tag-stack{display:flex;align-items:flex-start;gap:5px;flex-direction:column;min-width:125px}
+.tag{font-size:9px;border:0;border-radius:5px;padding:3px 7px;background:#f0eef9;
+  color:#7b6b9f;text-align:left}
+.tag.topic{background:#f1f3f9;color:#78809d}
+.tag.pos{background:#e6f6ef;color:#32937d}
+.tag.neu{background:#edf0f7;color:#7a829d}
+.tag.neg{background:#fbeaf0;color:#c07289}
+.reactions{font-size:15px;font-weight:700;white-space:nowrap}
+.reaction-detail{font-size:9px;font-weight:400;color:var(--muted);line-height:1.9;margin-top:4px;white-space:nowrap}
+.pager{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:15px 23px;color:var(--muted);font-size:10px}
+.pager-controls{display:flex;align-items:center;gap:10px}
+.pager button{border:1px solid var(--line);background:white;border-radius:6px;padding:5px 9px;font-size:10px}
+.methodology{padding:18px 23px;font-size:11px;color:var(--muted)}
+.methodology summary{color:#5f657e;font-size:12px;font-weight:700;cursor:pointer}
+.method-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 30px;padding-top:17px}
+.method-grid b{display:block;color:#666b83;font-size:11px;margin-bottom:4px}
+.footer{display:flex;justify-content:space-between;gap:15px;font-size:9px;
+  color:#a0a5b8;margin-top:20px;letter-spacing:.4px}
+.empty{color:var(--muted);font-size:12px;text-align:center;padding:35px 15px}
+.tooltip{display:none;position:fixed;z-index:100;pointer-events:none;white-space:pre-line;
+  max-width:310px;background:#25263d;color:#fff;font-size:11px;border-radius:9px;
+  padding:11px 14px;box-shadow:0 8px 28px #14152f30;line-height:1.8}
+.toast{position:fixed;bottom:25px;left:calc(50% + 122px);transform:translateX(-50%);
+  background:#29283e;color:white;border-radius:10px;padding:11px 20px;z-index:90;
+  box-shadow:0 8px 30px #22223625;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media(min-width:1650px){
+  main{padding-left:45px;padding-right:45px}
+  h1{font-size:30px}
+  .trend-svg{max-height:315px}
+}
+@media(max-width:1250px){
+  .sidebar{width:215px;padding-left:12px;padding-right:12px}
+  main{margin-left:215px;padding:24px}
+  .filter-grid{grid-template-columns:repeat(3,1fr)}
+  .field.search{grid-column:1/3}
+  .grid-main{grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr)}
+  .kpi{padding:17px}
+  .kpi-value{font-size:28px}
+  .kpi-icon{display:none}
+  .insights{gap:10px}
+  .panel{padding:18px}
+  .toast{left:calc(50% + 107px)}
+}
+@media(max-width:980px){
+  .grid-main,.grid-secondary{grid-template-columns:1fr}
+  #sentimentPanel{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:20px}
+  .donut-wrap{margin:5px}
+  .insights{grid-template-columns:1fr}
+  .insight{display:grid;grid-template-columns:140px 1fr;gap:3px 12px;padding:14px 17px}
+  .insight-tag{grid-row:1/3;align-self:start;margin:3px 0}
+  .insight h3,.insight p{grid-column:2;margin:0}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .drill-grid{grid-template-columns:repeat(2,1fr)}
+  .reference-date{display:none}
+}
+@media(max-width:720px){
+  .sidebar{position:static;width:auto;padding:15px 18px;display:block}
+  .logo{margin:0}.logo-icon{width:30px;height:30px;font-size:19px}
+  .logo-name{font-size:18px}.logo-sub{font-size:8px;margin-top:3px}
+  .side-active,.side-section,.tree,.side-bottom{display:none}
+  main{margin-left:0;padding:20px 15px}
+  .topline{margin-bottom:15px}.eyebrow{font-size:8px;letter-spacing:1px}
+  .top-actions .btn{font-size:10px;padding:7px 10px}
+  .mock-banner{font-size:10px;align-items:flex-start;margin-bottom:20px}
+  h1{font-size:23px}
+  .level-badge{font-size:8px;padding:5px 7px}
+  .subtitle{font-size:11px}
+  .filters{padding:14px}
+  .filter-grid{grid-template-columns:1fr 1fr;gap:11px}
+  .field.search{grid-column:auto}
+  .filter-grid>.btn{grid-column:1/-1;justify-content:center}
+  .filter-foot{font-size:9px}
+  .kpis{gap:10px;margin-bottom:20px}
+  .kpi-value{font-size:27px}
+  .kpi{padding:15px}
+  .kpi-bottom{font-size:9px;gap:5px}
+  .drill-grid{gap:9px}
+  .drill-card{padding:13px}
+  .drill-name{font-size:11px}
+  .drill-number{font-size:18px}
+  .insight{display:block}.insight-tag{margin-bottom:6px}
+  .insight h3{margin-bottom:4px}
+  .section-head{align-items:flex-start}
+  .section-head p{font-size:9px;text-align:right}
+  .panel{padding:17px 15px}
+  .panel-head{flex-wrap:wrap}
+  .panel-title{font-size:13px}
+  #sentimentPanel{gap:5px}
+  .donut{width:133px;height:133px}
+  .donut-center{width:105px;height:105px}
+  .donut-number{font-size:25px}
+  .sentiment-row{gap:4px;padding:6px 2px;font-size:10px}
+  .sentiment-row .count{display:none}
+  .sentiment-row strong{min-width:42px}
+  .posts-table td,.posts-table th{padding-left:15px;padding-right:15px}
+  .posts-head{padding:18px 15px}
+  .pager{padding:13px 15px}
+  .method-grid{grid-template-columns:1fr}
+  .footer{flex-direction:column;gap:4px}
+  .toast{left:50%;width:max-content;max-width:90%;text-align:center}
+}
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important}
+}
+@media print{
+  .sidebar,.top-actions,.filters,.active-filters,.pager-controls,.toast{display:none!important}
+  main{margin:0;padding:10px}
+  body{background:white}
+  .card,.insight,.drill-card{break-inside:avoid;box-shadow:none}
+  .grid-main,.grid-secondary{grid-template-columns:1.6fr 1fr}
+  .insights{grid-template-columns:repeat(3,1fr)}
+  .insight{display:block}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .table-scroll{overflow:visible}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">分析エリアへ移動</a>
+
+<aside class="sidebar" aria-label="トピックナビゲーション">
+  <div class="logo">
+    <div class="logo-icon" aria-hidden="true">∿</div>
+    <div>
+      <div class="logo-name">PULSE</div>
+      <div class="logo-sub">SOCIAL INTELLIGENCE</div>
+    </div>
+  </div>
+  <div class="side-active"><i aria-hidden="true">◫</i> 発話トピック分析</div>
+  <div class="side-section">TOPIC EXPLORER</div>
+  <nav class="tree" id="topicTree" aria-label="分析するトピックを選択"></nav>
+  <div class="side-bottom">
+    <div class="local">LOCAL MOCK DATA</div>
+    完全架空の投稿データ<br>外部通信・実データ収集なし
+    <br><a href="#methodology">データ定義・分析上の注意 ↗</a>
+  </div>
+</aside>
+
+<main id="main">
+  <div class="topline">
+    <div class="eyebrow">WORKSPACE / GAME CULTURE</div>
+    <div class="top-actions">
+      <span class="reference-date">分析基準日 2025.06.28</span>
+      <button class="btn primary" id="exportButton">↓ CSVエクスポート</button>
+    </div>
+  </div>
+
+  <div class="mock-banner">
+    <span class="mock-badge">DEMO DATA</span>
+    <span>この画面は架空のXポストによるモックです。投稿数・感情・反応・インサイトは実際の市場動向を示しません。</span>
+  </div>
+
+  <nav id="breadcrumbs" class="breadcrumbs" aria-label="現在の分析階層"></nav>
+  <div class="title-row">
+    <div>
+      <h1 id="nodeTitle">ゲームの発話分析</h1>
+      <p class="subtitle" id="nodeSub"></p>
+    </div>
+    <span id="levelBadge" class="level-badge">LEVEL 01</span>
+  </div>
+
+  <section class="card filters" aria-label="分析条件">
+    <div class="filter-grid">
+      <div class="field">
+        <label for="rangeSelect">分析期間</label>
+        <select id="rangeSelect">
+          <option value="7">直近7日間</option>
+          <option value="14">直近14日間</option>
+          <option value="28" selected>直近28日間</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sentSelect">センチメント</label>
+        <select id="sentSelect">
+          <option value="all">すべての感情</option>
+          <option value="pos">ポジティブ</option>
+          <option value="neu">ニュートラル</option>
+          <option value="neg">ネガティブ</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="themeSelect">発話の論点</label>
+        <select id="themeSelect"><option value="all">すべての論点</option></select>
+      </div>
+      <div class="field search">
+        <label for="queryInput">キーワード検索</label>
+        <input id="queryInput" type="search" placeholder="投稿本文・タイトル・論点を検索" autocomplete="off">
+      </div>
+      <button class="btn" id="resetButton">条件をリセット</button>
+    </div>
+    <div class="filter-foot">
+      <span id="periodLabel"></span>
+      <span>チャートをクリックして絞り込み · 原則すべてのカードに連動</span>
+    </div>
+  </section>
+  <div class="active-filters" id="activeFilters"></div>
+
+  <section class="kpis" id="kpis" aria-label="主要指標"></section>
+
+  <section aria-labelledby="drillHeading">
+    <div class="section-head">
+      <h2 id="drillHeading">もう一段、深く見る</h2>
+      <p>下位トピックを選択してドリルダウン</p>
+    </div>
+    <div class="drill-grid" id="drillCards"></div>
+  </section>
+
+  <section aria-labelledby="insightHeading">
+    <div class="section-head">
+      <h2 id="insightHeading">注目インサイト</h2>
+      <p>集計に基づく記述と検証仮説 · 因果関係は未検証</p>
+    </div>
+    <div class="insights" id="insights"></div>
+  </section>
+
+  <div class="grid-main">
+    <section class="card panel" aria-labelledby="trendHeading">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="trendHeading">発話の推移</h2>
+          <p class="panel-sub">同じ条件を適用した直前の同日数と比較</p>
+        </div>
+        <div class="segment" aria-label="時間の集計単位">
+          <button data-grain="day" class="on">日次</button>
+          <button data-grain="week">7日集計</button>
+        </div>
+      </div>
+      <div class="chart-tools">
+        <div class="legend">
+          <span><i class="dot" style="background:var(--brand)"></i>選択期間</span>
+          <span><i class="legend-dash"></i>前期間・位置合わせ</span>
+        </div>
+        <div class="segment" aria-label="推移の指標">
+          <button data-metric="posts" class="on">投稿数</button>
+          <button data-metric="eng">反応数</button>
+        </div>
+      </div>
+      <div id="trendChart"></div>
+      <p class="trend-note" id="trendNote"></p>
+      <details class="data-details">
+        <summary>グラフの数値を表で確認</summary>
+        <div class="data-scroll" id="trendTable"></div>
+      </details>
+    </section>
+
+    <section class="card panel" aria-labelledby="sentimentHeading">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="sentimentHeading">会話の温度感</h2>
+          <p class="panel-sub">投稿単位の感情構成 · 凡例をクリックで絞り込み</p>
+        </div>
+      </div>
+      <div id="sentimentPanel"></div>
+    </section>
+  </div>
+
+  <div class="grid-secondary">
+    <section class="card panel" aria-labelledby="themeHeading">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="themeHeading">何が語られているか</h2>
+          <p class="panel-sub">論点別の発話数と感情構成 · 1投稿に1つの論点を付与</p>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--positive)"></i>ポジティブ</span>
+        <span><i class="dot" style="background:var(--neutral)"></i>ニュートラル</span>
+        <span><i class="dot" style="background:var(--negative)"></i>ネガティブ</span>
+      </div>
+      <div id="themesPanel" class="theme-list"></div>
+    </section>
+
+    <section class="card panel" aria-labelledby="heatHeading">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title" id="heatHeading">会話が生まれる時間帯</h2>
+          <p class="panel-sub">曜日 × 4時間帯 / JST · セルをクリックで絞り込み</p>
+        </div>
+      </div>
+      <div class="heatmap" id="heatmap" aria-label="曜日・時間帯別の発話数"></div>
+      <div class="heat-legend">
+        少
+        <i style="background:#f0edfc"></i>
+        <i style="background:#d4ccf7"></i>
+        <i style="background:#b1a4ef"></i>
+        <i style="background:#8270df"></i>
+        <i style="background:#6551d3"></i>
+        多
+      </div>
+      <p class="panel-sub" id="heatNote" style="margin-top:12px"></p>
+    </section>
+  </div>
+
+  <section class="card panel keywords-card" aria-labelledby="keywordHeading">
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title" id="keywordHeading">会話を特徴づけるキーワード</h2>
+        <p class="panel-sub">ダミー投稿内の定義済み語彙の出現投稿数 · タイトル名を除外 · クリックで検索</p>
+      </div>
+      <span class="section-meta">TOP 14</span>
+    </div>
+    <div class="keywords" id="keywordsPanel"></div>
+  </section>
+
+  <section class="card posts-card" aria-labelledby="postsHeading">
+    <div class="posts-head">
+      <div>
+        <h2 class="panel-title" id="postsHeading">ミクロに確認：架空ポスト</h2>
+        <p class="panel-sub" id="postCount"></p>
+      </div>
+      <label>
+        <span class="sr-only">投稿の表示順</span>
+        <select class="order" id="sortSelect">
+          <option value="eng">反応が多い順</option>
+          <option value="latest">新しい順</option>
+        </select>
+      </label>
+    </div>
+    <div class="table-scroll">
+      <table class="posts-table">
+        <thead><tr><th scope="col">投稿内容 / 架空アカウント</th><th scope="col">分類</th><th scope="col">反応数</th></tr></thead>
+        <tbody id="postRows"></tbody>
+      </table>
+    </div>
+    <div class="pager" id="postPager"></div>
+  </section>
+
+  <details class="card methodology" id="methodology">
+    <summary>データ定義・ダミーデータの生成方法・分析上の注意</summary>
+    <div class="method-grid">
+      <div>
+        <b>データの出所</b>
+        <span id="methodN"></span>
+        固定シードの疑似乱数でブラウザ内生成。実際のX API・実在アカウント・実投稿は使用しません。
+        タイトル名は分析階層の例示です。すべての日時はJSTの架空表記です。
+      </div>
+      <div>
+        <b>生成シナリオ</b>
+        夜間・週末の投稿増、特定タイトルの話題化、価格やオンライン対戦に関する会話増を仮定しています。
+        感情は論点別の確率から付与し、そのラベルに沿った本文を組み立てています。
+        実際の発売・更新・障害等の事実を検証した結果ではありません。
+      </div>
+      <div>
+        <b>主要指標と比較</b>
+        発話量＝条件に一致する投稿件数。発話ユーザー＝架空ユーザーIDの重複を除いた数。
+        ポジティブ率＝ポジティブ投稿数÷対象投稿数。
+        反応数＝いいね＋リポスト＋返信の合計。表示回数やリーチ、ユニーク反応者数ではありません。
+        比較対象は直前の同日数で、同じ階層・フィルターを適用します。
+        ポジティブ率の差はパーセントポイント（pt）です。
+      </div>
+      <div>
+        <b>分類・フィルター仕様</b>
+        1投稿に1タイトル・1論点・1感情を付与。親階層は子孫タイトルの投稿を合算します。
+        キーワードは本文に含まれる生成時の定義済み語彙で、自然言語解析結果ではありません。
+        時間帯ヒートマップだけは比較文脈を残すため、自身の曜日・時間帯フィルターを除外して表示します。
+        7日集計は選択期間の初日を起点とします。
+      </div>
+      <div>
+        <b>インサイトの解釈</b>
+        件数・構成比・ピーク倍率は表示中の架空投稿から算出しています。
+        施策提案は論点に対応したルールベースの仮説であり、生成AIによる実投稿分析ではありません。
+        ネガティブ増加を品質問題や売上減少と断定することはできません。
+      </div>
+      <div>
+        <b>制約とエクスポート</b>
+        ダミーデータに市場の代表性はありません。実務での判断には実データ・標本設計・分類精度の検証が必要です。
+        CSVは現在の条件に一致する全投稿を出力し、表示ページだけには限定しません。
+        元投稿・引用投稿の種別はモデル化していません。外部通信や入力条件の永続保存は行いません。
+      </div>
+    </div>
+  </details>
+
+  <footer class="footer">
+    <span>PULSE / TOPIC INTELLIGENCE — INTERACTIVE PROTOTYPE</span>
+    <span>100% SYNTHETIC · NO EXTERNAL REQUESTS</span>
+  </footer>
+  <div class="sr-only" role="status" aria-live="polite" id="liveStatus"></div>
+</main>
+
+<div class="tooltip" id="tooltip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+
+/* ---------- 1. トピック階層 ---------- */
+const taxonomy = {
+  id:"game", name:"ゲーム",
+  desc:"ゲーム全体の会話を俯瞰し、分野・プラットフォーム・タイトルへ掘り下げます。",
+  children:[
+    {id:"console",name:"コンシューマーゲーム",
+      desc:"家庭用ゲームの話題を、プラットフォーム別・タイトル別に分析します。",
+      children:[
+        {id:"nintendo",name:"Nintendo Switchシリーズ",
+          desc:"Nintendo Switch / Nintendo Switch 2のタイトルに関する架空の会話です。",
+          children:[
+            {id:"mk_world",name:"マリオカート ワールド",w:22,
+              desc:"Nintendo Switch 2｜タイトル単位で論点・感情・具体的な発話を確認します。"},
+            {id:"zelda",name:"ゼルダの伝説 ティアーズ オブ ザ キングダム",w:8},
+            {id:"splatoon",name:"スプラトゥーン3",w:9}
+          ]},
+        {id:"ps5",name:"PlayStation 5",children:[
+          {id:"mh_wilds",name:"モンスターハンターワイルズ",w:13},
+          {id:"ff7",name:"FINAL FANTASY VII REBIRTH",w:5}
+        ]},
+        {id:"xbox",name:"Xbox Series X|S",children:[
+          {id:"forza",name:"Forza Horizon 5",w:5}
+        ]}
+      ]},
+    {id:"pc",name:"PCゲーム",
+      desc:"PCゲームに関する会話のボリュームと、プレイ体験・要望を把握します。",
+      children:[
+        {id:"steam",name:"Steam",children:[
+          {id:"apex",name:"Apex Legends",w:10},
+          {id:"stardew",name:"Stardew Valley",w:8}
+        ]}
+      ]},
+    {id:"mobile",name:"スマートフォンゲーム",
+      desc:"スマートフォンゲームの遊び方、購入意向、更新への反応を確認します。",
+      children:[
+        {id:"ios_android",name:"iOS / Android",children:[
+          {id:"genshin",name:"原神",w:11},
+          {id:"hsr",name:"崩壊：スターレイル",w:8},
+          {id:"pokemon_pocket",name:"Pokémon Trading Card Game Pocket",w:10}
+        ]}
+      ]}
+  ]
+};
+const nodes = {};
+const leaves = [];
+function indexTree(node, path=[]) {
+  node.path=[...path,node.id];
+  nodes[node.id]=node;
+  if(node.children){
+    node.children.forEach(child=>indexTree(child,node.path));
+    node.leaves=node.children.flatMap(child=>child.leaves);
+  }else{
+    node.leaves=[node.id];
+    leaves.push(node);
+  }
+  node.leafSet=new Set(node.leaves);
+}
+indexTree(taxonomy);
+
+const sentiments={
+  pos:{name:"ポジティブ",color:"#29b395"},
+  neu:{name:"ニュートラル",color:"#a7aec5"},
+  neg:{name:"ネガティブ",color:"#ef8196"}
+};
+const themes=[
+  {id:"experience",name:"ゲーム体験",words:["操作感","自由度","遊びやすさ"],
+    action:"操作感や遊び方を伝える短尺動画が有効か、実データで検証したい。"},
+  {id:"purchase",name:"価格・購入",words:["価格","購入タイミング","コスパ"],
+    action:"価格だけでなく遊べる内容を整理した比較説明が、疑問を減らすか検証したい。"},
+  {id:"online",name:"オンライン対戦",words:["マッチング","オンライン対戦","フレンド機能"],
+    action:"参加方法や接続条件の案内が、不安や参加障壁を減らすか検証したい。"},
+  {id:"update",name:"アップデート",words:["追加コンテンツ","アップデート","変更点"],
+    action:"変更点と遊び直す理由の要約が、再プレイにつながるか検証したい。"},
+  {id:"world",name:"キャラクター・世界観",words:["キャラクター","世界観","BGM"],
+    action:"キャラクターや音楽を軸にした共有企画への関心を、実投稿で確認したい。"},
+  {id:"issues",name:"不具合・要望",words:["読み込み","動作安定性","改善要望"],
+    action:"報告の具体例と再現条件を整理し、FAQや既知の課題の案内が必要か確認したい。"}
+];
+const themeById=Object.fromEntries(themes.map(t=>[t.id,t]));
+
+/* ---------- 2. 再現可能な架空投稿生成 ---------- */
+function seededRandom(seed){
+  return function(){
+    let t=seed+=0x6D2B79F5;
+    t=Math.imul(t^(t>>>15),t|1);
+    t^=t+Math.imul(t^(t>>>7),t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+const random=seededRandom(20250628);
+const pick=arr=>arr[Math.floor(random()*arr.length)];
+function weighted(items,weights){
+  let r=random()*weights.reduce((a,b)=>a+b,0);
+  for(let i=0;i<items.length;i++){
+    r-=weights[i];
+    if(r<0)return items[i];
+  }
+  return items[items.length-1];
+}
+const START=Date.UTC(2025,4,4);
+const DAY=86400000;
+const TOTAL_DAYS=56;
+const dateAt=i=>new Date(START+i*DAY).toISOString().slice(0,10);
+const shortDate=i=>{
+  const d=new Date(START+i*DAY);
+  return `${d.getUTCMonth()+1}/${d.getUTCDate()}`;
+};
+const pad=n=>String(n).padStart(2,"0");
+const contexts=[
+  {word:"ソロプレイ",text:"ソロプレイ中心で、少しずつ進めています。"},
+  {word:"友達とプレイ",text:"友達とプレイしたときの印象も気になる。"},
+  {word:"週末プレイ",text:"週末プレイのメモとして残しておく。"},
+  {word:"短時間プレイ",text:"短時間プレイでも楽しめるかを見ている。"},
+  {word:"プレイ動画",text:"プレイ動画も見ながら情報を整理中。"}
+];
+const templates={
+  experience:{
+    pos:["{k}が想像以上によくて、ついもう一回遊んでしまう。","{k}に慣れてから一気に楽しくなった！"],
+    neu:["{k}はもう少し遊んでから判断したい。","{k}の仕組みを確認中。前の作品との違いも気になる。"],
+    neg:["{k}は自分にはまだ合わないかも。設定で調整できると助かる。","{k}に少し戸惑った。もう少し丁寧な説明がほしい。"]
+  },
+  purchase:{
+    pos:["{k}で迷っていたけど、長く遊べそうなので満足。","{k}を考えても、この内容なら自分は納得できる。"],
+    neu:["{k}を比較しながら検討中。まず内容をもう少し知りたい。","{k}について情報を集めている。まだ買うかは決めていない。"],
+    neg:["{k}が気になって、今は購入を見送っている。","{k}を考えると、遊べる範囲をもっと分かりやすく説明してほしい。"]
+  },
+  online:{
+    pos:["{k}が楽しくて時間を忘れた。仲間と遊ぶと印象が変わる。","{k}のおかげで、一人のときとは違う楽しみ方ができた。"],
+    neu:["{k}の条件を確認中。週末に試す予定。","{k}について、設定と参加手順を調べている。"],
+    neg:["{k}がうまくいかなかった。環境の問題か確認したい。","{k}の案内がもう少し分かりやすいと助かる。"]
+  },
+  update:{
+    pos:["{k}を見て、また遊びたくなった！","{k}に期待していた要素があってうれしい。"],
+    neu:["{k}の内容を確認中。どこが変わるか整理したい。","{k}をひと通り読んだ。実際のプレイ感はこれから確認する。"],
+    neg:["{k}では、気になっていた部分がまだ残っている気がする。","{k}の説明だけだと分かりにくい。具体例があるとありがたい。"]
+  },
+  world:{
+    pos:["{k}が本当に好き。細かいところまで見たくなる。","{k}の雰囲気がよくて、スクリーンショットが増えていく。"],
+    neu:["{k}の背景設定を読んでいる。新しい発見がありそう。","{k}について他の人の感想も知りたい。"],
+    neg:["{k}は自分の好みとは少し違った。","{k}は好きな部分もあるけど、期待していた方向とは違ったかも。"]
+  },
+  issues:{
+    pos:["{k}について、設定を見直したら快適になった。","{k}の案内が参考になった。今の環境では問題なく遊べている。"],
+    neu:["{k}を確認中。環境や設定による違いがありそう。","{k}についてメモを整理している。まだ原因は分からない。"],
+    neg:["{k}が気になる。再現条件をまとめて報告したい。","{k}への対応状況が分かると助かる。続報を待っている。"]
+  }
+};
+const positiveProb=[.70,.28,.43,.51,.77,.16];
+const negativeProb=[.12,.36,.26,.17,.08,.57];
+const hourWeights=[3,2,1,1,1,2,4,6,5,4,4,5,8,6,5,5,6,8,12,16,20,23,19,10];
+const hours=Array.from({length:24},(_,i)=>i);
+const posts=[];
+
+for(let day=0;day<TOTAL_DAYS;day++){
+  const dow=(new Date(START+day*DAY).getUTCDay()+6)%7;
+  // あくまで仮想的な話題化イベント。実イベントの計測ではない。
+  const eventA=Math.exp(-Math.pow((day-32)/1.65,2));
+  const eventB=Math.exp(-Math.pow((day-49)/2.1,2));
+  const dailyN=Math.round((135+day*1.65)*(dow>=5?1.20:1)*(1+.73*eventA+.48*eventB));
+  const titleWeights=leaves.map(n=>n.w*(n.id==="mk_world"
+    ?1+2*eventA+1.6*eventB+Math.max(0,day-27)*.014:1));
+
+  for(let j=0;j<dailyN;j++){
+    const topic=weighted(leaves,titleWeights);
+    const tWeights=[33,17,15,11,15,9];
+    if(topic.id==="mk_world"){
+      tWeights[1]+=eventA*31;
+      tWeights[2]+=eventB*23;
+      tWeights[5]+=eventB*12;
+    }
+    const theme=weighted(themes,tWeights);
+    const ti=themes.indexOf(theme);
+    const r=random();
+    const sent=r<positiveProb[ti]?"pos":r<positiveProb[ti]+negativeProb[ti]?"neg":"neu";
+    const keyword=pick(theme.words);
+    const context=pick(contexts);
+    const body=`${topic.name}、${pick(templates[theme.id][sent]).replace("{k}",keyword)} ${context.text} #ゲーム`;
+    const userNum=1+Math.floor(Math.pow(random(),1.28)*1250);
+    const user=`demo_user_${String(userNum).padStart(4,"0")}`;
+    const hour=weighted(hours,hourWeights);
+    const minute=Math.floor(random()*60);
+    const strength=(Math.pow(Math.max(random(),.00015),-.69)-1)*13;
+    const likes=Math.min(12000,Math.round(strength*(1+.28*eventA)+random()*8));
+    const reposts=Math.min(2600,Math.round(likes*(.025+random()*.19)));
+    const replies=Math.min(700,Math.round(likes*(.012+random()*.065)+(sent==="neg"?random()*7:0)));
+    posts.push({
+      id:`mock_${posts.length+1}`,day,dow,hour,minute,
+      date:dateAt(day),timestamp:`${dateAt(day)} ${pad(hour)}:${pad(minute)}`,
+      user,userNum,topic:topic.id,theme:theme.id,sent,body,
+      keywords:[keyword,context.word],likes,reposts,replies,
+      eng:likes+reposts+replies,
+      search:`${body} ${theme.name}`.toLocaleLowerCase("ja")
+    });
+  }
+}
+
+/* ---------- 3. 表示・集計ユーティリティ ---------- */
+const $=id=>document.getElementById(id);
+const fmt=n=>new Intl.NumberFormat("ja-JP").format(n);
+const pct=(n,d)=>d?(100*n/d).toFixed(1):"0.0";
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+}[c]));
+const small=n=>n>=1000000?`${(n/1000000).toFixed(1)}m`:n>=1000?`${(n/1000).toFixed(1)}k`:fmt(n);
+const weekdays=["月","火","水","木","金","土","日"];
+const empty=message=>`<div class="empty">${message}</div>`;
+const initial={
+  node:"game",days:28,sent:"all",theme:"all",query:"",
+  cell:null,metric:"posts",grain:"day",sort:"eng",page:1
+};
+let state={...initial};
+let currentRows=[];
+const pageSize=8;
+const openNodes=new Set(["game","console","nintendo"]);
+
+$("themeSelect").insertAdjacentHTML("beforeend",
+  themes.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join(""));
+$("methodN").textContent=`2025年5月4日〜6月28日の56日間、${fmt(posts.length)}件の投稿を`;
+
+function stats(rows){
+  return {
+    n:rows.length,
+    users:new Set(rows.map(p=>p.user)).size,
+    positive:rows.filter(p=>p.sent==="pos").length,
+    eng:rows.reduce((sum,p)=>sum+p.eng,0)
+  };
+}
+function themeStats(rows){
+  const result=themes.map(t=>({...t,n:0,pos:0,neu:0,neg:0,eng:0}));
+  const map=Object.fromEntries(result.map(t=>[t.id,t]));
+  rows.forEach(p=>{
+    const t=map[p.theme];
+    t.n++;t[p.sent]++;t.eng+=p.eng;
+  });
+  return result.sort((a,b)=>b.n-a.n);
+}
+function matches(p,except=""){
+  if(state.sent!=="all" && p.sent!==state.sent)return false;
+  if(state.theme!=="all" && p.theme!==state.theme)return false;
+  if(state.query.trim() && !p.search.includes(state.query.trim().toLocaleLowerCase("ja")))return false;
+  if(except!=="cell" && state.cell && (p.dow!==state.cell.dow || Math.floor(p.hour/4)!==state.cell.band))return false;
+  return true;
+}
+function update(patch,resetPage=true){
+  Object.assign(state,patch);
+  if(resetPage)state.page=1;
+  render();
+}
+function selectNode(id){
+  if(!nodes[id])return;
+  nodes[id].path.forEach(n=>openNodes.add(n));
+  update({node:id});
+}
+function renderTree(){
+  function rows(node,depth){
+    const hasChildren=!!node.children;
+    const expanded=openNodes.has(node.id);
+    return `
+      <div class="tree-row" style="padding-left:${depth*10}px">
+        ${hasChildren
+          ?`<button class="tree-toggle" data-expand="${node.id}"
+             aria-expanded="${expanded}" aria-label="${esc(node.name)}の下位階層を${expanded?"閉じる":"開く"}">${expanded?"▾":"▸"}</button>`
+          :'<span class="tree-toggle"></span>'}
+        <button class="tree-label ${state.node===node.id?"active":""}"
+          data-node="${node.id}" ${state.node===node.id?'aria-current="true"':""}>
+          <span class="tree-dot" aria-hidden="true"></span>${esc(node.name)}
+        </button>
+      </div>
+      ${hasChildren&&expanded?node.children.map(c=>rows(c,depth+1)).join(""):""}`;
+  }
+  $("topicTree").innerHTML=rows(taxonomy,0);
+}
+function renderHeader(){
+  const n=nodes[state.node];
+  $("nodeTitle").textContent=`${n.name}の発話分析`;
+  $("nodeSub").textContent=n.desc||(n.children
+    ?"下位トピックへ粒度を変えながら、会話量・感情・論点を比較します。"
+    :"タイトル単位の会話から、具体的な評価・疑問・改善要望を確認します。");
+  $("levelBadge").textContent=`LEVEL ${pad(n.path.length)} / ${["全体","分野","プラットフォーム","タイトル"][n.path.length-1]}`;
+  $("breadcrumbs").innerHTML=n.path.map((id,i)=>
+    `${i?'<span class="sep" aria-hidden="true">/</span>':""}<button data-node="${id}" ${id===state.node?'aria-current="page"':""}>${esc(nodes[id].name)}</button>`
+  ).join("");
+  const start=TOTAL_DAYS-state.days;
+  $("periodLabel").textContent=`対象 ${dateAt(start)} 〜 ${dateAt(55)} ｜ 比較 ${dateAt(start-state.days)} 〜 ${dateAt(start-1)}（JST）`;
+  $("rangeSelect").value=state.days;
+  $("sentSelect").value=state.sent;
+  $("themeSelect").value=state.theme;
+  if($("queryInput").value!==state.query)$("queryInput").value=state.query;
+  $("sortSelect").value=state.sort;
+
+  const chips=[];
+  if(state.sent!=="all")chips.push(["sent",`感情：${sentiments[state.sent].name}`]);
+  if(state.theme!=="all")chips.push(["theme",`論点：${themeById[state.theme].name}`]);
+  if(state.query.trim())chips.push(["query",`検索：${state.query.trim()}`]);
+  if(state.cell)chips.push(["cell",`${weekdays[state.cell.dow]}曜日 ${pad(state.cell.band*4)}:00〜${pad(state.cell.band*4+3)}:59`]);
+  $("activeFilters").innerHTML=chips.length
+    ?chips.map(([key,label])=>`<button class="filter-chip" data-clear="${key}" aria-label="${esc(label)}の絞り込みを解除">${esc(label)}<span aria-hidden="true">×</span></button>`).join("")
+    :'<span class="filter-hint">現在のトピック内をすべて表示しています。カードやチャートから探索を始められます。</span>';
+}
+function delta(value,previous){
+  if(!previous)return `<span>前期0のため増減率算出なし</span>`;
+  const d=(value-previous)/previous*100;
+  return `<span class="delta ${d<0?"down":""}">${d>0?"+":""}${d.toFixed(1)}%</span><span>前期 ${fmt(previous)}</span>`;
+}
+function renderKpis(cur,prev){
+  const a=stats(cur),b=stats(prev);
+  const pos=a.n?`${pct(a.positive,a.n)}<span class="kpi-unit">%</span>`:"—";
+  const posDiff=a.n&&b.n?(a.positive/a.n-b.positive/b.n)*100:null;
+  const posBottom=posDiff===null?"比較対象なし":
+    `<span class="delta ${posDiff<0?"down":""}">${posDiff>0?"+":""}${posDiff.toFixed(1)}pt</span><span>前期 ${pct(b.positive,b.n)}%</span>`;
+  const cards=[
+    {label:"発話量",icon:"≋",value:`${fmt(a.n)}<span class="kpi-unit">件</span>`,bottom:delta(a.n,b.n)},
+    {label:"発話ユーザー",icon:"♙",value:`${fmt(a.users)}<span class="kpi-unit">人</span>`,bottom:delta(a.users,b.users)},
+    {label:"ポジティブ率",icon:"↗",value:pos,bottom:posBottom},
+    {label:"反応数",icon:"♡",value:`${fmt(a.eng)}<span class="kpi-unit">件</span>`,bottom:delta(a.eng,b.eng)}
+  ];
+  $("kpis").innerHTML=cards.map(c=>`
+    <article class="card kpi">
+      <div class="kpi-label">${c.label}</div><span class="kpi-icon" aria-hidden="true">${c.icon}</span>
+      <div class="kpi-value">${c.value}</div><div class="kpi-bottom">${c.bottom}</div>
+    </article>`).join("");
+}
+function renderDrill(cur){
+  const node=nodes[state.node];
+  $("drillCards").innerHTML=node.children
+    ?node.children.map(child=>{
+      const count=cur.filter(p=>child.leafSet.has(p.topic)).length;
+      const share=pct(count,cur.length);
+      return `<button class="drill-card" data-node="${child.id}">
+        <span class="drill-arrow" aria-hidden="true">↗</span>
+        <div class="drill-name">${esc(child.name)}</div>
+        <div class="drill-number">${fmt(count)}<small>件 / 現在の発話量の${share}%</small></div>
+        <div class="mini-track"><span style="width:${share}%"></span></div>
+      </button>`;
+    }).join("")
+    :`<div class="leaf-message">◎ タイトル単位まで到達しました。次は「論点」「感情」「キーワード」で絞り込み、下部の架空ポストを確認できます。</div>`;
+}
+function renderInsights(cur){
+  if(!cur.length){
+    $("insights").innerHTML=`<div class="insight" style="grid-column:1/-1"><h3>一致する投稿がありません</h3><p>条件を解除するか、親トピックへ戻ってください。データがない場合はインサイトを生成しません。</p></div>`;
+    return;
+  }
+  const counts={};
+  cur.forEach(p=>counts[p.day]=(counts[p.day]||0)+1);
+  const [peakDay,peakN]=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  const average=cur.length/state.days;
+  const ts=themeStats(cur);
+  const negative=[...ts].sort((a,b)=>b.neg-a.neg)[0];
+  const allNegative=cur.filter(p=>p.sent==="neg").length;
+  const lead=ts[0];
+  const negativeContent=allNegative
+    ?{title:`「${negative.name}」の懸念を確認`,
+      text:`ネガティブは${fmt(negative.neg)}件。論点内の${pct(negative.neg,negative.n)}%、全ネガティブ投稿の${pct(negative.neg,allNegative)}%を占めます。具体的な内容の確認が必要です。`}
+    :{title:"現在の条件ではネガティブ投稿なし",
+      text:"ネガティブが見えないことは、問題が存在しないことを意味しません。感情フィルターや対象件数にも注意してください。"};
+  $("insights").innerHTML=`
+    <article class="insight">
+      <div class="insight-tag">↗ VOLUME / 会話の山</div>
+      <h3>${shortDate(Number(peakDay))}に${fmt(peakN)}件、期間内の日平均の${(peakN/average).toFixed(1)}倍</h3>
+      <p>日平均は${average.toFixed(1)}件。ピーク日の投稿内容を確認し、話題化の背景を検証するための起点にできます。</p>
+    </article>
+    <article class="insight rose">
+      <div class="insight-tag">◎ FRICTION / 懸念の所在</div>
+      <h3>${esc(negativeContent.title)}</h3><p>${esc(negativeContent.text)}</p>
+    </article>
+    <article class="insight green">
+      <div class="insight-tag">✦ HYPOTHESIS / 検証したい仮説</div>
+      <h3>最多論点は「${esc(lead.name)}」</h3>
+      <p>${fmt(lead.n)}件で全体の${pct(lead.n,cur.length)}%。${esc(lead.action)}</p>
+    </article>`;
+}
+
+/* ---------- 4. SVG推移チャート ---------- */
+function renderTrend(cur,prev){
+  const step=state.grain==="week"?7:1;
+  const groups=Math.ceil(state.days/step);
+  const start=TOTAL_DAYS-state.days;
+  const before=start-state.days;
+  const values=Array(groups).fill(0);
+  const previous=Array(groups).fill(0);
+  cur.forEach(p=>values[Math.floor((p.day-start)/step)]+=state.metric==="eng"?p.eng:1);
+  prev.forEach(p=>previous[Math.floor((p.day-before)/step)]+=state.metric==="eng"?p.eng:1);
+
+  const W=840,H=254;
+  const M={left:53,right:18,top:20,bottom:36};
+  const PW=W-M.left-M.right,PH=H-M.top-M.bottom;
+  const maxRaw=Math.max(0,...values,...previous);
+  const max=Math.max(4,Math.ceil(maxRaw/4)*4);
+  const x=i=>M.left+PW*(groups===1?.5:i/(groups-1));
+  const y=v=>M.top+PH*(1-v/max);
+  const bottom=M.top+PH;
+  const line=a=>a.map((v,i)=>`${i?"L":"M"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+  const rangeLabel=(s,i)=>{
+    const first=s+i*step;
+    const last=Math.min(first+step-1,s+state.days-1);
+    return first===last?shortDate(first):`${shortDate(first)}–${shortDate(last)}`;
+  };
+  const metricName=state.metric==="eng"?"反応数":"投稿数";
+  const ticks=Array.from({length:5},(_,i)=>{
+    const val=max*i/4,py=y(val);
+    return `<line x1="${M.left}" y1="${py}" x2="${W-M.right}" y2="${py}" stroke="#eceef5" stroke-dasharray="3 5"/>
+      <text x="${M.left-11}" y="${py+4}" text-anchor="end" font-size="10" fill="#9399af">${small(val)}</text>`;
+  }).join("");
+  const labelEvery=Math.max(1,Math.ceil(groups/7));
+  const labels=values.map((_,i)=>{
+    if(i%labelEvery!==0 && i!==groups-1)return "";
+    if(i===groups-1 && groups>2 && (i%labelEvery)<labelEvery*.5)return "";
+    return `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="10" fill="#9399af">${rangeLabel(start,i)}</text>`;
+  }).join("");
+  const targets=values.map((v,i)=>{
+    const left=i===0?M.left:(x(i-1)+x(i))/2;
+    const right=i===groups-1?W-M.right:(x(i)+x(i+1))/2;
+    const tip=`${metricName}\n選択期間 ${rangeLabel(start,i)}：${fmt(v)}件\n前期間 ${rangeLabel(before,i)}：${fmt(previous[i])}件`;
+    return `<circle cx="${x(i)}" cy="${y(v)}" r="3.3" fill="#6558ec" stroke="white" stroke-width="1.5"/>
+      <circle cx="${x(i)}" cy="${y(previous[i])}" r="${groups===1?3:0}" fill="#b8bdcf"/>
+      <rect x="${left}" y="${M.top}" width="${Math.max(1,right-left)}" height="${PH}"
+        fill="transparent" tabindex="0" role="img" aria-label="${esc(tip)}" data-tip="${esc(tip)}"/>`;
+  }).join("");
+
+  $("trendChart").innerHTML=`
+    <svg class="trend-svg" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="trendSvgTitle trendSvgDesc">
+      <title id="trendSvgTitle">${metricName}の${step===1?"日次":"7日集計"}推移</title>
+      <desc id="trendSvgDesc">紫が選択期間、灰色の破線が直前の同日数。数値は下の表でも確認できます。</desc>
+      <defs><linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#8270f2" stop-opacity=".20"/>
+        <stop offset="100%" stop-color="#8270f2" stop-opacity=".015"/>
+      </linearGradient></defs>
+      ${ticks}
+      <path d="${line(values)} L${x(groups-1)},${bottom} L${x(0)},${bottom} Z" fill="url(#trendFill)"/>
+      <path d="${line(previous)}" fill="none" stroke="#bbc0d1" stroke-width="2" stroke-dasharray="5 5"/>
+      <path d="${line(values)}" fill="none" stroke="#6558ec" stroke-width="2.7" stroke-linejoin="round" stroke-linecap="round"/>
+      ${targets}${labels}
+    </svg>`;
+  const sum=values.reduce((a,b)=>a+b,0);
+  $("trendNote").textContent=`${metricName} 合計 ${fmt(sum)}件。${step===1?"各点をホバー / フォーカスして日別値を確認できます。":"選択期間の初日を起点に7日ずつ集計しています。"}`;
+  $("trendTable").innerHTML=`<table class="small-table">
+    <thead><tr><th>選択期間</th><th>${metricName}</th><th>前期間</th><th>${metricName}</th></tr></thead>
+    <tbody>${values.map((v,i)=>`<tr><td>${rangeLabel(start,i)}</td><td>${fmt(v)}</td><td>${rangeLabel(before,i)}</td><td>${fmt(previous[i])}</td></tr>`).join("")}</tbody>
+  </table>`;
+
+  document.querySelectorAll("[data-metric]").forEach(b=>{
+    b.classList.toggle("on",b.dataset.metric===state.metric);
+    b.setAttribute("aria-pressed",b.dataset.metric===state.metric);
+  });
+  document.querySelectorAll("[data-grain]").forEach(b=>{
+    b.classList.toggle("on",b.dataset.grain===state.grain);
+    b.setAttribute("aria-pressed",b.dataset.grain===state.grain);
+  });
+}
+
+/* ---------- 5. 感情・論点・時間帯・キーワード ---------- */
+function renderSentiment(cur){
+  if(!cur.length){$("sentimentPanel").innerHTML=empty("該当する投稿がありません");return;}
+  const counts={pos:0,neu:0,neg:0};
+  cur.forEach(p=>counts[p.sent]++);
+  const positive=counts.pos/cur.length*100;
+  const neutral=counts.neu/cur.length*100;
+  $("sentimentPanel").innerHTML=`
+    <div class="donut-wrap">
+      <div class="donut" role="img"
+        aria-label="ポジティブ${pct(counts.pos,cur.length)}%、ニュートラル${pct(counts.neu,cur.length)}%、ネガティブ${pct(counts.neg,cur.length)}%"
+        style="background:conic-gradient(var(--positive) 0 ${positive}%,var(--neutral) ${positive}% ${positive+neutral}%,var(--negative) ${positive+neutral}% 100%)">
+        <div class="donut-center"><div class="donut-number">${positive.toFixed(1)}<span style="font-size:15px">%</span></div>
+        <div class="donut-caption">ポジティブ</div></div>
+      </div>
+    </div>
+    <div class="sentiment-list">
+      ${Object.entries(sentiments).map(([id,s])=>`
+        <button class="sentiment-row ${state.sent===id?"active":""}" data-sent="${id}" aria-pressed="${state.sent===id}">
+          <span><i class="dot" style="background:${s.color}"></i>${s.name}</span>
+          <span class="count">${fmt(counts[id])}件</span>
+          <strong>${pct(counts[id],cur.length)}%</strong>
+        </button>`).join("")}
+    </div>`;
+}
+function renderThemes(cur){
+  if(!cur.length){$("themesPanel").innerHTML=empty("該当する投稿がありません");return;}
+  const ts=themeStats(cur).filter(t=>t.n>0);
+  const max=ts[0].n;
+  $("themesPanel").innerHTML=ts.map(t=>{
+    const tip=`${t.name}：${fmt(t.n)}件\nポジティブ ${fmt(t.pos)} / ニュートラル ${fmt(t.neu)} / ネガティブ ${fmt(t.neg)}`;
+    return `<button class="theme-row" data-theme="${t.id}" aria-pressed="${state.theme===t.id}"
+      aria-label="${esc(tip)}。クリックで絞り込み" data-tip="${esc(tip)}">
+      <div class="theme-top"><span>${esc(t.name)} ${state.theme===t.id?"✓":""}</span>
+        <span>${fmt(t.n)}<small>${pct(t.n,cur.length)}%</small></span></div>
+      <div class="theme-track"><div class="theme-inner" style="width:${t.n/max*100}%">
+        <span style="width:${t.pos/t.n*100}%;background:var(--positive)"></span>
+        <span style="width:${t.neu/t.n*100}%;background:var(--neutral)"></span>
+        <span style="width:${t.neg/t.n*100}%;background:var(--negative)"></span>
+      </div></div>
+    </button>`;
+  }).join("");
+}
+function renderHeatmap(rows){
+  const cells=Array.from({length:7},()=>Array(6).fill(0));
+  rows.forEach(p=>cells[p.dow][Math.floor(p.hour/4)]++);
+  const max=Math.max(1,...cells.flat());
+  let html='<div></div>'+Array.from({length:6},(_,i)=>`<div class="heat-col">${i*4}–${i*4+3}時</div>`).join("");
+  cells.forEach((row,dow)=>{
+    html+=`<div class="heat-day">${weekdays[dow]}</div>`;
+    row.forEach((n,band)=>{
+      const ratio=n/max;
+      const selected=!!state.cell&&state.cell.dow===dow&&state.cell.band===band;
+      const tip=`${weekdays[dow]}曜日 ${pad(band*4)}:00〜${pad(band*4+3)}:59\n${fmt(n)}件（時間帯絞り込み前）`;
+      html+=`<button class="heat-cell ${selected?"selected":""}"
+        data-heat="${dow},${band}" data-tip="${esc(tip)}"
+        aria-label="${esc(tip)}" aria-pressed="${selected}"
+        style="background:rgba(101,81,211,${n?.10+ratio*.79:.04});color:${ratio>.57?"#fff":"#897cae"}">${n?fmt(n):"·"}</button>`;
+    });
+  });
+  $("heatmap").innerHTML=html;
+  $("heatNote").textContent=`対象 ${fmt(rows.length)}件。現在の曜日・時間帯条件のみ除外し、他の条件を適用して表示しています。`;
+}
+function renderKeywords(cur){
+  const counts={};
+  cur.forEach(p=>new Set(p.keywords).forEach(k=>counts[k]=(counts[k]||0)+1));
+  const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  $("keywordsPanel").innerHTML=top.length?top.map(([word,n])=>`
+    <button class="keyword ${state.query===word?"active":""}" data-key="${esc(word)}"
+      aria-label="${esc(word)}、${fmt(n)}件。クリックで検索">${esc(word)}<small>${fmt(n)}</small></button>`).join("")
+    :empty("表示できるキーワードがありません");
+}
+
+/* ---------- 6. 投稿テーブル ---------- */
+function highlight(text,query){
+  const q=query.trim();
+  if(!q)return esc(text);
+  const lower=text.toLocaleLowerCase("ja");
+  const target=q.toLocaleLowerCase("ja");
+  let result="",from=0,index;
+  while((index=lower.indexOf(target,from))!==-1){
+    result+=esc(text.slice(from,index))+"<mark>"+esc(text.slice(index,index+q.length))+"</mark>";
+    from=index+q.length;
+  }
+  return result+esc(text.slice(from));
+}
+function renderPosts(cur){
+  const sorted=[...cur].sort(state.sort==="eng"
+    ?(a,b)=>b.eng-a.eng||b.day-a.day
+    :(a,b)=>b.day-a.day||b.hour-a.hour||b.minute-a.minute);
+  currentRows=sorted;
+  const pages=Math.max(1,Math.ceil(sorted.length/pageSize));
+  state.page=Math.min(state.page,pages);
+  const from=(state.page-1)*pageSize;
+  const slice=sorted.slice(from,from+pageSize);
+  $("postCount").textContent=`条件に一致する${fmt(cur.length)}件から表示 · 実在する投稿・アカウントではありません`;
+  $("postRows").innerHTML=slice.length?slice.map(p=>`
+    <tr>
+      <td>
+        <div class="author-line">
+          <div class="avatar" aria-hidden="true">D${p.userNum%10}</div>
+          <span class="author-name">@${p.user}</span>
+          <span class="post-date">${esc(p.timestamp)} JST</span>
+        </div>
+        <div class="post-text">${highlight(p.body,state.query)}</div>
+      </td>
+      <td><div class="tag-stack">
+        <button class="tag topic" data-node="${p.topic}" title="このタイトルにドリルダウン">${esc(nodes[p.topic].name)}</button>
+        <button class="tag" data-theme="${p.theme}">${esc(themeById[p.theme].name)}</button>
+        <button class="tag ${p.sent}" data-sent="${p.sent}">${sentiments[p.sent].name}</button>
+      </div></td>
+      <td><div class="reactions">${fmt(p.eng)}</div>
+        <div class="reaction-detail">いいね ${fmt(p.likes)}<br>リポスト ${fmt(p.reposts)}<br>返信 ${fmt(p.replies)}</div>
+      </td>
+    </tr>`).join("")
+    :`<tr><td colspan="3">${empty("条件に一致する投稿はありません。フィルターを解除してお試しください。")}</td></tr>`;
+  $("postPager").innerHTML=`
+    <span>${cur.length?`${fmt(from+1)}–${fmt(Math.min(from+pageSize,cur.length))}`:"0"} / ${fmt(cur.length)}件</span>
+    <div class="pager-controls">
+      <button data-page="${state.page-1}" ${state.page<=1?"disabled":""} aria-label="前のページ">← 前へ</button>
+      <span>${cur.length?state.page:0} / ${cur.length?pages:0}</span>
+      <button data-page="${state.page+1}" ${state.page>=pages?"disabled":""} aria-label="次のページ">次へ →</button>
+    </div>`;
+}
+
+/* ---------- 7. 全体更新 ---------- */
+function render(){
+  hideTooltip();
+  const n=nodes[state.node];
+  const start=TOTAL_DAYS-state.days;
+  const scope=posts.filter(p=>n.leafSet.has(p.topic)&&matches(p));
+  const cur=scope.filter(p=>p.day>=start);
+  const prev=scope.filter(p=>p.day>=start-state.days&&p.day<start);
+  const heatRows=posts.filter(p=>p.day>=start&&n.leafSet.has(p.topic)&&matches(p,"cell"));
+
+  renderTree();renderHeader();renderKpis(cur,prev);renderDrill(cur);
+  renderInsights(cur);renderTrend(cur,prev);renderSentiment(cur);
+  renderThemes(cur);renderHeatmap(heatRows);renderKeywords(cur);renderPosts(cur);
+  $("liveStatus").textContent=`${n.name}、${state.days}日間、条件に一致する架空投稿は${fmt(cur.length)}件です。`;
+}
+
+/* ---------- 8. インタラクション ---------- */
+$("rangeSelect").addEventListener("change",e=>update({days:Number(e.target.value)}));
+$("sentSelect").addEventListener("change",e=>update({sent:e.target.value}));
+$("themeSelect").addEventListener("change",e=>update({theme:e.target.value}));
+$("queryInput").addEventListener("input",e=>update({query:e.target.value}));
+$("sortSelect").addEventListener("change",e=>update({sort:e.target.value}));
+$("resetButton").addEventListener("click",()=>{
+  state={...initial};
+  render();
+  showToast("分析条件とトピックを初期状態に戻しました");
+});
+
+document.addEventListener("click",e=>{
+  let target=e.target.closest("[data-expand]");
+  if(target){
+    const id=target.dataset.expand;
+    openNodes.has(id)?openNodes.delete(id):openNodes.add(id);
+    renderTree();
+    document.querySelector(`[data-expand="${id}"]`)?.focus({preventScroll:true});
+    return;
+  }
+  target=e.target.closest("[data-node]");
+  if(target){
+    const id=target.dataset.node;
+    const fromTree=!!target.closest("#topicTree");
+    selectNode(id);
+    if(fromTree){
+      document.querySelector(`#topicTree [data-node="${id}"]`)?.focus({preventScroll:true});
+    }
+    return;
+  }
+  target=e.target.closest("[data-sent]");
+  if(target){update({sent:state.sent===target.dataset.sent?"all":target.dataset.sent});return;}
+  target=e.target.closest("[data-theme]");
+  if(target){update({theme:state.theme===target.dataset.theme?"all":target.dataset.theme});return;}
+  target=e.target.closest("[data-key]");
+  if(target){update({query:state.query===target.dataset.key?"":target.dataset.key});return;}
+  target=e.target.closest("[data-heat]");
+  if(target){
+    const [dow,band]=target.dataset.heat.split(",").map(Number);
+    const same=state.cell&&state.cell.dow===dow&&state.cell.band===band;
+    update({cell:same?null:{dow,band}});
+    return;
+  }
+  target=e.target.closest("[data-clear]");
+  if(target){
+    const key=target.dataset.clear;
+    update({[key]:key==="cell"?null:key==="query"?"":"all"});
+    return;
+  }
+  target=e.target.closest("[data-metric]");
+  if(target){update({metric:target.dataset.metric},false);return;}
+  target=e.target.closest("[data-grain]");
+  if(target){update({grain:target.dataset.grain},false);return;}
+  target=e.target.closest("[data-page]");
+  if(target&&!target.disabled){
+    update({page:Number(target.dataset.page)},false);
+    return;
+  }
+});
+
+/* ---------- 9. キーボードでも読めるツールチップ ---------- */
+function showTooltip(el,x,y){
+  const tooltip=$("tooltip");
+  tooltip.textContent=el.dataset.tip;
+  tooltip.style.display="block";
+  const width=tooltip.offsetWidth,height=tooltip.offsetHeight;
+  tooltip.style.left=Math.max(8,Math.min(x+12,window.innerWidth-width-10))+"px";
+  tooltip.style.top=Math.max(8,Math.min(y+14,window.innerHeight-height-10))+"px";
+}
+function hideTooltip(){$("tooltip").style.display="none";}
+document.addEventListener("pointerover",e=>{
+  const el=e.target.closest("[data-tip]");
+  if(el)showTooltip(el,e.clientX,e.clientY);
+});
+document.addEventListener("pointermove",e=>{
+  const el=e.target.closest("[data-tip]");
+  if(el)showTooltip(el,e.clientX,e.clientY);
+});
+document.addEventListener("pointerout",e=>{
+  const el=e.target.closest("[data-tip]");
+  if(el&&!el.contains(e.relatedTarget))hideTooltip();
+});
+document.addEventListener("focusin",e=>{
+  const el=e.target.closest("[data-tip]");
+  if(el){
+    const rect=el.getBoundingClientRect();
+    showTooltip(el,rect.left+rect.width/2,rect.top);
+  }
+});
+document.addEventListener("focusout",hideTooltip);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")hideTooltip();});
+window.addEventListener("scroll",hideTooltip,{passive:true});
+
+let toastTimer;
+function showToast(message){
+  clearTimeout(toastTimer);
+  $("toast").textContent=message;
+  $("toast").classList.add("show");
+  toastTimer=setTimeout(()=>$("toast").classList.remove("show"),2800);
+}
+
+/* ---------- 10. 現在の絞り込み結果をCSV出力 ---------- */
+function csvCell(value){
+  let text=String(value??"");
+  // 表計算ソフトで数式として解釈される文字列を無害化。
+  if(/^[=+\-@\t\r]/.test(text))text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+}
+$("exportButton").addEventListener("click",()=>{
+  const header=[
+    "データ種別","投稿ID","投稿日時_JST","架空ユーザーID","トピック階層",
+    "投稿本文","論点","センチメント","いいね","リポスト","返信","反応数"
+  ];
+  const rows=currentRows.map(p=>[
+    "SYNTHETIC",p.id,p.timestamp,p.user,
+    nodes[p.topic].path.map(id=>nodes[id].name).join(" > "),
+    p.body,themeById[p.theme].name,sentiments[p.sent].name,
+    p.likes,p.reposts,p.replies,p.eng
+  ]);
+  const csv="\uFEFF"+[header,...rows].map(row=>row.map(csvCell).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`x_mock_${state.node}_${dateAt(TOTAL_DAYS-state.days)}_${dateAt(55)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast(`${fmt(rows.length)}件の架空投稿のCSV出力を開始しました`);
+});
+
+render();
+</script>
+</body>
+</html>

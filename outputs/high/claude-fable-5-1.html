@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X発話分析ダッシュボード｜ゲーム</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f3f5f9; --panel:#fff; --line:#e4e8ef; --text:#1f2937; --sub:#6b7280;
+    --accent:#2563eb; --pos:#10b981; --neu:#9ca3af; --neg:#ef4444; --navy:#0f172a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px}
+  header{background:var(--navy);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:20}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.02em}
+  header .tag{background:#1e293b;border:1px solid #334155;color:#cbd5e1;font-size:11px;padding:3px 8px;border-radius:12px}
+  header .right{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:12px;color:#cbd5e1}
+  .layout{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 48px)}
+  aside{background:#fff;border-right:1px solid var(--line);padding:14px 10px;overflow:auto;position:sticky;top:48px;height:calc(100vh - 48px)}
+  aside h2{font-size:12px;color:var(--sub);margin:0 0 8px 6px;text-transform:uppercase;letter-spacing:.08em}
+  .tnode{user-select:none}
+  .trow{display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .trow:hover{background:#f1f5f9}
+  .trow.sel{background:#dbeafe;color:#1d4ed8;font-weight:600}
+  .trow .tg{width:14px;color:var(--sub);font-size:10px;text-align:center}
+  .trow .cnt{margin-left:auto;font-size:11px;color:var(--sub);background:#f1f5f9;padding:1px 6px;border-radius:10px}
+  .trow.sel .cnt{background:#bfdbfe;color:#1e40af}
+  .tchildren{margin-left:14px;border-left:1px dashed var(--line);padding-left:4px}
+  .tchildren.hide{display:none}
+  main{padding:16px 20px 40px}
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .crumb{display:flex;align-items:center;gap:6px;font-size:14px}
+  .crumb a{color:var(--accent);cursor:pointer;text-decoration:none}
+  .crumb a:hover{text-decoration:underline}
+  .crumb .cur{font-weight:700;font-size:18px}
+  .crumb .sep{color:var(--sub)}
+  .lvl{font-size:11px;color:var(--sub);background:#e5e7eb;padding:2px 8px;border-radius:10px}
+  .periods{margin-left:auto;display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:3px}
+  .periods button{border:0;background:transparent;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--sub)}
+  .periods button.on{background:var(--accent);color:#fff}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .l{font-size:11px;color:var(--sub)}
+  .kpi .v{font-size:22px;font-weight:700;margin:4px 0 2px}
+  .kpi .d{font-size:11px}
+  .up{color:#059669}.down{color:#dc2626}.flat{color:var(--sub)}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;min-height:0}
+  .panel h3{margin:0 0 8px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .panel h3 .hint{font-weight:400;color:var(--sub);font-size:11px}
+  .c12{grid-column:span 12}.c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}
+  .chart{position:relative;flex:1;min-height:220px}
+  .chart.sm{min-height:180px}
+  .chart.tall{min-height:280px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{font-weight:600;color:var(--sub);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:11px}
+  td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  tr.link{cursor:pointer}tr.link:hover{background:#f8fafc}
+  .bar{height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  .cloud{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;line-height:1.1;padding:6px 0}
+  .cloud span{cursor:pointer;padding:2px 4px;border-radius:4px;transition:.15s}
+  .cloud span:hover{background:#f1f5f9}
+  .cloud span.on{background:#dbeafe;outline:1px solid #93c5fd}
+  .ins{display:flex;flex-direction:column;gap:8px}
+  .ins .it{display:flex;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fafbfd}
+  .ins .it .ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+  .ins .it b{display:block;margin-bottom:2px}
+  .ins .it p{margin:0;color:#374151;line-height:1.5}
+  .ic.g{background:#d1fae5}.ic.r{background:#fee2e2}.ic.b{background:#dbeafe}.ic.y{background:#fef3c7}.ic.p{background:#ede9fe}
+  .posts{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:420px}
+  .post{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fff}
+  .post .h{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub);margin-bottom:4px}
+  .post .av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#60a5fa,#a78bfa);display:inline-block}
+  .post .b{line-height:1.55;font-size:13px}
+  .post .f{display:flex;gap:14px;font-size:11px;color:var(--sub);margin-top:6px}
+  .pill{font-size:10px;padding:1px 7px;border-radius:10px;color:#fff}
+  .pill.p{background:var(--pos)}.pill.g{background:var(--neu)}.pill.n{background:var(--neg)}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tabs button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--sub)}
+  .tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .legend{display:flex;gap:12px;font-size:11px;color:var(--sub);margin-left:auto}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .chip{display:inline-block;background:#f1f5f9;border-radius:4px;padding:1px 6px;font-size:11px;color:#374151}
+  .muted{color:var(--sub);font-size:11px}
+  .spark{vertical-align:middle}
+  @media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.c8,.c6,.c4,.c3{grid-column:span 12}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎮 X発話分析ダッシュボード</h1>
+  <span class="tag">ドメイン：ゲーム</span>
+  <span class="tag">データ：ダミー生成（約3万ポスト／120日）</span>
+  <div class="right"><span id="dataInfo"></span></div>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>トピック階層（ドリルダウン）</h2>
+    <div id="tree"></div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div class="crumb" id="crumb"></div>
+      <span class="lvl" id="lvl"></span>
+      <div class="periods" id="periods">
+        <button data-p="7">直近7日</button>
+        <button data-p="30" class="on">直近30日</button>
+        <button data-p="60">直近60日</button>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid">
+      <div class="panel c8">
+        <h3>発話量の推移 <span class="hint">積み上げ＝サブトピック別 ／ 線＝合計 ／ ▲＝検知スパイク</span></h3>
+        <div class="chart tall"><canvas id="cVol"></canvas></div>
+      </div>
+      <div class="panel c4">
+        <h3>サブトピック構成 <span class="hint">クリックでドリルダウン</span></h3>
+        <div class="chart tall"><canvas id="cShare"></canvas></div>
+      </div>
+
+      <div class="panel c6">
+        <h3>自動生成インサイト <span class="hint">発話量・構成・感情・キーワードから抽出した示唆</span></h3>
+        <div class="ins" id="insights"></div>
+      </div>
+      <div class="panel c6">
+        <h3>スパイク要因分析 <span class="hint">平常比 = 期間平均に対する倍率</span></h3>
+        <div style="overflow:auto;flex:1">
+          <table id="spikeTbl"><thead><tr><th>日付</th><th>発話数</th><th>平常比</th><th>推定要因（イベント）</th><th>主要トピック</th><th>感情</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="panel c6">
+        <h3>センチメント推移 <span class="hint">日次100%積み上げ</span>
+          <div class="legend"><span><i style="background:var(--pos)"></i>ポジ</span><span><i style="background:var(--neu)"></i>中立</span><span><i style="background:var(--neg)"></i>ネガ</span></div></h3>
+        <div class="chart"><canvas id="cSent"></canvas></div>
+      </div>
+      <div class="panel c6">
+        <h3>キーワード / 話題の中身 <span class="hint">文字サイズ＝出現数、色＝感情傾向。クリックで下部ポストを絞込</span></h3>
+        <div class="cloud" id="cloud"></div>
+        <h3 style="margin-top:10px">急上昇キーワード <span class="hint">期間後半 vs 前半（出現率）</span></h3>
+        <table id="riseTbl"><thead><tr><th>キーワード</th><th>前半</th><th>後半</th><th>伸び率</th><th>感情傾向</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="panel c12">
+        <h3>サブトピック比較 <span class="hint">行クリックでドリルダウン</span></h3>
+        <div style="overflow:auto">
+          <table id="childTbl"><thead><tr><th>サブトピック</th><th>発話数</th><th>シェア</th><th>前期比</th><th>推移</th><th>感情バランス（ポジ/中立/ネガ）</th><th>ポジ率</th><th>ネガ率</th><th>平均ENG</th><th>主要キーワード</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="panel c4">
+        <h3>発話者層 <span class="hint">vs ゲーム全体</span></h3>
+        <div class="chart sm"><canvas id="cSeg"></canvas></div>
+      </div>
+      <div class="panel c4">
+        <h3>時間帯別発話分布</h3>
+        <div class="chart sm"><canvas id="cHour"></canvas></div>
+      </div>
+      <div class="panel c4">
+        <h3>曜日別発話分布</h3>
+        <div class="chart sm"><canvas id="cDow"></canvas></div>
+      </div>
+
+      <div class="panel c12">
+        <h3>代表ポスト <span class="hint" id="postHint">エンゲージメント上位</span>
+          <div class="tabs" id="ptabs"><button data-s="all" class="on">すべて</button><button data-s="p">ポジティブ</button><button data-s="g">中立</button><button data-s="n">ネガティブ</button></div></h3>
+        <div class="posts" id="posts"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   0. 乱数（再現性のためシード固定）
+============================================================ */
+let seed = 20240601;
+function rnd(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+const pick = a => a[Math.floor(rnd()*a.length)];
+const wpick = (items, wkey) => { const tot = items.reduce((s,i)=>s+i[wkey],0); let r = rnd()*tot; for(const i of items){ r -= i[wkey]; if(r<=0) return i; } return items[items.length-1]; };
+const sampleIdx = probs => { let r = rnd(), acc=0; for(let i=0;i<probs.length;i++){ acc+=probs[i]; if(r<acc) return i; } return probs.length-1; };
+
+/* ============================================================
+   1. トピック階層定義（マクロ → ミクロ）
+   leaf: base=平常時の1日あたり発話数, sent=[ポジ,中立,ネガ], seg=発話者層分布
+         kws=[語, 感情傾向, 重み], events=[{d:何日前, label, m:倍率, s:感情上書き}]
+============================================================ */
+const SEG = ['コアゲーマー','ライト層','ファミリー層','配信者/クリエイター','業界/メディア'];
+const K = (w,s,wt)=>({w,s,wt});
+const generic = {
+  p:["{t}、{k}が最高すぎる…！","{t}の{k}やっと体験できた。神ゲーでは","今日も{t}。{k}が楽しくて寝れない","{t}の{k}、想像以上に良かった。これは買い","友達と{t}で{k}。めっちゃ盛り上がった","{t}の{k}、ずっと待ってたやつ。嬉しい"],
+  g:["{t}の{k}について調べてる","{t}、{k}どうなんだろう。買うか迷い中","{t}の{k}まとめ、後で読む","{t}の{k}配信見てる","{t}の{k}、今週末やる予定","{t}の{k}って結局どういう仕様？"],
+  n:["{t}の{k}、正直期待外れだった…","{t}の{k}がひどい。改善してほしい","{t}、{k}のせいでやる気なくした","{t}の{k}、バグ多すぎでは","{t}の{k}高すぎ。さすがに手が出ない","{t}の{k}、前作のほうが良かった気がする"]
+};
+const TREE = {name:'ゲーム', children:[
+  {name:'コンシューマーゲーム', children:[
+    {name:'任天堂スイッチ', children:[
+      {name:'マリオカートワールド', base:22, sent:[.55,.3,.15], seg:[.32,.38,.2,.07,.03],
+        kws:[K('24人対戦','p',5),K('オープンワールド','p',4),K('Switch2','g',5),K('ラグ','n',3),K('価格','n',3),K('フリーラン','p',3),K('ノックアウトツアー','p',3),K('アイテム','g',2),K('新コース','p',3),K('オンライン','g',3),K('フレンド','p',2),K('マッチング','n',2)],
+        events:[{d:95,label:'発売日',m:7},{d:45,label:'大型アップデートVer.1.1',m:3.5},{d:12,label:'公式オンライン大会',m:2.5},{d:3,label:'新コース追加発表',m:2.2,s:[.7,.25,.05]}],
+        tm:{p:["マリカワールドの{k}、まじで革命。24人でわちゃわちゃするの楽しすぎ","{k}で友達と夜中まで。マリオカートワールド買ってよかった","家族でマリカワールド。子どもが{k}に夢中"],g:["マリオカートワールドの{k}、仕様変わった？","マリカワの{k}の攻略情報探してる"],n:["マリオカートワールド、{k}が気になる。夜のオンラインが厳しい","{k}がなぁ…Switch2本体込みだと出費が…"]}},
+      {name:'ゼルダの伝説', base:14, sent:[.6,.3,.1], seg:[.45,.3,.1,.1,.05],
+        kws:[K('新作','p',5),K('ティアキン','p',3),K('謎解き','p',3),K('オープンワールド','p',2),K('発売日','g',4),K('リマスター','g',2),K('難易度','n',2),K('価格','n',1)],
+        events:[{d:20,label:'新作タイトル発表（Direct）',m:4.5,s:[.7,.25,.05]}]},
+      {name:'スプラトゥーン', base:16, sent:[.5,.3,.2], seg:[.5,.3,.1,.08,.02],
+        kws:[K('フェス','p',5),K('Xマッチ','g',3),K('ブキ','g',3),K('味方ガチャ','n',4),K('回線落ち','n',2),K('新ステージ','p',2),K('サーモンラン','p',3)],
+        events:[{d:7,label:'フェス開催',m:3},{d:35,label:'フェス開催',m:3},{d:63,label:'フェス開催',m:2.8},{d:91,label:'フェス開催',m:3}]},
+      {name:'どうぶつの森', base:10, sent:[.65,.3,.05], seg:[.15,.4,.35,.07,.03],
+        kws:[K('島クリ','p',4),K('季節イベント','p',4),K('住民','p',3),K('マイデザイン','p',2),K('新作','g',3),K('カブ','g',2),K('マンネリ','n',2)],
+        events:[{d:30,label:'季節イベント開始',m:2.2}]}
+    ]},
+    {name:'PlayStation', children:[
+      {name:'モンスターハンターワイルズ', base:20, sent:[.5,.3,.2], seg:[.55,.25,.05,.1,.05],
+        kws:[K('アップデート','p',5),K('新モンスター','p',4),K('歴戦','g',3),K('武器調整','n',3),K('最適化','n',3),K('コラボ','p',3),K('マルチ','p',2),K('PS5 Pro','g',2)],
+        events:[{d:25,label:'タイトルアップデート第2弾',m:3},{d:5,label:'コラボ発表',m:2.5,s:[.65,.3,.05]}]},
+      {name:'FF7リバース', base:8, sent:[.55,.3,.15], seg:[.5,.3,.05,.1,.05],
+        kws:[K('DLC','p',4),K('ストーリー','p',3),K('第3作','g',4),K('ミニゲーム','n',3),K('グラフィック','p',2),K('ティファ','p',2)],
+        events:[{d:50,label:'DLC配信開始',m:2.2}]},
+      {name:'GTA6', base:9, sent:[.4,.45,.15], seg:[.5,.3,.03,.12,.05],
+        kws:[K('トレーラー','p',6),K('発売日','g',5),K('延期','n',4),K('グラフィック','p',3),K('価格','n',3),K('PC版','g',2),K('バイスシティ','p',2)],
+        events:[{d:15,label:'トレーラー第3弾公開',m:9,s:[.6,.33,.07]},{d:70,label:'発売延期報道',m:4,s:[.1,.35,.55]}]}
+    ]},
+    {name:'Xbox', children:[
+      {name:'Halo', base:3, sent:[.4,.4,.2], seg:[.6,.2,.02,.1,.08], kws:[K('新作','g',3),K('リマスター','p',2),K('ゲームパス','p',3),K('マルチ','g',2)], events:[]},
+      {name:'Forza', base:4, sent:[.55,.35,.1], seg:[.5,.3,.05,.1,.05], kws:[K('新作','p',4),K('グラフィック','p',3),K('車種','p',2),K('ゲームパス','p',2)], events:[{d:10,label:'新作発表',m:2.5}]}
+    ]}
+  ]},
+  {name:'スマホゲーム', children:[
+    {name:'原神', base:18, sent:[.45,.35,.2], seg:[.4,.4,.05,.1,.05],
+      kws:[K('新バージョン','p',5),K('ガチャ','n',5),K('新キャラ','p',4),K('天井','n',3),K('ストーリー','p',3),K('原石','g',2),K('聖遺物','n',2)],
+      events:[{d:35,label:'新バージョン配信',m:3},{d:2,label:'新キャラガチャ開始',m:2.2}]},
+    {name:'ウマ娘', base:15, sent:[.5,.3,.2], seg:[.45,.35,.05,.1,.05],
+      kws:[K('周年','p',5),K('ガチャ','n',4),K('新シナリオ','p',3),K('因子','g',3),K('育成','g',3),K('チャンミ','g',2),K('石配布','p',3)],
+      events:[{d:28,label:'周年記念キャンペーン',m:3.2,s:[.65,.25,.1]}]},
+    {name:'ポケモンGO', base:12, sent:[.55,.35,.1], seg:[.2,.45,.25,.05,.05],
+      kws:[K('コミュニティデイ','p',5),K('色違い','p',4),K('レイド','g',3),K('散歩','p',2),K('不具合','n',2),K('新ポケモン','p',3)],
+      events:[{d:18,label:'コミュニティデイ',m:2.8},{d:48,label:'コミュニティデイ',m:2.6}]},
+    {name:'モンスターストライク', base:9, sent:[.5,.35,.15], seg:[.4,.4,.1,.05,.05],
+      kws:[K('コラボ','p',5),K('ガチャ','n',3),K('限定キャラ','p',3),K('マルチ','g',2),K('オーブ','g',2)],
+      events:[{d:40,label:'アニメコラボ開始',m:2.5}]}
+  ]},
+  {name:'PCゲーム', children:[
+    {name:'Steam', children:[
+      {name:'Apex Legends', base:14, sent:[.3,.35,.35], seg:[.6,.2,.02,.15,.03],
+        kws:[K('チーター','n',6),K('新シーズン','p',4),K('ランク','g',4),K('サーバー','n',3),K('新レジェンド','p',3),K('マッチング','n',3),K('過疎','n',2)],
+        events:[{d:22,label:'新シーズン開始',m:2.8,s:[.45,.3,.25]},{d:58,label:'大規模サーバー障害',m:3,s:[.05,.25,.7]}]},
+      {name:'VALORANT', base:11, sent:[.5,.35,.15], seg:[.6,.2,.02,.15,.03],
+        kws:[K('Masters','p',5),K('新エージェント','p',3),K('ランク','g',3),K('日本チーム','p',4),K('パッチ','g',2),K('スキン','g',2)],
+        events:[{d:9,label:'Masters開催',m:2.5,s:[.6,.3,.1]}]},
+      {name:'Elden Ring', base:7, sent:[.55,.3,.15], seg:[.65,.2,.02,.1,.03],
+        kws:[K('DLC','p',5),K('ボス','g',4),K('難易度','n',3),K('死にゲー','p',2),K('ビルド','g',3)],
+        events:[{d:55,label:'DLC発売',m:3.5}]}
+    ]},
+    {name:'MMO', children:[
+      {name:'FF14', base:12, sent:[.55,.3,.15], seg:[.6,.2,.03,.12,.05],
+        kws:[K('新パッチ','p',5),K('レイド','g',4),K('ハウジング','p',3),K('ジョブ調整','n',3),K('FC','p',2),K('サブスク','n',1)],
+        events:[{d:33,label:'新パッチ配信',m:3}]}
+    ]}
+  ]},
+  {name:'eスポーツ・配信', children:[
+    {name:'ゲーム配信', base:24, sent:[.6,.35,.05], seg:[.3,.35,.05,.25,.05],
+      kws:[K('VTuber','p',5),K('切り抜き','g',4),K('同時視聴','p',3),K('デビュー','p',3),K('コラボ配信','p',3),K('炎上','n',2)],
+      events:[{d:6,label:'大手事務所 新人デビュー',m:2.2}]},
+    {name:'eスポーツ大会', base:8, sent:[.5,.4,.1], seg:[.55,.2,.02,.15,.08],
+      kws:[K('決勝','p',5),K('日本代表','p',4),K('賞金','g',2),K('実況','g',3),K('名勝負','p',3),K('運営','n',2)],
+      events:[{d:14,label:'国際大会 決勝戦',m:4,s:[.65,.3,.05]}]}
+  ]}
+]};
+
+/* ノードID付与・親子参照 */
+let nid = 0; const NODES = {}; const LEAVES = [];
+(function walk(n, parent, path){ n.id = 'n'+(nid++); n.parent = parent; n.path = [...path, n.id]; n.depth = path.length; NODES[n.id] = n; if(n.children) n.children.forEach(c=>walk(c,n,n.path)); else LEAVES.push(n); })(TREE,null,[]);
+const LEVEL = ['ドメイン','カテゴリ','プラットフォーム','タイトル'];
+
+/* ============================================================
+   2. ダミーポスト生成
+============================================================ */
+const DAYS = 120;
+const END = new Date(); END.setHours(0,0,0,0);
+const dateOf = d => { const x = new Date(END); x.setDate(END.getDate() - (DAYS-1-d)); return x; };
+const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+const DOW = ['日','月','火','水','木','金','土'];
+const HOURW = [2,1,1,1,1,1,2,4,6,5,5,6,8,6,5,5,6,7,9,11,13,14,13,8];
+const NAMES = ['ゲーム好きの太郎','みさき','kaz_gamer','ゆう@積みゲー消化中','ぽてと','sora','まる','たけし','nanami','ryo_fps','ひよこ','Ken','あおい','ゲーム廃人','まったり勢','つむぎ','Yuki','ひろ','ねこまる','しろくま'];
+const POSTS = [];
+LEAVES.forEach(leaf => {
+  for(let d=0; d<DAYS; d++){
+    const ago = DAYS-1-d; const dt = dateOf(d);
+    let mult = 1, evSent = null, evLabel = null;
+    leaf.events.forEach(e=>{ const diff = e.d - ago; // diff=0 当日, 1 翌日, 2 翌々日, -1 前日
+      let f = diff===0?1: diff===1?.5: diff===2?.2: diff===-1?.15: 0;
+      if(f>0){ mult += (e.m-1)*f; if(diff===0||diff===1){ evSent = e.s||null; evLabel = e.label; } } });
+    const wk = (dt.getDay()===0||dt.getDay()===6)?1.25:1;
+    const noise = .7 + rnd()*.6;
+    const trend = 1 + (d/DAYS - .5)*(leaf.name==='GTA6'||leaf.name==='マリオカートワールド'?.5: leaf.name==='Apex Legends'?-.3:.1);
+    const cnt = Math.round(leaf.base*mult*wk*noise*trend);
+    for(let i=0;i<cnt;i++){
+      const sIdx = sampleIdx(evSent||leaf.sent); const s = ['p','g','n'][sIdx];
+      const nk = 1+ (rnd()<.4?1:0) + (rnd()<.15?1:0);
+      const kset = new Set(); for(let j=0;j<nk;j++){ const pool = leaf.kws.filter(k=>k.s===s||rnd()<.5); kset.add(wpick(pool.length?pool:leaf.kws,'wt').w); }
+      const kws = [...kset];
+      const tmpl = (leaf.tm && leaf.tm[s] && rnd()<.6) ? pick(leaf.tm[s]) : pick(generic[s]);
+      const text = tmpl.replace('{t}',leaf.name).replace(/\{k\}/g,kws[0]) + (evLabel&&rnd()<.35?` #${evLabel.replace(/[（）\s]/g,'')}`:'') + (rnd()<.3?` #${leaf.name}`:'');
+      const eng = Math.floor(Math.exp(rnd()*6.5)*(mult>2?1.6:1)); // ロングテール
+      POSTS.push({leaf, path:leaf.path, d, s, seg:sampleIdx(leaf.seg), kws, text, hour:wpick(HOURW.map((w,h)=>({h,w})),'w').h, likes:eng, rt:Math.floor(eng*(.1+rnd()*.3)), user:pick(NAMES), ev:evLabel});
+    }
+  }
+});
+document.getElementById('dataInfo').textContent = `生成ポスト数 ${POSTS.length.toLocaleString()} 件 ／ 期間 ${fmt(dateOf(0))}〜${fmt(dateOf(DAYS-1))}`;
+
+/* ============================================================
+   3. 状態・集計ユーティリティ
+============================================================ */
+const state = { node: TREE.id, period: 30, sentTab:'all', kw:null, open:new Set([TREE.id]) };
+const COLORS = ['#2563eb','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'];
+const inNode = (p, id) => p.path.includes(id);
+const range = (p, lo, hi) => p.d>=lo && p.d<hi;
+const curLo = () => DAYS - state.period, prevLo = () => DAYS - state.period*2;
+const pct = (a,b) => b? (a-b)/b*100 : 0;
+const fpct = v => (v>0?'+':'')+v.toFixed(1)+'%';
+const cls = v => v>3?'up':v<-3?'down':'flat';
+const arrow = v => v>3?'▲':v<-3?'▼':'→';
+const childrenOf = n => n.children||[];
+const sentRate = ps => { const t=ps.length||1; return {p:ps.filter(x=>x.s==='p').length/t, g:ps.filter(x=>x.s==='g').length/t, n:ps.filter(x=>x.s==='n').length/t}; };
+const daily = (ps, lo, len) => { const a = new Array(len).fill(0); ps.forEach(p=>{ if(p.d>=lo && p.d<lo+len) a[p.d-lo]++; }); return a; };
+const avgEng = ps => ps.length? ps.reduce((s,p)=>s+p.likes+p.rt,0)/ps.length : 0;
+const kwFreq = ps => { const m={}; ps.forEach(p=>p.kws.forEach(k=>{ m[k]=m[k]||{c:0,p:0,n:0}; m[k].c++; if(p.s==='p')m[k].p++; if(p.s==='n')m[k].n++; })); return Object.entries(m).map(([w,v])=>({w,...v})).sort((a,b)=>b.c-a.c); };
+const charts = {};
+function mk(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+function spark(arr, color){ const w=90,h=22,mx=Math.max(...arr,1); const pts = arr.map((v,i)=>`${(i/(arr.length-1))*w},${h - v/mx*(h-2) -1}`).join(' '); return `<svg class="spark" width="${w}" height="${h}"><polyline fill="none" stroke="${color}" stroke-width="1.5" points="${pts}"/></svg>`; }
+
+/* ============================================================
+   4. 描画
+============================================================ */
+function renderTree(){
+  const el = document.getElementById('tree'); el.innerHTML='';
+  const lo = curLo();
+  const counts = {}; POSTS.forEach(p=>{ if(p.d>=lo) p.path.forEach(id=>counts[id]=(counts[id]||0)+1); });
+  function build(n){
+    const wrap = document.createElement('div'); wrap.className='tnode';
+    const row = document.createElement('div'); row.className='trow'+(n.id===state.node?' sel':'');
+    const has = !!n.children; const open = state.open.has(n.id);
+    row.innerHTML = `<span class="tg">${has?(open?'▾':'▸'):'·'}</span><span>${n.name}</span><span class="cnt">${(counts[n.id]||0).toLocaleString()}</span>`;
+    row.querySelector('.tg').onclick = e=>{ e.stopPropagation(); if(!has) return; open?state.open.delete(n.id):state.open.add(n.id); renderTree(); };
+    row.onclick = ()=> selectNode(n.id);
+    wrap.appendChild(row);
+    if(has){ const ch = document.createElement('div'); ch.className='tchildren'+(open?'':' hide'); n.children.forEach(c=>ch.appendChild(build(c))); wrap.appendChild(ch); }
+    return wrap;
+  }
+  el.appendChild(build(TREE));
+}
+
+function selectNode(id){ state.node=id; state.kw=null; let n=NODES[id]; while(n){ state.open.add(n.id); n=n.parent; } renderAll(); }
+
+function renderAll(){
+  const node = NODES[state.node];
+  const lo = curLo(), plo = prevLo(), P = state.period;
+  const all = POSTS.filter(p=>inNode(p,node.id));
+  const cur = all.filter(p=>range(p,lo,DAYS)), prev = all.filter(p=>range(p,plo,lo));
+  const kids = childrenOf(node);
+  const kidStats = kids.map((c,i)=>{ const cp = cur.filter(p=>inNode(p,c.id)), pp = prev.filter(p=>inNode(p,c.id)); return {node:c, color:COLORS[i%COLORS.length], cur:cp, prev:pp, n:cp.length, pn:pp.length, sr:sentRate(cp), psr:sentRate(pp), eng:avgEng(cp), daily:daily(cp,lo,P), kws:kwFreq(cp).slice(0,3)}; });
+
+  renderTree();
+  /* パンくず */
+  const crumb = document.getElementById('crumb'); crumb.innerHTML='';
+  node.path.forEach((id,i)=>{ const n=NODES[id]; if(i>0){ const s=document.createElement('span'); s.className='sep'; s.textContent='›'; crumb.appendChild(s);} const a=document.createElement(i===node.path.length-1?'span':'a'); a.textContent=n.name; if(i===node.path.length-1) a.className='cur'; else a.onclick=()=>selectNode(id); crumb.appendChild(a); });
+  document.getElementById('lvl').textContent = `粒度：${LEVEL[node.depth]||'タイトル'}（階層 ${node.depth+1}）`;
+
+  /* KPI */
+  const sr = sentRate(cur), psr = sentRate(prev);
+  const users = new Set(cur.map(p=>p.user+p.leaf.id+Math.floor(p.d/3))).size*7; // ユニークユーザー数の擬似値
+  const pusers = new Set(prev.map(p=>p.user+p.leaf.id+Math.floor(p.d/3))).size*7;
+  const eng = avgEng(cur), peng = avgEng(prev);
+  const cd = daily(cur,lo,P); const peakI = cd.indexOf(Math.max(...cd));
+  const parentAll = node.parent? POSTS.filter(p=>inNode(p,node.parent.id)&&p.d>=lo).length : cur.length;
+  const share = cur.length/parentAll*100, pshare = node.parent? prev.length/Math.max(1,POSTS.filter(p=>inNode(p,node.parent.id)&&range(p,plo,lo)).length)*100 : 100;
+  const kpi = [
+    {l:`発話数（直近${P}日）`, v:cur.length.toLocaleString(), d:pct(cur.length,prev.length), dl:'前期比'},
+    {l:'推定ユニーク発話者', v:users.toLocaleString(), d:pct(users,pusers), dl:'前期比'},
+    {l:'ポジティブ率', v:(sr.p*100).toFixed(1)+'%', d:(sr.p-psr.p)*100, dl:'前期差(pt)'},
+    {l:'ネガティブ率', v:(sr.n*100).toFixed(1)+'%', d:(sr.n-psr.n)*100, dl:'前期差(pt)', inv:true},
+    {l:'平均エンゲージメント', v:eng.toFixed(1), d:pct(eng,peng), dl:'前期比'},
+    {l: node.parent?`${node.parent.name}内シェア`:'ピーク日', v: node.parent?share.toFixed(1)+'%':fmt(dateOf(lo+peakI)), d: node.parent?share-pshare:null, dl:'前期差(pt)'}
+  ];
+  document.getElementById('kpis').innerHTML = kpi.map(k=>{ const v=k.d; const c = v==null?'':(k.inv? cls(-v): cls(v)); return `<div class="kpi"><div class="l">${k.l}</div><div class="v">${k.v}</div><div class="d ${c}">${v==null?`最大 ${Math.max(...cd)} 件/日`:`${arrow(v)} ${fpct(v)} <span class="muted">${k.dl}</span>`}</div></div>`; }).join('');
+
+  /* 発話量推移 */
+  const labels = Array.from({length:P},(_,i)=>fmt(dateOf(lo+i)));
+  const mean = cd.reduce((a,b)=>a+b,0)/P, sd = Math.sqrt(cd.reduce((a,b)=>a+(b-mean)**2,0)/P);
+  const spikes = cd.map((v,i)=>({i,v,r:v/mean})).filter(x=>x.v>mean+1.8*sd && x.r>1.4).sort((a,b)=>b.v-a.v).slice(0,6);
+  const spikeSet = new Set(spikes.map(s=>s.i));
+  const stack = kids.length? kidStats.map(k=>({type:'bar',label:k.node.name,data:k.daily,backgroundColor:k.color+'cc',stack:'s',order:2})) : [{type:'bar',label:node.name,data:cd,backgroundColor:'#2563ebb0',stack:'s',order:2}];
+  mk('cVol',{data:{labels,datasets:[...stack,{type:'line',label:'合計',data:cd,borderColor:'#0f172a',borderWidth:2,pointRadius:cd.map((v,i)=>spikeSet.has(i)?6:0),pointStyle:'triangle',pointBackgroundColor:'#ef4444',tension:.3,order:1,fill:false},{type:'line',label:'期間平均',data:cd.map(()=>mean),borderColor:'#94a3b8',borderDash:[4,4],borderWidth:1,pointRadius:0,order:0}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{footer:items=>{ const i=items[0].dataIndex; const e = [...new Set(cur.filter(p=>p.d===lo+i&&p.ev).map(p=>p.ev))]; return e.length?'イベント: '+e.join(' / '):''; }}}},scales:{x:{stacked:true,ticks:{maxTicksLimit:15,font:{size:10}},grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:10}}}}}});
+
+  /* 構成 */
+  if(kids.length){
+    mk('cShare',{type:'doughnut',data:{labels:kidStats.map(k=>k.node.name),datasets:[{data:kidStats.map(k=>k.n),backgroundColor:kidStats.map(k=>k.color),borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'55%',onClick:(e,els)=>{ if(els.length) selectNode(kidStats[els[0].index].node.id); },plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},generateLabels:ch=>ch.data.labels.map((l,i)=>({text:`${l} ${(kidStats[i].n/Math.max(1,cur.length)*100).toFixed(0)}%`,fillStyle:kidStats[i].color,index:i}))}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toLocaleString()}件（${(c.parsed/cur.length*100).toFixed(1)}%）前期比 ${fpct(pct(kidStats[c.dataIndex].n,kidStats[c.dataIndex].pn))}`}}}}});
+  } else {
+    const kf = kwFreq(cur).slice(0,8);
+    mk('cShare',{type:'doughnut',data:{labels:kf.map(k=>k.w),datasets:[{data:kf.map(k=>k.c),backgroundColor:COLORS,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{title:{display:true,text:'最下層のため話題キーワード構成を表示',font:{size:11},color:'#6b7280'},legend:{position:'right',labels:{boxWidth:10,font:{size:11}}}}}});
+  }
+
+  /* センチメント推移 */
+  const sd3 = ['p','g','n'].map(s=>daily(cur.filter(p=>p.s===s),lo,P));
+  const tot = cd.map(v=>v||1);
+  mk('cSent',{type:'bar',data:{labels,datasets:[{label:'ポジ',data:sd3[0].map((v,i)=>v/tot[i]*100),backgroundColor:'#10b981'},{label:'中立',data:sd3[1].map((v,i)=>v/tot[i]*100),backgroundColor:'#d1d5db'},{label:'ネガ',data:sd3[2].map((v,i)=>v/tot[i]*100),backgroundColor:'#ef4444'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%（${sd3[c.datasetIndex][c.dataIndex]}件）`}}},scales:{x:{stacked:true,ticks:{maxTicksLimit:12,font:{size:10}},grid:{display:false}},y:{stacked:true,max:100,ticks:{callback:v=>v+'%',font:{size:10}}}}}});
+
+  /* キーワードクラウド */
+  const kf = kwFreq(cur).slice(0,30); const kmax = kf[0]?kf[0].c:1;
+  document.getElementById('cloud').innerHTML = kf.map(k=>{ const lean = (k.p-k.n)/k.c; const col = lean>.25?'#059669':lean<-.15?'#dc2626':'#4b5563'; const sz = 11+Math.sqrt(k.c/kmax)*20; return `<span data-k="${k.w}" class="${state.kw===k.w?'on':''}" style="font-size:${sz.toFixed(0)}px;color:${col};font-weight:${sz>20?600:400}" title="${k.c}件 ポジ${(k.p/k.c*100).toFixed(0)}% ネガ${(k.n/k.c*100).toFixed(0)}%">${k.w}</span>`; }).join('');
+  document.querySelectorAll('#cloud span').forEach(s=>s.onclick=()=>{ state.kw = state.kw===s.dataset.k?null:s.dataset.k; renderAll(); });
+
+  /* 急上昇キーワード */
+  const half = Math.floor(P/2); const h1 = cur.filter(p=>p.d<lo+half), h2 = cur.filter(p=>p.d>=lo+half);
+  const f1 = Object.fromEntries(kwFreq(h1).map(k=>[k.w,k])), f2 = kwFreq(h2);
+  const rising = f2.map(k=>{ const a=(f1[k.w]?f1[k.w].c:0)/Math.max(1,h1.length)*100, b=k.c/Math.max(1,h2.length)*100; return {w:k.w,a,b,r:b/Math.max(a,.3),lean:(k.p-k.n)/k.c}; }).filter(k=>k.b>1).sort((x,y)=>y.r-x.r).slice(0,5);
+  document.querySelector('#riseTbl tbody').innerHTML = rising.map(k=>`<tr><td><b>${k.w}</b></td><td>${k.a.toFixed(1)}%</td><td>${k.b.toFixed(1)}%</td><td class="${cls((k.r-1)*100)}">×${k.r.toFixed(2)}</td><td><span class="pill ${k.lean>.25?'p':k.lean<-.15?'n':'g'}">${k.lean>.25?'ポジ寄り':k.lean<-.15?'ネガ寄り':'中立'}</span></td></tr>`).join('') || '<tr><td colspan=5 class="muted">該当なし</td></tr>';
+
+  /* スパイク表 */
+  document.querySelector('#spikeTbl tbody').innerHTML = spikes.sort((a,b)=>a.i-b.i).map(s=>{ const ps = cur.filter(p=>p.d===lo+s.i); const evs=[...new Set(ps.filter(p=>p.ev).map(p=>p.ev))]; const byLeaf={}; ps.forEach(p=>byLeaf[p.leaf.name]=(byLeaf[p.leaf.name]||0)+1); const top=Object.entries(byLeaf).sort((a,b)=>b[1]-a[1])[0]; const r=sentRate(ps); return `<tr><td>${fmt(dateOf(lo+s.i))}(${DOW[dateOf(lo+s.i).getDay()]})</td><td><b>${s.v}</b></td><td class="${s.r>2?'down':'up'}" style="color:#b45309">×${s.r.toFixed(1)}</td><td>${evs.length?evs.map(e=>`<span class="chip">${e}</span>`).join(' '):'<span class="muted">特定イベントなし（自然発生）</span>'}</td><td>${top?`${top[0]} <span class="muted">${(top[1]/ps.length*100).toFixed(0)}%</span>`:'-'}</td><td><div class="bar" style="width:90px"><i style="width:${r.p*100}%;background:var(--pos)"></i><i style="width:${r.g*100}%;background:var(--neu)"></i><i style="width:${r.n*100}%;background:var(--neg)"></i></div></td></tr>`; }).join('') || '<tr><td colspan=6 class="muted">期間内に顕著なスパイクは検知されませんでした</td></tr>';
+
+  /* サブトピック比較 */
+  const ctb = document.querySelector('#childTbl tbody');
+  const rows = kids.length? kidStats : [];
+  ctb.innerHTML = rows.map(k=>`<tr class="link" data-id="${k.node.id}"><td><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${k.color};margin-right:6px"></i><b>${k.node.name}</b>${k.node.children?`<span class="muted"> (${k.node.children.length})</span>`:''}</td><td>${k.n.toLocaleString()}</td><td>${(k.n/Math.max(1,cur.length)*100).toFixed(1)}%</td><td class="${cls(pct(k.n,k.pn))}">${arrow(pct(k.n,k.pn))} ${fpct(pct(k.n,k.pn))}</td><td>${spark(k.daily,k.color)}</td><td><div class="bar" style="width:140px"><i style="width:${k.sr.p*100}%;background:var(--pos)"></i><i style="width:${k.sr.g*100}%;background:var(--neu)"></i><i style="width:${k.sr.n*100}%;background:var(--neg)"></i></div></td><td>${(k.sr.p*100).toFixed(0)}% <span class="muted ${cls((k.sr.p-k.psr.p)*100)}">(${((k.sr.p-k.psr.p)*100).toFixed(1)}pt)</span></td><td>${(k.sr.n*100).toFixed(0)}% <span class="muted ${cls(-(k.sr.n-k.psr.n)*100)}">(${((k.sr.n-k.psr.n)*100).toFixed(1)}pt)</span></td><td>${k.eng.toFixed(1)}</td><td>${k.kws.map(x=>`<span class="chip">${x.w}</span>`).join(' ')}</td></tr>`).join('') || `<tr><td colspan=10 class="muted">最下層（タイトル）のためサブトピックはありません。キーワード構成・代表ポストで深掘りしてください。</td></tr>`;
+  ctb.querySelectorAll('tr.link').forEach(tr=>tr.onclick=()=>selectNode(tr.dataset.id));
+
+  /* 発話者層 */
+  const gAll = POSTS.filter(p=>p.d>=lo);
+  const segOf = ps => SEG.map((_,i)=>ps.filter(p=>p.seg===i).length/Math.max(1,ps.length)*100);
+  mk('cSeg',{type:'bar',data:{labels:SEG,datasets:[{label:node.name,data:segOf(cur),backgroundColor:'#2563eb'},{label:'ゲーム全体',data:segOf(gAll),backgroundColor:'#cbd5e1'}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},scales:{x:{ticks:{callback:v=>v+'%',font:{size:10}}},y:{ticks:{font:{size:10}}}}}});
+  /* 時間帯 */
+  const hrs = new Array(24).fill(0); cur.forEach(p=>hrs[p.hour]++);
+  mk('cHour',{type:'bar',data:{labels:hrs.map((_,i)=>i+'時'),datasets:[{data:hrs,backgroundColor:hrs.map(v=>v===Math.max(...hrs)?'#f59e0b':'#60a5fa')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:12,font:{size:9}},grid:{display:false}},y:{beginAtZero:true,ticks:{font:{size:10}}}}}});
+  /* 曜日 */
+  const dows = new Array(7).fill(0), dowDays = new Array(7).fill(0);
+  for(let i=0;i<P;i++) dowDays[dateOf(lo+i).getDay()]++; cur.forEach(p=>dows[dateOf(p.d).getDay()]++);
+  mk('cDow',{type:'bar',data:{labels:DOW.map(d=>d+'曜'),datasets:[{label:'1日平均',data:dows.map((v,i)=>dowDays[i]?v/dowDays[i]:0),backgroundColor:['#f87171','#93c5fd','#93c5fd','#93c5fd','#93c5fd','#93c5fd','#60a5fa']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,ticks:{font:{size:10}}}}}});
+
+  /* インサイト */
+  renderInsights({node,cur,prev,kidStats,sr,psr,cd,lo,P,spikes,rising,mean,kf,hrs,segCur:segOf(cur),segAll:segOf(gAll)});
+
+  /* 代表ポスト */
+  renderPosts(cur);
+}
+
+function renderInsights(c){
+  const {node,cur,prev,kidStats,sr,psr,cd,lo,P,spikes,rising,mean,kf,hrs,segCur,segAll} = c;
+  const ins = [];
+  const g = pct(cur.length,prev.length);
+  ins.push({ic:g>5?'📈':g<-5?'📉':'➡️',t:g>5?'g':g<-5?'r':'b',title:`発話量は前期比 ${fpct(g)}`,body:`直近${P}日の発話数は${cur.length.toLocaleString()}件（前期 ${prev.length.toLocaleString()}件）。1日平均 ${mean.toFixed(0)}件。${g>20?'大きく伸びており、話題の勢いが強い状態です。':g<-15?'減少傾向。関心の離脱やイベント不足の可能性があります。':'概ね安定して推移しています。'}`});
+  if(spikes.length){ const top=[...spikes].sort((a,b)=>b.v-a.v)[0]; const ps=cur.filter(p=>p.d===lo+top.i); const evs=[...new Set(ps.filter(p=>p.ev).map(p=>p.ev))]; const byLeaf={}; ps.forEach(p=>byLeaf[p.leaf.name]=(byLeaf[p.leaf.name]||0)+1); const tl=Object.entries(byLeaf).sort((a,b)=>b[1]-a[1])[0]; const r=sentRate(ps);
+    ins.push({ic:'⚡',t:'y',title:`最大スパイクは ${fmt(dateOf(lo+top.i))}（平常比 ×${top.r.toFixed(1)}）`,body:`${evs.length?`「${evs.join('」「')}」が主要因。`:'特定イベントが紐づかない自然発生型の盛り上がりです。'}${tl?`発話の${(tl[1]/ps.length*100).toFixed(0)}%が「${tl[0]}」関連。`:''}当日のポジ率は${(r.p*100).toFixed(0)}%${r.n>.3?'、ネガ率が'+(r.n*100).toFixed(0)+'%と高く、炎上・不満型のスパイクです。':'でした。'}`}); }
+  if(kidStats.length){
+    const byG=[...kidStats].filter(k=>k.pn>20).sort((a,b)=>pct(b.n,b.pn)-pct(a.n,a.pn)); const up=byG[0], dn=byG[byG.length-1];
+    if(up) ins.push({ic:'🚀',t:'g',title:`「${up.node.name}」が最も伸長（前期比 ${fpct(pct(up.n,up.pn))}）`,body:`${node.name}内シェアは${(up.n/cur.length*100).toFixed(1)}%。主要キーワードは ${up.kws.map(k=>'「'+k.w+'」').join('')}。${dn&&dn!==up&&pct(dn.n,dn.pn)<-5?`一方「${dn.node.name}」は ${fpct(pct(dn.n,dn.pn))} と縮小しています。`:''}`});
+    const negUp=[...kidStats].filter(k=>k.n>30).sort((a,b)=>(b.sr.n-b.psr.n)-(a.sr.n-a.psr.n))[0];
+    if(negUp && negUp.sr.n-negUp.psr.n>.03){ const nk=kwFreq(negUp.cur.filter(p=>p.s==='n')).slice(0,2).map(k=>'「'+k.w+'」').join(''); ins.push({ic:'⚠️',t:'r',title:`「${negUp.node.name}」でネガティブ率が上昇（+${((negUp.sr.n-negUp.psr.n)*100).toFixed(1)}pt）`,body:`ネガ発話のキーワードは ${nk} が中心。ユーザー体験の課題が顕在化している可能性があり、ミクロ粒度での確認を推奨します。`}); }
+    const topS=[...kidStats].sort((a,b)=>b.n-a.n)[0]; if(topS&&topS.n/cur.length>.4) ins.push({ic:'🎯',t:'p',title:`発話の${(topS.n/cur.length*100).toFixed(0)}%が「${topS.node.name}」に集中`,body:`${node.name}の発話傾向は実質的に「${topS.node.name}」に牽引されています。全体の変動を見る際は当該サブトピックの要因を切り分けて解釈する必要があります。`});
+  } else {
+    const nk=kwFreq(cur.filter(p=>p.s==='n')).slice(0,3), pk=kwFreq(cur.filter(p=>p.s==='p')).slice(0,3);
+    ins.push({ic:'💬',t:'p',title:`好感ポイント：${pk.map(k=>'「'+k.w+'」').join('')}`,body:`ポジティブ発話の中心話題です。訴求軸・公式発信の強化候補になります。`});
+    if(nk.length) ins.push({ic:'⚠️',t:'r',title:`不満ポイント：${nk.map(k=>'「'+k.w+'」').join('')}`,body:`ネガティブ発話（全体の${(sr.n*100).toFixed(0)}%）で言及が多いテーマ。改善・コミュニケーション対応の優先候補です。`});
+  }
+  const ds=(sr.p-psr.p)*100; if(Math.abs(ds)>3) ins.push({ic:ds>0?'😊':'😟',t:ds>0?'g':'r',title:`ポジティブ率が前期から ${ds>0?'+':''}${ds.toFixed(1)}pt ${ds>0?'改善':'悪化'}`,body:`現在のポジ率 ${(sr.p*100).toFixed(1)}%／ネガ率 ${(sr.n*100).toFixed(1)}%。${ds>0?'新コンテンツやイベントが好意的に受け止められています。':'不満要因の特定と対応が必要です。'}`});
+  if(rising[0]&&rising[0].r>1.5) ins.push({ic:'🔥',t:'y',title:`急上昇キーワード「${rising[0].w}」（出現率 ×${rising[0].r.toFixed(1)}）`,body:`期間後半に急増。${rising[0].lean>.25?'ポジティブ文脈での言及が中心で、新たな関心・期待の高まりを示します。':rising[0].lean<-.15?'ネガティブ文脈が多く、新たな不満・懸念の芽である可能性があります。':'中立的な情報収集・話題化フェーズとみられます。'}`});
+  const diff=segCur.map((v,i)=>({s:SEG[i],d:v-segAll[i],v})).sort((a,b)=>b.d-a.d)[0]; const peakH=hrs.indexOf(Math.max(...hrs));
+  if(diff&&diff.d>4) ins.push({ic:'👥',t:'b',title:`発話者は「${diff.s}」が特徴的（全体比 +${diff.d.toFixed(1)}pt）`,body:`${diff.s}が${diff.v.toFixed(0)}%を占め、ゲーム全体平均より多い構成。発話ピークは${peakH}時台で、${peakH>=19?'プライムタイムの配信・プレイ後の発話が中心':'日中の情報拡散が中心'}です。`});
+  document.getElementById('insights').innerHTML = ins.slice(0,7).map(i=>`<div class="it"><div class="ic ${i.t}">${i.ic}</div><div><b>${i.title}</b><p>${i.body}</p></div></div>`).join('');
+}
+
+function renderPosts(cur){
+  let ps = cur; if(state.sentTab!=='all') ps = ps.filter(p=>p.s===state.sentTab); if(state.kw) ps = ps.filter(p=>p.kws.includes(state.kw));
+  document.getElementById('postHint').textContent = `エンゲージメント上位（該当 ${ps.length.toLocaleString()}件${state.kw?`／キーワード「${state.kw}」で絞込`:''}）`;
+  const top = [...ps].sort((a,b)=>(b.likes+b.rt)-(a.likes+a.rt)).slice(0,12);
+  const SL={p:'ポジティブ',g:'中立',n:'ネガティブ'};
+  document.getElementById('posts').innerHTML = top.map(p=>`<div class="post"><div class="h"><span class="av"></span><b style="color:#1f2937">${p.user}</b><span>@${p.user.replace(/[^a-zA-Z_]/g,'')||'user'}${(p.d*7)%997}</span><span>· ${fmt(dateOf(p.d))} ${String(p.hour).padStart(2,'0')}:${String((p.d*13)%60).padStart(2,'0')}</span><span class="pill ${p.s}">${SL[p.s]}</span><span class="chip">${p.leaf.name}</span><span class="chip">${SEG[p.seg]}</span></div><div class="b">${p.text.replace(/#(\S+)/g,'<span style="color:#2563eb">#$1</span>')}</div><div class="f"><span>💬 ${Math.floor(p.rt*.6)}</span><span>🔁 ${p.rt}</span><span>❤️ ${p.likes}</span><span class="muted">キーワード: ${p.kws.join(', ')}</span></div></div>`).join('') || '<div class="muted">該当するポストがありません</div>';
+}
+
+/* ============================================================
+   5. イベント
+============================================================ */
+document.querySelectorAll('#periods button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#periods button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.period=+b.dataset.p; renderAll(); });
+document.querySelectorAll('#ptabs button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('#ptabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); state.sentTab=b.dataset.s; renderPosts(POSTS.filter(p=>inNode(p,state.node)&&p.d>=curLo())); });
+
+renderAll();
+</script>
+</body>
+</html>
