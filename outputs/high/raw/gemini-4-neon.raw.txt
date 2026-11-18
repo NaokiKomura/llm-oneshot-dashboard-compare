@@ -1,0 +1,1869 @@
+マクロからミクロへ段階的にドリルダウンしながら、X（旧Twitter）の発話傾向・トピック・インサイトを多面的に分析できるインタラクティブなダッシュボードのモックを作成しました。
+
+以下のコードを `x-topic-dashboard.html` などの名前で保存し、ブラウザで開くとそのまま動作します。
+
+### 主な実装機能
+* **4階層のシームレスなドリルダウン**
+  * 例示いただいた **「ゲーム」→「コンシューマーゲーム」→「任天堂スイッチ」→「マリオカートワールド」** の流れに加え、「PlayStation 5（モンハンワイルズ）」「モバイルゲーム（原神）」「PC・Steam（パルワールド）」など複数ブランチを実装しています。
+  * **左サイドバーのツリー**、**上部のパンくずリスト**、**「下位トピック構成比」グラフのクリック**の3通りの方法で粒度を自在に切り替えられます。
+* **多面的なデータ可視化**
+  * **KPIサマリー**: 発話総数、前期間比、ポジティブ率、平均エンゲージメント、バズ指数
+  * **発話量・センチメント推移**: 期間切り替え（7日 / 30日 / 90日）や、話題のピーク要因（イベント注釈）を表示
+  * **下位トピック構成比 / 発話文脈内訳**: 上位階層ではサブトピックのシェア（クリックで深掘り）、最下層（タイトル単位）では発話の文脈カテゴリ（プレイ感想、価格・購入検討、要望・不満など）へ自動切り替え
+  * **AIインサイト・多面的示唆**: 階層ごとに「注目トレンド」「ポジティブ要因」「懸念・課題」「ネクストアクション示唆」を構造化表示
+  * **頻出キーワード & Xポスト一覧**: キーワードのクリックや、センチメント・キーワード検索・並び替え（いいね順／リポスト順／新着順）で実際のダミーポストを探索可能
+
+```html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SocialPulse | X発話トピック・インサイト分析ダッシュボード</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .fade-in {
+      animation: fadeIn 0.25s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="antialiased">
+  <div class="min-h-screen flex flex-col lg:flex-row">
+    <!-- 左サイドバー：階層ナビゲーション -->
+    <aside class="w-full lg:w-72 bg-slate-900 text-slate-200 flex-shrink-0 flex flex-col border-r border-slate-800">
+      <div class="p-5 border-b border-slate-800 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <i data-lucide="radar" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-white tracking-tight text-base">SocialPulse</h1>
+          <p class="text-[11px] text-slate-400">X Topic & Insight Analytics</p>
+        </div>
+      </div>
+
+      <div class="p-4 border-b border-slate-800">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+          <span>分析階層エクスプローラー</span>
+          <span class="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 text-[10px]">4階層</span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          マクロ（市場）からミクロ（個別タイトル）までクリックで粒度を切り替えられます。
+        </p>
+      </div>
+
+      <!-- 階層ツリー -->
+      <nav id="hierarchyTree" class="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin">
+        <!-- JSで動的生成 -->
+      </nav>
+
+      <!-- フッター情報 -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/50 text-xs text-slate-400 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            デモデータ稼働中
+          </span>
+          <span class="text-slate-500">v2.4 Mock</span>
+        </div>
+        <div class="text-[11px] text-slate-500">対象プラットフォーム: X (旧Twitter)</div>
+      </div>
+    </aside>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 min-w-0 flex flex-col">
+      <!-- トップバー -->
+      <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200 px-6 py-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <!-- パンくずリスト -->
+            <nav id="breadcrumbs" class="flex items-center flex-wrap gap-1.5 text-xs text-slate-500 mb-1">
+              <!-- JSで生成 -->
+            </nav>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h2 id="currentTitle" class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">-</h2>
+              <span id="currentLevelBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                -
+              </span>
+              <span id="currentDesc" class="text-xs text-slate-500 hidden sm:inline"></span>
+            </div>
+          </div>
+
+          <!-- コントロール（期間切替・クイック遷移） -->
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <div class="inline-flex rounded-lg bg-slate-100 p-1 border border-slate-200" id="rangeSelector">
+              <button data-range="7d" class="range-btn px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">7日間</button>
+              <button data-range="30d" class="range-btn px-3 py-1 rounded-md text-xs font-semibold bg-white text-indigo-600 shadow-sm transition">30日間</button>
+              <button data-range="90d" class="range-btn px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition">90日間</button>
+            </div>
+            <button id="resetToMicroDemo" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>マリオカートワールドを見る</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- ダッシュボード本体 -->
+      <div id="dashboardBody" class="p-6 space-y-6 max-w-[1600px] w-full mx-auto fade-in">
+        <!-- ドリルダウン案内バナー（子階層がある場合） -->
+        <div id="childQuickBar" class="hidden bg-gradient-to-r from-indigo-50 via-white to-sky-50 border border-indigo-100 rounded-xl p-3.5 flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-2 text-xs text-indigo-900 font-medium">
+            <i data-lucide="layers" class="w-4 h-4 text-indigo-600"></i>
+            <span>下位トピックへドリルダウンして詳細を分析：</span>
+          </div>
+          <div id="childQuickButtons" class="flex items-center flex-wrap gap-2"></div>
+        </div>
+
+        <!-- KPIカード -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-slate-500">総発話量（ポスト数）</span>
+              <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <i data-lucide="message-square" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpiVolume" class="text-2xl font-bold text-slate-900">-</span>
+              <span id="kpiGrowth" class="text-xs font-semibold px-1.5 py-0.5 rounded">-</span>
+            </div>
+            <p id="kpiVolumeSub" class="text-[11px] text-slate-400 mt-1.5">-</p>
+          </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-slate-500">ポジティブ発話率</span>
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="smile" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpiPositive" class="text-2xl font-bold text-slate-900">-</span>
+              <span id="kpiNetSentiment" class="text-xs font-medium text-emerald-600">-</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden flex mt-2.5">
+              <div id="barPos" class="bg-emerald-500 h-full transition-all duration-500"></div>
+              <div id="barNeu" class="bg-slate-300 h-full transition-all duration-500"></div>
+              <div id="barNeg" class="bg-rose-500 h-full transition-all duration-500"></div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-slate-500">推定リーチ / エンゲージメント</span>
+              <div class="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+                <i data-lucide="repeat-2" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpiEngagement" class="text-2xl font-bold text-slate-900">-</span>
+              <span class="text-xs text-slate-500">件</span>
+            </div>
+            <p id="kpiEngagementSub" class="text-[11px] text-slate-400 mt-1.5">-</p>
+          </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-slate-500">注目度・バズ指数</span>
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="flame" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpiBuzz" class="text-2xl font-bold text-slate-900">-</span>
+              <span class="text-xs text-slate-400">/ 100</span>
+              <span id="kpiBuzzLabel" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">-</span>
+            </div>
+            <p id="kpiUniqueUsers" class="text-[11px] text-slate-400 mt-1.5">-</p>
+          </div>
+        </section>
+
+        <!-- メインチャートセクション -->
+        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          <!-- 発話量・センチメント推移 -->
+          <div class="xl:col-span-8 bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <i data-lucide="trending-up" class="w-4 h-4 text-indigo-600"></i>
+                  発話量の推移とセンチメント変化
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">日次ポスト総数およびポジティブ・ネガティブ内訳</p>
+              </div>
+              <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200 self-start">
+                <button id="modeTotal" class="chart-mode-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-indigo-600 shadow-sm">総発話量</button>
+                <button id="modeSentiment" class="chart-mode-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600">センチメント別</button>
+              </div>
+            </div>
+            <div class="relative h-72 w-full">
+              <canvas id="trendChart"></canvas>
+            </div>
+            <!-- スパイク・イベント注釈 -->
+            <div id="peakEvents" class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-2"></div>
+          </div>
+
+          <!-- 下位トピック構成比 / 文脈内訳 -->
+          <div class="xl:col-span-4 bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col">
+            <div class="mb-4">
+              <div class="flex items-center justify-between">
+                <h3 id="breakdownTitle" class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-600"></i>
+                  <span>下位トピック構成比</span>
+                </h3>
+                <span id="breakdownHint" class="text-[11px] text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">クリックで深掘り</span>
+              </div>
+              <p id="breakdownSubtitle" class="text-xs text-slate-500 mt-0.5">発話シェアと前期間比の成長率</p>
+            </div>
+            <div class="relative h-56 w-full">
+              <canvas id="breakdownChart"></canvas>
+            </div>
+            <div id="breakdownList" class="mt-4 space-y-2 flex-1"></div>
+          </div>
+        </section>
+
+        <!-- インサイト & トピック・キーワード分析 -->
+        <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          <!-- AIインサイト・多面的示唆 -->
+          <div class="xl:col-span-7 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <i data-lucide="lightbulb" class="w-4 h-4 text-amber-500"></i>
+                  多面的インサイト・発話から読み取れる示唆
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">当該粒度のポスト群から抽出した主要トピック・感情要因・アクション示唆</p>
+              </div>
+              <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">AIサマリー</span>
+            </div>
+
+            <div id="insightSummaryBox" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 leading-relaxed mb-4">
+            </div>
+
+            <div id="insightCards" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <!-- JSで4象限の示唆を描画 -->
+            </div>
+          </div>
+
+          <!-- 頻出キーワード・話題クラスター & 感情比率 -->
+          <div class="xl:col-span-5 bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between gap-5">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="hash" class="w-4 h-4 text-indigo-600"></i>
+                    頻出キーワード・共起トピック
+                  </h3>
+                  <p class="text-xs text-slate-500 mt-0.5">クリックすると下のポスト一覧を絞り込みます</p>
+                </div>
+                <button id="clearKeywordFilter" class="hidden text-xs text-indigo-600 hover:underline font-medium">解除</button>
+              </div>
+              <div id="keywordCloud" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100">
+              <h4 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                <i data-lucide="users" class="w-3.5 h-3.5 text-slate-500"></i>
+                発話者セグメント分布（推定）
+              </h4>
+              <div id="personaBars" class="space-y-2.5"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Xポスト・ダミーデータエクスプローラー -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <i data-lucide="message-circle-more" class="w-4 h-4 text-indigo-600"></i>
+                代表的なXポスト一覧（ダミーデータ）
+                <span id="postCountBadge" class="ml-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">0件</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">現在選択中の階層および下位階層に含まれる代表的な発話サンプル</p>
+            </div>
+
+            <!-- フィルター・検索 -->
+            <div class="flex flex-wrap items-center gap-2.5">
+              <div class="relative">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input id="postSearch" type="text" placeholder="ポスト本文・タグを検索..." class="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 w-52">
+              </div>
+
+              <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200" id="sentimentFilter">
+                <button data-sentiment="all" class="sent-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-slate-900 shadow-sm">すべて</button>
+                <button data-sentiment="positive" class="sent-btn px-2.5 py-1 rounded-md text-xs font-medium text-emerald-700">ポジティブ</button>
+                <button data-sentiment="neutral" class="sent-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600">中立</button>
+                <button data-sentiment="negative" class="sent-btn px-2.5 py-1 rounded-md text-xs font-medium text-rose-700">ネガティブ</button>
+              </div>
+
+              <select id="postSort" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <option value="likes">いいね数順</option>
+                <option value="reposts">リポスト数順</option>
+                <option value="date">新着順</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="postList" class="divide-y divide-slate-100 max-h-[540px] overflow-y-auto scrollbar-thin">
+            <!-- JSで生成 -->
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 階層データモデル（マクロ → ミクロ）
+    //    L1: ゲーム
+    //      L2: コンシューマーゲーム
+    //        L3: 任天堂スイッチ
+    //          L4: マリオカートワールド
+    //          L4: ゼルダの伝説
+    //        L3: PlayStation 5
+    //          L4: モンスターハンターワイルズ
+    //      L2: モバイルゲーム
+    //        L3: HoYoverseタイトル
+    //          L4: 原神
+    //      L2: PCゲーム / Steam
+    //        L3: インディー・話題作
+    //          L4: パルワールド
+    // =========================================================================
+    const LEVEL_LABELS = {
+      1: 'L1: マクロ市場',
+      2: 'L2: プラットフォーム領域',
+      3: 'L3: ハード / カテゴリ',
+      4: 'L4: 個別タイトル（ミクロ）'
+    };
+
+    const NODES = {
+      game: {
+        id: 'game',
+        parentId: null,
+        level: 1,
+        name: 'ゲーム',
+        shortDesc: '国内X上のゲーム関連発話全体（コンシューマー・モバイル・PC）',
+        children: ['consumer', 'mobile', 'pc'],
+        metrics: {
+          volume30d: 4820000,
+          growth: 18.4,
+          positive: 54,
+          neutral: 31,
+          negative: 15,
+          engagement: 19450000,
+          buzz: 88,
+          uniqueUsers: 1240000
+        },
+        trendBase: [118, 124, 131, 129, 145, 162, 158, 140, 148, 155, 172, 215, 248, 226, 198, 185, 179, 190, 205, 195, 188, 192, 210, 234, 220, 198, 189, 204, 218, 229],
+        events: [
+          { day: '13日前', label: '大型タイトル発表・ダイレクト放送で発話急増', type: 'spike' },
+          { day: '7日前', label: '週末のマルチプレイ・配信企画トレンド入り', type: 'trend' }
+        ],
+        summary: '全体としてコンシューマー大型新作の発表と次世代ハード関連の期待感が市場の発話量を大きく牽引（前月比+18.4%）。一方で、ハード・ソフト価格帯やクロスプレイ対応に関する議論も活発化しており、ライト層とコア層で関心軸の二極化が見られます。',
+        insights: [
+          { type: 'trend', title: '次世代ハード＆大型新作への期待爆発', body: '任天堂スイッチ関連と大型アクション新作が全体発話の6割近くを占め、発表配信の同時視聴ツイートがバズの中核。' },
+          { type: 'positive', title: '「みんなで遊べる体験」への高評価', body: 'オンライン対戦・協力プレイ・配信映えするオープンフィールド要素がポジティブ発話を強力に牽引。' },
+          { type: 'negative', title: '価格改定・入手性への懸念', body: '本体・ソフト価格の上昇や転売対策に対する不安の声が全体の15%前後のネガティブ要因を形成。' },
+          { type: 'action', title: '示唆：プレイ動画クリップの拡散設計', body: '15〜30秒のハプニング動画や対戦ハイライトの投稿エンゲージメントが通常の3.4倍。シェア導線の最適化が鍵。' }
+        ],
+        keywords: [
+          { text: '任天堂スイッチ', count: 642000, sentiment: 'positive' },
+          { text: 'マリオカートワールド', count: 418000, sentiment: 'positive' },
+          { text: 'モンハンワイルズ', count: 385000, sentiment: 'positive' },
+          { text: '原神', count: 294000, sentiment: 'neutral' },
+          { text: 'オープンワールド', count: 215000, sentiment: 'positive' },
+          { text: '予約戦争', count: 162000, sentiment: 'negative' },
+          { text: 'クロスプレイ', count: 148000, sentiment: 'positive' },
+          { text: '価格高い', count: 112000, sentiment: 'negative' },
+          { text: '神ゲー', count: 274000, sentiment: 'positive' },
+          { text: 'Steam', count: 198000, sentiment: 'neutral' }
+        ],
+        personas: [
+          { label: 'コアゲーマー層', pct: 42, color: 'bg-indigo-500' },
+          { label: 'ライト・ファミリー層', pct: 28, color: 'bg-emerald-500' },
+          { label: '配信視聴・ファン層', pct: 21, color: 'bg-sky-500' },
+          { label: '業界ウォッチャー・報道', pct: 9, color: 'bg-amber-500' }
+        ]
+      },
+
+      consumer: {
+        id: 'consumer',
+        parentId: 'game',
+        level: 2,
+        name: 'コンシューマーゲーム',
+        shortDesc: '家庭用ゲーム機（任天堂スイッチ・PS5等）に関連する発話群',
+        children: ['switch', 'ps5'],
+        metrics: {
+          volume30d: 2680000,
+          growth: 26.2,
+          positive: 57,
+          neutral: 28,
+          negative: 15,
+          engagement: 11800000,
+          buzz: 92,
+          uniqueUsers: 745000
+        },
+        trendBase: [60, 62, 68, 65, 74, 85, 81, 72, 78, 82, 95, 138, 165, 148, 122, 110, 104, 112, 125, 118, 112, 115, 129, 145, 135, 119, 114, 124, 136, 144],
+        events: [
+          { day: '13日前', label: '任天堂スイッチ関連の大型情報解禁で過去最高水準', type: 'spike' },
+          { day: '6日前', label: 'PS5大型狩猟アクションのアップデート配信', type: 'trend' }
+        ],
+        summary: 'コンシューマー領域はゲーム市場全体で最も伸長率が高い（+26.2%）。任天堂スイッチ系のファミリー＆対戦タイトルと、PS5のハイエンド協力アクションが二大巨頭となり、買い替え・本体購入検討の文脈が急増しています。',
+        insights: [
+          { type: 'trend', title: '本体購入・抽選予約に関する情報収集が急増', body: '「どこで予約できるか」「同梱版はお得か」など購買直前の実利的なやり取りが大幅に増加。' },
+          { type: 'positive', title: 'グラフィック進化とシームレス体験への称賛', body: 'ロード時間短縮やシームレスなマップ移動など、ハード性能向上を体感できる要素が高評価。' },
+          { type: 'negative', title: 'ソフト価格帯（8,000〜9,000円台）への戸惑い', body: 'パッケージ版・DL版の価格差やボリュームに対するコスパ議論がネガティブ発話の主因。' },
+          { type: 'action', title: '示唆：購買検討層向けの比較・QA発信', body: '「旧機種からのデータ引き継ぎ」「同梱版との差額」を分かりやすく図解したポストの保存数（ブックマーク）が顕著。' }
+        ],
+        keywords: [
+          { text: '任天堂スイッチ', count: 642000, sentiment: 'positive' },
+          { text: 'マリオカートワールド', count: 418000, sentiment: 'positive' },
+          { text: 'モンハンワイルズ', count: 385000, sentiment: 'positive' },
+          { text: 'PS5', count: 312000, sentiment: 'neutral' },
+          { text: '抽選予約', count: 184000, sentiment: 'negative' },
+          { text: '同梱版', count: 142000, sentiment: 'positive' },
+          { text: 'フレームレート', count: 96000, sentiment: 'neutral' },
+          { text: 'ローカル通信', count: 88000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'コンシューマー愛好層', pct: 46, color: 'bg-indigo-500' },
+          { label: 'ライト・ファミリー層', pct: 31, color: 'bg-emerald-500' },
+          { label: '配信者・インフルエンサー追随', pct: 15, color: 'bg-sky-500' },
+          { label: 'ガジェット・ハード関心層', pct: 8, color: 'bg-amber-500' }
+        ]
+      },
+
+      switch: {
+        id: 'switch',
+        parentId: 'consumer',
+        level: 3,
+        name: '任天堂スイッチ',
+        shortDesc: 'Nintendo Switch / 次世代機および任天堂ファーストタイトル群',
+        children: ['mariokart', 'zelda'],
+        metrics: {
+          volume30d: 1640000,
+          growth: 34.8,
+          positive: 61,
+          neutral: 26,
+          negative: 13,
+          engagement: 7850000,
+          buzz: 95,
+          uniqueUsers: 512000
+        },
+        trendBase: [34, 36, 39, 38, 44, 52, 49, 43, 47, 51, 62, 102, 128, 112, 88, 76, 70, 74, 82, 79, 73, 76, 85, 96, 89, 77, 74, 83, 91, 98],
+        events: [
+          { day: '13日前', label: 'マリオカートワールド続報＆機能紹介トレーラー公開', type: 'spike' },
+          { day: '5日前', label: '公式ストア抽選結果発表でトレンド1位獲得', type: 'spike' }
+        ],
+        summary: '任天堂スイッチ領域は前月比+34.8%と驚異的な伸びを記録。特にキラータイトル「マリオカートワールド」が全体の約58%の発話を占め、久々にゲームを買う層（復帰勢・ライト層）を巻き込んだ社会現象的な盛り上がりを見せています。',
+        insights: [
+          { type: 'trend', title: '「マリオカートワールド」がハード牽引の絶対的ドライバー', body: '本体購入理由の言及において「マリカ同梱版を狙う」という発話が圧倒的多数を占める。' },
+          { type: 'positive', title: 'チャット・画面共有などソーシャル機能への好感', body: 'フレンドと通話しながら遊ぶ体験や、オフラインで家族と楽しむシーンの想起がポジティブ率61%を後押し。' },
+          { type: 'negative', title: '抽選落選・転売対策への不安', body: 'マイニンテンドーストアの応募条件や抽選倍率の高さに対する嘆きがネガティブの過半数。' },
+          { type: 'action', title: '示唆：ライト層・復帰勢への安心感醸成', body: '「既存のスイッチソフトも遊べる互換性」へのポジティブ反応が強く、移行のハードルを下げる訴求が有効。' }
+        ],
+        keywords: [
+          { text: 'マリオカートワールド', count: 418000, sentiment: 'positive' },
+          { text: '同梱版', count: 142000, sentiment: 'positive' },
+          { text: 'ゼルダの伝説', count: 138000, sentiment: 'positive' },
+          { text: '抽選落選', count: 129000, sentiment: 'negative' },
+          { text: '互換性', count: 94000, sentiment: 'positive' },
+          { text: 'Joy-Con', count: 87000, sentiment: 'neutral' },
+          { text: '任天堂ダイレクト', count: 112000, sentiment: 'positive' },
+          { text: 'マイニンテンドー', count: 78000, sentiment: 'neutral' }
+        ],
+        personas: [
+          { label: 'ライト・ファミリー・復帰層', pct: 41, color: 'bg-emerald-500' },
+          { label: '任天堂ファン・コア層', pct: 34, color: 'bg-indigo-500' },
+          { label: '配信者・SNSトレンド層', pct: 18, color: 'bg-sky-500' },
+          { label: 'ガジェット関心層', pct: 7, color: 'bg-amber-500' }
+        ]
+      },
+
+      mariokart: {
+        id: 'mariokart',
+        parentId: 'switch',
+        level: 4,
+        name: 'マリオカートワールド',
+        shortDesc: 'シリーズ最新作：広大なオープンワールド＆24人対戦を巡るミクロ分析',
+        children: [],
+        metrics: {
+          volume30d: 948000,
+          growth: 64.5,
+          positive: 66,
+          neutral: 22,
+          negative: 12,
+          engagement: 5120000,
+          buzz: 98,
+          uniqueUsers: 338000
+        },
+        trendBase: [14, 15, 16, 15, 19, 24, 22, 20, 23, 27, 35, 72, 95, 81, 61, 50, 44, 48, 55, 51, 47, 50, 58, 66, 61, 52, 49, 57, 64, 71],
+        events: [
+          { day: '13日前', label: '「24人同時対戦」「フリーラン」詳細映像がバズ', type: 'spike' },
+          { day: '7日前', label: '新キャラ「ウシ」参戦ミームが大拡散', type: 'trend' },
+          { day: '2日前', label: '体験会プレイレポ解禁で操作感の評価急上昇', type: 'trend' }
+        ],
+        // L4（最下層）の場合は発話文脈・トピックカテゴリ内訳を表示
+        contextBreakdown: [
+          { label: '新要素への期待（フリーラン・24人対戦）', pct: 34, growth: '+82%', color: '#6366f1' },
+          { label: 'キャラクター・衣装・ミーム（ウシ等）', pct: 24, growth: '+140%', color: '#10b981' },
+          { label: '本体セット・予約・価格に関する議論', pct: 21, growth: '+45%', color: '#f59e0b' },
+          { label: 'コース接続・レース戦略（ガチ勢分析）', pct: 13, growth: '+28%', color: '#0ea5e9' },
+          { label: '操作性・画面の見やすさへの懸念', pct: 8, growth: '+12%', color: '#f43f5e' }
+        ],
+        summary: '「マリオカートワールド」はシリーズ最大級の変革となる「世界が繋がるオープンワールド（フリーラン）」と「24人対戦」が圧倒的な好意を獲得（ポジティブ率66%）。特に「ウシ（モーモーカントリー）」などの意外な参戦キャラがX上でミーム化し、ゲームファン以外にも爆発的にリーチしています。一方でソフト単体価格への議論と、24人レースの視認性に対する慎重な声も確認されます。',
+        insights: [
+          { type: 'trend', title: '「ウシ参戦」などミーム性の高いネタが拡散装置に', body: '公式トレーラー内のユーモラスなキャラ・コスチュームがファンアートや大喜利を生み、自然拡散（オーガニックRT）を底上げ。' },
+          { type: 'positive', title: '「レースせずドライブできる」フリーランがライト層に刺さる', body: '勝敗のストレスなくフレンドと写真撮影やドライブを楽しめる点が、従来のレースゲーム非関心層から絶賛。' },
+          { type: 'negative', title: '単体価格への割高感と24人対戦のアイテム乱戦懸念', body: '「同梱版ならお得だが単体は高く感じる」「24人だとトゲゾーやサンダー地獄にならないか」という具体的懸念が散見。' },
+          { type: 'action', title: '示唆：ドライブ体験動画×同梱版のお得感訴求', body: 'コア層向けには「サバイバルモードの緊張感」、ライト層向けには「フリーランの気楽さ」と二軸でクリエイティブを分けると効果的。' }
+        ],
+        keywords: [
+          { text: 'フリーラン', count: 168000, sentiment: 'positive' },
+          { text: '24人対戦', count: 152000, sentiment: 'positive' },
+          { text: 'ウシ', count: 134000, sentiment: 'positive' },
+          { text: 'サバイバルモード', count: 92000, sentiment: 'positive' },
+          { text: '同梱版お得', count: 88000, sentiment: 'positive' },
+          { text: 'ソフト価格', count: 76000, sentiment: 'negative' },
+          { text: 'コース移動', count: 69000, sentiment: 'neutral' },
+          { text: 'トゲゾー地獄', count: 54000, sentiment: 'negative' },
+          { text: 'レールスライド', count: 61000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'ライト・エンジョイ勢', pct: 38, color: 'bg-emerald-500' },
+          { label: 'マリカ過去作ファン・ガチ勢', pct: 29, color: 'bg-indigo-500' },
+          { label: 'ミーム・ファンアート拡散層', pct: 23, color: 'bg-sky-500' },
+          { label: '親子・ファミリー購入検討層', pct: 10, color: 'bg-amber-500' }
+        ]
+      },
+
+      zelda: {
+        id: 'zelda',
+        parentId: 'switch',
+        level: 4,
+        name: 'ゼルダの伝説',
+        shortDesc: 'エディション強化・フレームレート向上・シリーズ考察の発話群',
+        children: [],
+        metrics: {
+          volume30d: 382000,
+          growth: 14.2,
+          positive: 68,
+          neutral: 24,
+          negative: 8,
+          engagement: 1840000,
+          buzz: 79,
+          uniqueUsers: 142000
+        },
+        trendBase: [11, 12, 11, 13, 14, 15, 14, 12, 13, 14, 16, 22, 26, 21, 18, 16, 15, 16, 17, 16, 15, 16, 18, 20, 19, 17, 16, 17, 18, 19],
+        events: [
+          { day: '13日前', label: 'アップグレード版の高解像度・60fps比較映像が話題', type: 'spike' }
+        ],
+        contextBreakdown: [
+          { label: '画質・60fps向上＆ロード短縮への感動', pct: 39, growth: '+52%', color: '#6366f1' },
+          { label: 'スマホ連携機能（ナビ・設計図共有）', pct: 25, growth: '+68%', color: '#10b981' },
+          { label: '過去作の再プレイ意欲・思い出語り', pct: 20, growth: '+15%', color: '#0ea5e9' },
+          { label: 'アップグレードパス価格への意見', pct: 16, growth: '+22%', color: '#f59e0b' }
+        ],
+        summary: '高フレームレート化とロード時間短縮に対する技術的満足度が非常に高く、ポジティブ率は68%と全タイトル中トップクラス。スマホ連携によるクラフト設計図のQR共有機能がクリエイター層の再燃を促しています。',
+        insights: [
+          { type: 'trend', title: '「もう一度ハイラルを旅したい」再プレイ気運', body: '60fps化とHDR対応の比較動画が拡散され、既プレイ層の周回意欲が大きく刺激されている。' },
+          { type: 'positive', title: 'スマホ連携ナビ＆設計図シェアが高評価', body: 'コログ探し支援やゾナウギア設計図の共有がSNSとの相性抜群と絶賛。' },
+          { type: 'negative', title: '追加アップグレード費用の分かりにくさ', body: 'オンライン加入特典に含まれるかどうかの仕様確認ポストが一部混乱を生んでいる。' },
+          { type: 'action', title: '示唆：ゾナウギア設計図コンテスト施策', body: 'QRコード共有を前提としたユーザー参加型ハッシュタグ企画で長期的なUGC創出が可能。' }
+        ],
+        keywords: [
+          { text: '60fps', count: 68000, sentiment: 'positive' },
+          { text: 'アップグレードパス', count: 52000, sentiment: 'neutral' },
+          { text: 'ロード爆速', count: 49000, sentiment: 'positive' },
+          { text: 'ゾナウギア共有', count: 44000, sentiment: 'positive' },
+          { text: 'コログナビ', count: 38000, sentiment: 'positive' },
+          { text: '追加料金', count: 24000, sentiment: 'negative' }
+        ],
+        personas: [
+          { label: 'シリーズ熱狂的ファン', pct: 52, color: 'bg-indigo-500' },
+          { label: 'クラフト・やり込み勢', pct: 24, color: 'bg-emerald-500' },
+          { label: '新規・未プレイ検討層', pct: 16, color: 'bg-sky-500' },
+          { label: '技術・グラフィック関心層', pct: 8, color: 'bg-amber-500' }
+        ]
+      },
+
+      ps5: {
+        id: 'ps5',
+        parentId: 'consumer',
+        level: 3,
+        name: 'PlayStation 5',
+        shortDesc: 'PS5本体およびハイエンドAAAタイトル関連の発話群',
+        children: ['mhwilds'],
+        metrics: {
+          volume30d: 1040000,
+          growth: 14.6,
+          positive: 51,
+          neutral: 31,
+          negative: 18,
+          engagement: 3950000,
+          buzz: 84,
+          uniqueUsers: 298000
+        },
+        trendBase: [26, 26, 29, 27, 30, 33, 32, 29, 31, 31, 33, 36, 37, 36, 34, 34, 34, 38, 43, 39, 39, 39, 44, 49, 46, 42, 40, 41, 45, 46],
+        events: [
+          { day: '7日前', label: 'モンスターハンターワイルズ大型タイトルアップデート配信', type: 'spike' }
+        ],
+        summary: 'PS5領域は「モンスターハンターワイルズ」を筆頭とする大型アクションタイトルの継続プレイ・アップデート発話が屋台骨。性能・映像美の評価が高い一方、本体価格改定後の購入ハードルやPC版との比較議論が続いています。',
+        insights: [
+          { type: 'trend', title: 'アップデート連動型の波状的な発話ピーク', body: '大型アプデやイベントクエスト配信のたびにSNS上のマルチ募集が一斉に活性化する構造。' },
+          { type: 'positive', title: 'DualSenseの触覚フィードバックと没入感', body: 'ハイエンド映像とコントローラー振動表現の組み合わせがコア層から根強い支持。' },
+          { type: 'negative', title: '本体価格とPS Plus料金へのコスト意識', body: '「PCとどちらを買うべきか」という比較文脈でコスト面の不満が表面化しやすい。' },
+          { type: 'action', title: '示唆：マルチプレイ募集文化を活かす公式ハブ', body: 'フレンド募集・装備共有テンプレートの配布がアクティブ維持と新規誘引に直結。' }
+        ],
+        keywords: [
+          { text: 'モンハンワイルズ', count: 385000, sentiment: 'positive' },
+          { text: 'PS5Pro', count: 118000, sentiment: 'neutral' },
+          { text: 'クロスプレイ', count: 95000, sentiment: 'positive' },
+          { text: '本体高い', count: 82000, sentiment: 'negative' },
+          { text: 'マルチ募集', count: 104000, sentiment: 'positive' },
+          { text: 'DualSense', count: 62000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'コアアクションゲーマー', pct: 58, color: 'bg-indigo-500' },
+          { label: 'PC併用マルチハード層', pct: 22, color: 'bg-sky-500' },
+          { label: '購入検討・比較層', pct: 12, color: 'bg-amber-500' },
+          { label: '配信者・攻略班', pct: 8, color: 'bg-emerald-500' }
+        ]
+      },
+
+      mhwilds: {
+        id: 'mhwilds',
+        parentId: 'ps5',
+        level: 4,
+        name: 'モンスターハンターワイルズ',
+        shortDesc: '大型アプデ・装備ビルド・マルチプレイ発話のミクロ分析',
+        children: [],
+        metrics: {
+          volume30d: 692000,
+          growth: 21.8,
+          positive: 56,
+          neutral: 27,
+          negative: 17,
+          engagement: 2860000,
+          buzz: 89,
+          uniqueUsers: 214000
+        },
+        trendBase: [16, 17, 19, 18, 20, 22, 21, 19, 20, 20, 22, 24, 24, 23, 22, 22, 23, 27, 32, 28, 28, 29, 34, 39, 36, 31, 29, 30, 33, 35],
+        events: [
+          { day: '7日前', label: '追加モンスター＆高難度クエスト解禁でマルチ募集殺到', type: 'spike' },
+          { day: '3日前', label: '武器バランス調整パッチノート公開で議論活発化', type: 'trend' }
+        ],
+        contextBreakdown: [
+          { label: '追加モンスター攻略・タイムアタック動画', pct: 32, growth: '+48%', color: '#6366f1' },
+          { label: '装備ビルド・重ね着コーデ共有', pct: 26, growth: '+35%', color: '#10b981' },
+          { label: '武器種ごとのバランス調整議論', pct: 22, growth: '+64%', color: '#f59e0b' },
+          { label: 'マルチ募集・サークル交流', pct: 12, growth: '+18%', color: '#0ea5e9' },
+          { label: 'エンドコンテンツ量・最適化への要望', pct: 8, growth: '-5%', color: '#f43f5e' }
+        ],
+        summary: '追加モンスター実装と重ね着コーデ共有がポジティブ発話を強力に牽引。一方、武器種間のバランス調整やエンドコンテンツの周回設計に関してはコア層ならではの熱量の高い要望（建設的ネガティブ）が集中しています。',
+        insights: [
+          { type: 'trend', title: '「重ね着コーデ」のスクショ文化が女性・ライト層へ波及', body: '戦闘だけでなくファッション共有ポストのいいね率が非常に高く、コミュニティ定着に貢献。' },
+          { type: 'positive', title: '傷口破壊＆集中モードの爽快感が高評価', body: '新アクションによる狩猟テンポの良さと、クロスプレイによるフレンドとの合流しやすさが好評。' },
+          { type: 'negative', title: '武器バランス格差と周回モチベ維持の課題', body: '愛用武器の火力調整を求める声や、上位のやり込み要素追加を望む発話が一定数存在。' },
+          { type: 'action', title: '示唆：調整意図の透明化とコーデ公式紹介', body: 'パッチノートでの調整背景の丁寧な説明が炎上抑止に機能。ユーザーコーデの公式ピックアップも高効果。' }
+        ],
+        keywords: [
+          { text: '重ね着コーデ', count: 94000, sentiment: 'positive' },
+          { text: '集中モード', count: 78000, sentiment: 'positive' },
+          { text: '武器調整', count: 86000, sentiment: 'negative' },
+          { text: '歴戦個体', count: 71000, sentiment: 'neutral' },
+          { text: '救難信号', count: 65000, sentiment: 'positive' },
+          { text: 'エンドコンテンツ', count: 52000, sentiment: 'negative' }
+        ],
+        personas: [
+          { label: 'ハンター歴長めのコア勢', pct: 49, color: 'bg-indigo-500' },
+          { label: 'フレンドと遊ぶマルチ勢', pct: 27, color: 'bg-emerald-500' },
+          { label: 'キャラクリ・重ね着勢', pct: 16, color: 'bg-sky-500' },
+          { label: 'TA・攻略配信者層', pct: 8, color: 'bg-amber-500' }
+        ]
+      },
+
+      mobile: {
+        id: 'mobile',
+        parentId: 'game',
+        level: 2,
+        name: 'モバイルゲーム',
+        shortDesc: 'スマートフォン向けガチャ・ライブサービス型ゲーム全般',
+        children: ['hoyo'],
+        metrics: {
+          volume30d: 1380000,
+          growth: 6.4,
+          positive: 49,
+          neutral: 35,
+          negative: 16,
+          engagement: 5120000,
+          buzz: 78,
+          uniqueUsers: 395000
+        },
+        trendBase: [38, 41, 43, 42, 48, 52, 51, 45, 46, 48, 50, 49, 52, 48, 47, 46, 45, 47, 50, 48, 47, 48, 51, 56, 54, 49, 46, 49, 51, 53],
+        events: [
+          { day: '18日前', label: '人気キャラのピックアップガチャ更新で一時トレンド独占', type: 'spike' },
+          { day: '6日前', label: '大型バージョン予告番組の同時接続・シリアルコード拡散', type: 'trend' }
+        ],
+        summary: 'モバイルゲーム市場はガチャ更新やバージョン予告番組に合わせた周期的なスパイクが特徴。ファンアートや二次創作による高いエンゲージメントが強みである一方、日課（デイリー）の負担感やガチャ排出率に関する不満が定常的に見られます。',
+        insights: [
+          { type: 'trend', title: 'マルチプラットフォーム化（スマホ×PC×PS）が標準に', body: '外出時はスマホ、自宅ではPCやコンシューマーで遊ぶハイブリッド層の発話が増加。' },
+          { type: 'positive', title: 'キャラクター造形・ストーリー演出の熱狂的ファンダム', body: '新キャラPV公開直後の感想・考察・ファンアート連鎖が圧倒的な拡散力を維持。' },
+          { type: 'negative', title: 'ガチャすり抜け＆ストレージ容量圧迫への嘆き', body: 'スマホ容量不足によるアンインストール報告や、課金疲れを示唆する発話がネガティブの核。' },
+          { type: 'action', title: '示唆：軽量化・復帰キャンペーンの訴求強化', body: '「クラウド版対応」「過去リソース削除機能」など容量懸念を払拭する告知への反応が良好。' }
+        ],
+        keywords: [
+          { text: '原神', count: 294000, sentiment: 'positive' },
+          { text: 'ガチャ結果', count: 245000, sentiment: 'neutral' },
+          { text: 'すり抜け', count: 138000, sentiment: 'negative' },
+          { text: '予告番組', count: 126000, sentiment: 'positive' },
+          { text: '容量不足', count: 84000, sentiment: 'negative' },
+          { text: 'ファンアート', count: 162000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'キャラ推し・二次創作層', pct: 44, color: 'bg-sky-500' },
+          { label: '微課金・日課コツコツ層', pct: 33, color: 'bg-emerald-500' },
+          { label: '重課金・性能検証勢', pct: 15, color: 'bg-indigo-500' },
+          { label: '復帰検討・休止層', pct: 8, color: 'bg-amber-500' }
+        ]
+      },
+
+      hoyo: {
+        id: 'hoyo',
+        parentId: 'mobile',
+        level: 3,
+        name: 'HoYoverseタイトル',
+        shortDesc: '原神・崩壊：スターレイル・ゼンレスゾーンゼロ等',
+        children: ['genshin'],
+        metrics: {
+          volume30d: 710000,
+          growth: 11.2,
+          positive: 55,
+          neutral: 31,
+          negative: 14,
+          engagement: 3240000,
+          buzz: 83,
+          uniqueUsers: 228000
+        },
+        trendBase: [19, 21, 22, 21, 24, 27, 26, 23, 24, 25, 26, 26, 28, 25, 24, 24, 23, 25, 27, 26, 25, 26, 28, 31, 30, 26, 25, 27, 28, 30],
+        events: [
+          { day: '6日前', label: '最新バージョン予告番組＆新エリア公開', type: 'spike' }
+        ],
+        summary: '複数タイトルを掛け持ちするファン層が多く、ストーリー演出・音楽・キャラPVのクオリティが極めて高い評価を獲得。一方でイベント消化のスケジュール過密感に対する声も上がっています。',
+        insights: [
+          { type: 'trend', title: 'タイトル横断型のファンコミュニティ形成', body: '複数タイトルを同時プレイする層が多く、他タイトルとの改善点比較（QoL比較）が頻繁に行われる。' },
+          { type: 'positive', title: '音楽・アニメーションPVの圧倒的完成度', body: '公式YouTube連動のショートアニメやBGMに対する絶賛ポストが海外・国内ともに高エンゲージメント。' },
+          { type: 'negative', title: '複数タイトル掛け持ちによる「日課疲れ」', body: 'イベント期限が重なる時期に消化しきれないというライトな疲弊感が増加傾向。' },
+          { type: 'action', title: '示唆：スキップ機能・時短QoL改善の積極PR', body: '育成素材の取得緩和やデイリー短縮アップデートは休止層の復帰トリガーとして最強。' }
+        ],
+        keywords: [
+          { text: '原神', count: 294000, sentiment: 'positive' },
+          { text: '新キャラPV', count: 112000, sentiment: 'positive' },
+          { text: '魔神任務', count: 88000, sentiment: 'positive' },
+          { text: '聖遺物厳選', count: 74000, sentiment: 'negative' },
+          { text: '石配布', count: 69000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'ストーリー・世界観重視層', pct: 46, color: 'bg-indigo-500' },
+          { label: '推しキャラ収集層', pct: 35, color: 'bg-sky-500' },
+          { label: '高難度・ビルド研究勢', pct: 19, color: 'bg-emerald-500' }
+        ]
+      },
+
+      genshin: {
+        id: 'genshin',
+        parentId: 'hoyo',
+        level: 4,
+        name: '原神',
+        shortDesc: '新エリア探索・魔神任務・キャラ性能議論のミクロ分析',
+        children: [],
+        metrics: {
+          volume30d: 428000,
+          growth: 13.5,
+          positive: 58,
+          neutral: 28,
+          negative: 14,
+          engagement: 2150000,
+          buzz: 85,
+          uniqueUsers: 162000
+        },
+        trendBase: [11, 12, 13, 12, 14, 16, 15, 13, 14, 15, 16, 16, 18, 15, 14, 14, 13, 15, 17, 16, 15, 16, 18, 21, 20, 17, 16, 17, 18, 20],
+        events: [
+          { day: '6日前', label: '新マップ解放＆魔神任務クライマックスで考察タグ急上昇', type: 'spike' }
+        ],
+        contextBreakdown: [
+          { label: '魔神任務ストーリー考察・感想', pct: 33, growth: '+42%', color: '#6366f1' },
+          { label: '新キャラ性能評価・パーティ編成', pct: 28, growth: '+29%', color: '#10b981' },
+          { label: 'ファンアート・コスプレ・二次創作', pct: 22, growth: '+19%', color: '#0ea5e9' },
+          { label: '聖遺物厳選・ガチャ結果報告', pct: 17, growth: '+8%', color: '#f59e0b' }
+        ],
+        summary: '長期運営タイトルながら新エリアと魔神任務の展開で高い熱量を維持。ネタバレ配慮タグ付きのストーリー考察と、新キャラの探索快適性（移動スキル）に対する好意的な評価が際立っています。',
+        insights: [
+          { type: 'trend', title: '「探索人権」移動快適キャラへの需要増', body: '戦闘火力以上にフィールド移動が快適になるスキル性能がガチャを引く決定打になりやすい。' },
+          { type: 'positive', title: 'ストーリー演出とBGMの感動体験', body: 'メインストーリーの伏線回収が熱心な考察班を刺激し、長文感想ポストのブックマーク数が急増。' },
+          { type: 'negative', title: '聖遺物厳選のランダム性と復刻待ちの長さ', body: '推しキャラの復刻間隔が1年以上空くケースへの不満や、育成素材の曜日制限緩和要望が根強い。' },
+          { type: 'action', title: '示唆：初心者・復帰者向けストーリー要約動画', body: '物語の壮大さが新規参入障壁になりつつあるため、3分で分かる地域別ダイジェスト施策が有効。' }
+        ],
+        keywords: [
+          { text: '魔神任務', count: 88000, sentiment: 'positive' },
+          { text: '探索快適', count: 64000, sentiment: 'positive' },
+          { text: '聖遺物厳選', count: 74000, sentiment: 'negative' },
+          { text: '復刻まだ', count: 51000, sentiment: 'negative' },
+          { text: '螺旋12層', count: 46000, sentiment: 'neutral' },
+          { text: '神BGM', count: 59000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'ストーリー・考察ファン', pct: 43, color: 'bg-indigo-500' },
+          { label: '推しキャラ・二次創作層', pct: 36, color: 'bg-sky-500' },
+          { label: '性能・螺旋攻略ガチ勢', pct: 21, color: 'bg-emerald-500' }
+        ]
+      },
+
+      pc: {
+        id: 'pc',
+        parentId: 'game',
+        level: 2,
+        name: 'PCゲーム / Steam',
+        shortDesc: 'Steamセール・インディーゲーム・配信者発ヒット作の発話群',
+        children: ['indie'],
+        metrics: {
+          volume30d: 760000,
+          growth: 16.9,
+          positive: 53,
+          neutral: 33,
+          negative: 14,
+          engagement: 2530000,
+          buzz: 80,
+          uniqueUsers: 242000
+        },
+        trendBase: [20, 21, 20, 22, 23, 25, 26, 23, 24, 25, 27, 28, 31, 30, 29, 29, 30, 31, 30, 29, 29, 29, 30, 33, 31, 30, 29, 31, 31, 32],
+        events: [
+          { day: '10日前', label: 'Steam季節セール＆人気ストリーマー同時配信で話題作発掘', type: 'trend' }
+        ],
+        summary: 'PC/Steam領域は人気ストリーマーのプレイ配信を起点とした小〜中規模タイトルの突発的ヒットと、Steamセールでの「積みゲー消化・おすすめ紹介」ポストが活発。MOD文化や高リフレッシュレート環境へのこだわりが特徴です。',
+        insights: [
+          { type: 'trend', title: 'ストリーマー発「協力ホラー・サバイバル」の短周期バズ', body: '1,000円以下の協力プレイ系インディーが配信切り抜きから一気にランキング首位を獲る現象が定着。' },
+          { type: 'positive', title: 'コスパの良さと圧倒的なタイトル多様性', body: 'セール時の割引率やインディー作品の独創性に対する満足度が非常に高い。' },
+          { type: 'negative', title: 'PCスペック要件の上昇・最適化不足への不満', body: '最新AAAタイトルのPC版におけるGPU負荷の高さ・クラッシュ報告がネガティブ要因。' },
+          { type: 'action', title: '示唆：体験版（Demo）＋配信ガイドラインの明確化', body: 'ウィッシュリスト登録を伸ばすには、配信者が安心して遊べる短い体験版の提供が最も費用対効果が高い。' }
+        ],
+        keywords: [
+          { text: 'Steamセール', count: 142000, sentiment: 'positive' },
+          { text: 'インディーゲーム', count: 118000, sentiment: 'positive' },
+          { text: 'パルワールド', count: 109000, sentiment: 'positive' },
+          { text: '積みゲー', count: 84000, sentiment: 'neutral' },
+          { text: '最適化不足', count: 52000, sentiment: 'negative' },
+          { text: 'ウィッシュリスト', count: 63000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'Steamヘビーユーザー', pct: 48, color: 'bg-indigo-500' },
+          { label: 'ストリーマー視聴・同調層', pct: 31, color: 'bg-sky-500' },
+          { label: '自作PC・スペック重視層', pct: 13, color: 'bg-amber-500' },
+          { label: 'インディー発掘クリエイター', pct: 8, color: 'bg-emerald-500' }
+        ]
+      },
+
+      indie: {
+        id: 'indie',
+        parentId: 'pc',
+        level: 3,
+        name: 'インディー・話題作',
+        shortDesc: 'Steam発のサバイバル・クラフト・ローグライク話題作群',
+        children: ['palworld'],
+        metrics: {
+          volume30d: 412000,
+          growth: 22.4,
+          positive: 60,
+          neutral: 27,
+          negative: 13,
+          engagement: 1580000,
+          buzz: 82,
+          uniqueUsers: 148000
+        },
+        trendBase: [11, 11, 11, 12, 12, 14, 15, 13, 13, 14, 15, 16, 18, 17, 16, 16, 16, 17, 17, 16, 16, 16, 17, 19, 18, 17, 16, 17, 18, 19],
+        events: [
+          { day: '8日前', label: '大型アップデート＆他タイトルコラボ発表で再注目', type: 'spike' }
+        ],
+        summary: '開発者との距離の近さやアップデートのスピード感がユーザーからの信頼に繋がっています。面白いバグや拠点建築スクショなど、X上でビジュアル映えするUGCが継続的に生まれています。',
+        insights: [
+          { type: 'trend', title: '大型コラボと継続アプデによるプレイヤー回帰', body: '無料大型アップデートが「そろそろ復帰するか」というポジティブな連鎖を生む。' },
+          { type: 'positive', title: '開発チームの要望反映スピードへの高評価', body: 'SNS上の要望が迅速にパッチ反映される体験が、熱心なアンバサダーを育成。' },
+          { type: 'negative', title: 'アーリーアクセス特有のバグ・データ不具合懸念', body: 'マルチサーバーの負荷やセーブデータ互換性に対する不安が一部ネガティブ化。' },
+          { type: 'action', title: '示唆：ロードマップ公開とUGCリポスト運用', body: '開発進捗の透明性を高めつつ、ユーザーのユニークな建築・プレイ動画を公式が積極的に紹介するのが王道。' }
+        ],
+        keywords: [
+          { text: 'パルワールド', count: 109000, sentiment: 'positive' },
+          { text: '大型アプデ', count: 78000, sentiment: 'positive' },
+          { text: '拠点建築', count: 54000, sentiment: 'positive' },
+          { text: 'クロスプレイ', count: 48000, sentiment: 'positive' },
+          { text: '神アプデ', count: 62000, sentiment: 'positive' }
+        ],
+        personas: [
+          { label: 'サバイバル・クラフト愛好層', pct: 45, color: 'bg-emerald-500' },
+          { label: 'マルチサーバー運営・交流層', pct: 30, color: 'bg-indigo-500' },
+          { label: '配信きっかけの新規層', pct: 25, color: 'bg-sky-500' }
+        ]
+      },
+
+      palworld: {
+        id: 'palworld',
+        parentId: 'indie',
+        level: 4,
+        name: 'パルワールド',
+        shortDesc: '大型アプデ・クロスプレイ対応・拠点自動化に関するミクロ分析',
+        children: [],
+        metrics: {
+          volume30d: 218000,
+          growth: 28.9,
+          positive: 62,
+          neutral: 24,
+          negative: 14,
+          engagement: 920000,
+          buzz: 84,
+          uniqueUsers: 89000
+        },
+        trendBase: [5, 6, 5, 6, 6, 7, 8, 7, 7, 7, 8, 9, 10, 9, 9, 8, 9, 9, 10, 9, 9, 9, 10, 12, 11, 10, 9, 10, 11, 12],
+        events: [
+          { day: '8日前', label: 'クロスプレイ完全対応＆新パル追加アプデ配信', type: 'spike' }
+        ],
+        contextBreakdown: [
+          { label: 'クロスプレイ対応・フレンド復帰報告', pct: 35, growth: '+74%', color: '#6366f1' },
+          { label: '新パル・拠点自動化ノウハウ共有', pct: 29, growth: '+41%', color: '#10b981' },
+          { label: '拠点建築スクショ・フォトモード', pct: 21, growth: '+55%', color: '#0ea5e9' },
+          { label: 'バランス調整・サーバー不具合報告', pct: 15, growth: '+9%', color: '#f43f5e' }
+        ],
+        summary: '待望のクロスプレイ実装とフォトモード追加により、休止していたプレイヤーの復帰報告が急増。拠点自動化レイアウトや建築自慢ポストが活発にシェアされています。',
+        insights: [
+          { type: 'trend', title: 'クロスプレイ解禁でプラットフォーム横断マルチが開花', body: '「PC勢とコンシューマー勢の友達が一緒に遊べるようになった」という喜びの声が急増。' },
+          { type: 'positive', title: 'フォトモード＆新拠点設備への絶賛', body: 'ビジュアル共有のハードルが下がり、X上での画像付きポスト比率が大幅に向上。' },
+          { type: 'negative', title: 'マルチサーバーの同期ズレ・重さへの指摘', body: '拠点規模が大きくなるとフレームレートが低下する現象への改善要望が挙がっている。' },
+          { type: 'action', title: '示唆：フォトコンテスト＆自動化アイデア募集', body: 'フォトモードを活用した季節イベント開催で復帰層の定着を強化できる。' }
+        ],
+        keywords: [
+          { text: 'クロスプレイ', count: 48000, sentiment: 'positive' },
+          { text: 'フォトモード', count: 36000, sentiment: 'positive' },
+          { text: '拠点自動化', count: 32000, sentiment: 'positive' },
+          { text: '新パル', count: 29000, sentiment: 'positive' },
+          { text: 'サーバー重い', count: 16000, sentiment: 'negative' }
+        ],
+        personas: [
+          { label: 'クラフト・自動化マニア', pct: 42, color: 'bg-indigo-500' },
+          { label: '復帰マルチプレイ層', pct: 34, color: 'bg-emerald-500' },
+          { label: '建築・スクショ勢', pct: 24, color: 'bg-sky-500' }
+        ]
+      }
+    };
+
+    // =========================================================================
+    // 2. Xポストのダミーデータ（各最下層・中間層に紐付け、上位階層では配下を統合表示）
+    // =========================================================================
+    const DUMMY_POSTS = [
+      // マリオカートワールド
+      {
+        id: 'p1', nodeId: 'mariokart', user: 'たくみ🎮マリカ待機', handle: '@takumi_kart24',
+        avatarBg: 'bg-indigo-500', initials: 'た', verified: false,
+        date: '2025-05-14 21:18', sentiment: 'positive',
+        text: 'マリオカートワールドのフリーラン機能、レースせずに友達とボイチャしながら海辺ドライブして写真撮れるの最高すぎないか？？ガチ対戦だけじゃなくてチルゲーとしても遊べるの神アプデすぎる #マリオカートワールド #任天堂スイッチ',
+        tags: ['フリーラン', 'マリオカートワールド', '任天堂スイッチ'],
+        likes: 18420, reposts: 4320, replies: 215
+      },
+      {
+        id: 'p2', nodeId: 'mariokart', user: 'もーもー牧場主', handle: '@moomoo_cow_mk',
+        avatarBg: 'bg-emerald-500', initials: 'も', verified: false,
+        date: '2025-05-14 19:42', sentiment: 'positive',
+        text: '24人対戦で全員「ウシ」選んでモーモーカントリーから隣の砂漠コースまで暴走族みたいに駆け抜ける企画やりたすぎるwww 新キャラにウシ持ってきた任天堂のセンスに乾杯🐄🏎️ #ウシ #24人対戦',
+        tags: ['ウシ', '24人対戦', 'マリオカートワールド'],
+        likes: 34200, reposts: 9810, replies: 412
+      },
+      {
+        id: 'p3', nodeId: 'mariokart', user: 'Kento | ゲーム分析', handle: '@kento_game_biz',
+        avatarBg: 'bg-slate-700', initials: 'K', verified: true,
+        date: '2025-05-14 17:05', sentiment: 'neutral',
+        text: 'マリオカートワールドの価格構成を整理。単体パッケージ版は確かに高めに感じるけど、本体同梱版なら実質4,000円以上お得になる計算。ライト層を初動で本体ごと取り込む意図がかなり明確ですね。 #同梱版お得 #ソフト価格',
+        tags: ['同梱版お得', 'ソフト価格', '同梱版'],
+        likes: 9650, reposts: 3120, replies: 184
+      },
+      {
+        id: 'p4', nodeId: 'mariokart', user: 'レート99999目指すマン', handle: '@mk_gachi_ta',
+        avatarBg: 'bg-rose-500', initials: 'レ', verified: false,
+        date: '2025-05-14 15:30', sentiment: 'negative',
+        text: '体験会レポ見ててちょっと不安なのが、24人対戦のアイテム乱戦。ただでさえ12人でも終盤カオスだったのに、24人いたらトゲゾー地獄＆サンダー連打で運ゲー加速しないかな…？サバイバルモードのバランス調整に期待。 #24人対戦 #トゲゾー地獄',
+        tags: ['24人対戦', 'トゲゾー地獄', 'サバイバルモード'],
+        likes: 4210, reposts: 890, replies: 163
+      },
+      {
+        id: 'p5', nodeId: 'mariokart', user: 'ゆいママ🌿2児の母', handle: '@yui_family_play',
+        avatarBg: 'bg-amber-500', initials: 'ゆ', verified: false,
+        date: '2025-05-13 22:10', sentiment: 'positive',
+        text: 'マリオカートワールドのレールスライドや壁走り、難しそうに見えたけどオートアクセル＆ハンドルアシスト健在みたいで安心！家族4人でワイワイ遊びたいから同梱版の抽選絶対当てたい…！ #レールスライド #同梱版',
+        tags: ['レールスライド', '同梱版', '任天堂スイッチ'],
+        likes: 5890, reposts: 740, replies: 92
+      },
+      {
+        id: 'p6', nodeId: 'mariokart', user: 'りょうすけ', handle: '@ryosuke_ns',
+        avatarBg: 'bg-rose-600', initials: 'り', verified: false,
+        date: '2025-05-13 18:55', sentiment: 'negative',
+        text: 'マリカ最新作めちゃくちゃ面白そうだけど、ソフト単体9,000円近いのは学生には正直キツい…。その分ボリュームとコース移動の作り込みが桁違いなのは分かるんだけどね #ソフト価格 #コース移動',
+        tags: ['ソフト価格', 'コース移動'],
+        likes: 6340, reposts: 1520, replies: 245
+      },
+
+      // ゼルダの伝説
+      {
+        id: 'p7', nodeId: 'zelda', user: 'ハイラル写真部', handle: '@hyrule_snap',
+        avatarBg: 'bg-teal-600', initials: 'ハ', verified: false,
+        date: '2025-05-14 20:12', sentiment: 'positive',
+        text: 'ゼルダ60fps＆HDR比較映像見て鳥肌立った。カカリコ村の光の表現とロード爆速化だけでもう一回最初から旅する価値ある。ゾナウギア共有機能で職人たちのヤバい兵器また流行りそう #60fps #ロード爆速 #ゾナウギア共有',
+        tags: ['60fps', 'ロード爆速', 'ゾナウギア共有', 'ゼルダの伝説'],
+        likes: 12400, reposts: 2980, replies: 134
+      },
+      {
+        id: 'p8', nodeId: 'zelda', user: 'しゅん＠RPG好き', handle: '@shun_rpg',
+        avatarBg: 'bg-indigo-400', initials: 'し', verified: false,
+        date: '2025-05-13 14:20', sentiment: 'neutral',
+        text: 'ゼルダのアップグレードパス、オンライン追加パック加入してれば追加料金なしで遊べるの意外と知られてない気がする。コログナビ機能でようやく900匹コンプできそう笑 #アップグレードパス #コログナビ #追加料金',
+        tags: ['アップグレードパス', 'コログナビ', '追加料金'],
+        likes: 7820, reposts: 2640, replies: 88
+      },
+
+      // 任天堂スイッチ全般
+      {
+        id: 'p9', nodeId: 'switch', user: 'さき＠抽選全敗中', handle: '@saki_switch_get',
+        avatarBg: 'bg-rose-500', initials: 'さ', verified: false,
+        date: '2025-05-14 16:02', sentiment: 'negative',
+        text: 'マイニンテンドーストアの抽選落選メール届いて泣いてる😭 転売対策しっかりやってくれてるのはありがたいけど、普通に遊びたい人が初日に買えるくらい在庫増えてほしい…！ #抽選落選 #マイニンテンドー #抽選予約',
+        tags: ['抽選落選', 'マイニンテンドー', '抽選予約', '予約戦争'],
+        likes: 15600, reposts: 3820, replies: 310
+      },
+      {
+        id: 'p10', nodeId: 'switch', user: 'ゲーム速報クリップ', handle: '@game_clip_jp',
+        avatarBg: 'bg-sky-600', initials: 'G', verified: true,
+        date: '2025-05-12 20:45', sentiment: 'positive',
+        text: '任天堂スイッチの既存ライブラリとの互換性チェックリストが公開。手持ちのダウンロードソフトがそのまま引き継げる安心感はやっぱり大きい。本体買い替えの心理的ハードルが一気に下がった印象。 #互換性 #任天堂スイッチ',
+        tags: ['互換性', '任天堂スイッチ', 'Joy-Con'],
+        likes: 11200, reposts: 3450, replies: 142
+      },
+
+      // モンスターハンターワイルズ / PS5
+      {
+        id: 'p11', nodeId: 'mhwilds', user: 'アイルーの執事⚔️', handle: '@palico_butler',
+        avatarBg: 'bg-amber-600', initials: 'ア', verified: false,
+        date: '2025-05-14 22:04', sentiment: 'positive',
+        text: '新モンスターの素材で作れる重ね着コーデが過去一でオシャレすぎる！！集中モードの傷口破壊も気持ちいいし、クロスプレイでPC勢の友達ともすぐ救難信号合流できるの最高 #重ね着コーデ #集中モード #救難信号 #モンハンワイルズ',
+        tags: ['重ね着コーデ', '集中モード', '救難信号', 'モンハンワイルズ', 'クロスプレイ'],
+        likes: 14300, reposts: 3210, replies: 176
+      },
+      {
+        id: 'p12', nodeId: 'mhwilds', user: 'ランス一筋15年', handle: '@lance_guard_mh',
+        avatarBg: 'bg-slate-600', initials: 'ラ', verified: false,
+        date: '2025-05-14 13:15', sentiment: 'negative',
+        text: '今回の武器調整パッチ、一部人気武器は順当に強化されたのに不遇武器のモーション値据え置きはちょっと悲しい。歴戦個体のエンドコンテンツ周回ももう少し報酬バリエーション欲しいところ… #武器調整 #歴戦個体 #エンドコンテンツ',
+        tags: ['武器調整', '歴戦個体', 'エンドコンテンツ', 'モンハンワイルズ'],
+        likes: 5120, reposts: 1180, replies: 204
+      },
+      {
+        id: 'p13', nodeId: 'ps5', user: 'テック＆ゲーム録', handle: '@tech_ps_review',
+        avatarBg: 'bg-blue-700', initials: 'T', verified: true,
+        date: '2025-05-13 11:30', sentiment: 'neutral',
+        text: 'PS5 ProとミドルレンジゲーミングPCのコスパ比較。確かに本体高いという声はあるものの、DualSenseのハプティクス体験と設定不要の安定動作を重視するならPS5の優位性はまだ健在。 #PS5 #PS5Pro #本体高い #DualSense',
+        tags: ['PS5', 'PS5Pro', '本体高い', 'DualSense'],
+        likes: 6450, reposts: 1490, replies: 198
+      },
+
+      // 原神 / HoYoverse
+      {
+        id: 'p14', nodeId: 'genshin', user: 'テイワット考察ノート', handle: '@teyvat_lore_jp',
+        avatarBg: 'bg-violet-600', initials: 'テ', verified: false,
+        date: '2025-05-14 23:01', sentiment: 'positive',
+        text: '今回の魔神任務クライマックス、3年前のイベントで出た小さな伏線をここで回収してくるの神BGMと相まって号泣した…。新キャラの探索快適度もヤバくてマップ100%にするのが楽しすぎる #魔神任務 #神BGM #探索快適 #原神',
+        tags: ['魔神任務', '神BGM', '探索快適', '原神', '新キャラPV'],
+        likes: 21500, reposts: 5890, replies: 342
+      },
+      {
+        id: 'p15', nodeId: 'genshin', user: 'すり抜け常連の旅人', handle: '@qiqi_c6_pain',
+        avatarBg: 'bg-rose-400', initials: 'す', verified: false,
+        date: '2025-05-13 19:18', sentiment: 'negative',
+        text: '聖遺物厳選もう2ヶ月やってるのに会心ダメ全然伸びないし、推しキャラの復刻まだ来ないのつらい…笑 そろそろスマホの容量不足も限界だからPC版に移行しようかな #聖遺物厳選 #復刻まだ #容量不足 #すり抜け',
+        tags: ['聖遺物厳選', '復刻まだ', '容量不足', 'すり抜け', 'ガチャ結果'],
+        likes: 4890, reposts: 920, replies: 118
+      },
+
+      // パルワールド / PC・Steam
+      {
+        id: 'p16', nodeId: 'palworld', user: '拠点自動化エンジニア', handle: '@pal_factory_opt',
+        avatarBg: 'bg-emerald-600', initials: '拠', verified: false,
+        date: '2025-05-14 18:40', sentiment: 'positive',
+        text: 'パルワールドのクロスプレイ対応きた！！PS5勢のフレンドを自分のSteamサーバーに招待して一緒に新パル捕獲＆拠点自動化組むの楽しすぎて週末溶けた。フォトモードも神アプデ #パルワールド #クロスプレイ #拠点自動化 #フォトモード',
+        tags: ['パルワールド', 'クロスプレイ', '拠点自動化', 'フォトモード', '神アプデ', '大型アプデ'],
+        likes: 9840, reposts: 2310, replies: 129
+      },
+      {
+        id: 'p17', nodeId: 'pc', user: 'Steam積みゲー消化委員会', handle: '@steam_backlog_jp',
+        avatarBg: 'bg-sky-700', initials: 'S', verified: false,
+        date: '2025-05-13 21:00', sentiment: 'positive',
+        text: 'Steamセールでウィッシュリストに入れてた国産インディーゲーム3本まとめて2,500円で買えたのバグレベルにお得。配信者の切り抜き見て気になった協力ホラーも週末やるぞ〜 #Steamセール #インディーゲーム #積みゲー #ウィッシュリスト',
+        tags: ['Steamセール', 'インディーゲーム', '積みゲー', 'ウィッシュリスト', 'Steam'],
+        likes: 7310, reposts: 1840, replies: 96
+      },
+      {
+        id: 'p18', nodeId: 'palworld', user: 'マルチ鯖管理人', handle: '@pal_server_admin',
+        avatarBg: 'bg-amber-700', initials: 'マ', verified: false,
+        date: '2025-05-12 16:45', sentiment: 'negative',
+        text: '新拠点作ってパル30体稼働させたらさすがにサーバー重い＆同期ズレが出始めた。クロスプレイ自体は神だからパフォーマンス最適化パッチに期待！ #サーバー重い #最適化不足 #パルワールド',
+        tags: ['サーバー重い', '最適化不足', 'パルワールド'],
+        likes: 2150, reposts: 410, replies: 67
+      }
+    ];
+
+    // =========================================================================
+    // 3. 状態管理
+    // =========================================================================
+    let state = {
+      currentNodeId: 'game',
+      range: '30d',          // '7d' | '30d' | '90d'
+      chartMode: 'total',    // 'total' | 'sentiment'
+      sentimentFilter: 'all',
+      keywordFilter: '',
+      searchQuery: '',
+      sortBy: 'likes'
+    };
+
+    let trendChartInstance = null;
+    let breakdownChartInstance = null;
+
+    // =========================================================================
+    // 4. ユーティリティ関数
+    // =========================================================================
+    function formatNum(num) {
+      if (num >= 1000000) return (num / 10000).toFixed(1) + '万';
+      if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+      return num.toLocaleString('ja-JP');
+    }
+
+    function getRangeMultiplier(range) {
+      if (range === '7d') return 0.27;
+      if (range === '90d') return 2.75;
+      return 1;
+    }
+
+    // 指定ノードとその全子孫IDを取得
+    function getDescendantIds(nodeId) {
+      const ids = [nodeId];
+      const node = NODES[nodeId];
+      if (node && node.children) {
+        node.children.forEach(childId => {
+          ids.push(...getDescendantIds(childId));
+        });
+      }
+      return ids;
+    }
+
+    // パンくず用のパス配列を取得
+    function getPath(nodeId) {
+      const path = [];
+      let curr = NODES[nodeId];
+      while (curr) {
+        path.unshift(curr);
+        curr = curr.parentId ? NODES[curr.parentId] : null;
+      }
+      return path;
+    }
+
+    // 日付ラベル生成
+    function generateDateLabels(range) {
+      const count = range === '7d' ? 7 : (range === '30d' ? 30 : 30);
+      const labels = [];
+      const baseDate = new Date(2025, 4, 15); // 2025-05-15基準
+      const step = range === '90d' ? 3 : 1;
+      for (let i = count - 1; i >= 0; i--) {
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i * step);
+        labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+      }
+      return labels;
+    }
+
+    // =========================================================================
+    // 5. レンダリング関数群
+    // =========================================================================
+    function renderSidebarTree() {
+      const container = document.getElementById('hierarchyTree');
+      container.innerHTML = '';
+
+      function buildItem(nodeId, depth = 0) {
+        const node = NODES[nodeId];
+        const isActive = state.currentNodeId === nodeId;
+        const pathIds = getPath(state.currentNodeId).map(n => n.id);
+        const isInPath = pathIds.includes(nodeId);
+
+        const btn = document.createElement('button');
+        btn.className = `w-full text-left flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition group ${
+          isActive
+            ? 'bg-indigo-600 text-white font-semibold shadow-md shadow-indigo-900/40'
+            : isInPath
+              ? 'bg-slate-800/80 text-indigo-200 font-medium hover:bg-slate-800'
+              : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+        }`;
+        btn.style.paddingLeft = `${10 + depth * 14}px`;
+
+        const levelDotColors = {
+          1: 'bg-indigo-400',
+          2: 'bg-sky-400',
+          3: 'bg-emerald-400',
+          4: 'bg-amber-400'
+        };
+
+        btn.innerHTML = `
+          <span class="flex items-center gap-2 min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-white' : levelDotColors[node.level]}"></span>
+            <span class="truncate">${node.name}</span>
+          </span>
+          <span class="text-[10px] flex-shrink-0 ml-2 ${isActive ? 'text-indigo-100' : 'text-slate-500 group-hover:text-slate-300'}">
+            ${formatNum(Math.round(node.metrics.volume30d * getRangeMultiplier(state.range)))}
+          </span>
+        `;
+
+        btn.addEventListener('click', () => selectNode(nodeId));
+        container.appendChild(btn);
+
+        if (node.children && node.children.length > 0) {
+          node.children.forEach(childId => buildItem(childId, depth + 1));
+        }
+      }
+
+      buildItem('game', 0);
+    }
+
+    function renderHeader() {
+      const node = NODES[state.currentNodeId];
+      const path = getPath(state.currentNodeId);
+
+      // パンくず
+      const bc = document.getElementById('breadcrumbs');
+      bc.innerHTML = path.map((p, idx) => {
+        const isLast = idx === path.length - 1;
+        return `
+          ${idx > 0 ? '<i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>' : ''}
+          <button onclick="selectNode('${p.id}')" class="${isLast ? 'font-semibold text-indigo-600' : 'hover:text-indigo-600 hover:underline transition'}">
+            ${p.name}
+          </button>
+        `;
+      }).join('');
+
+      document.getElementById('currentTitle').textContent = node.name;
+      document.getElementById('currentLevelBadge').textContent = LEVEL_LABELS[node.level];
+      document.getElementById('currentDesc').textContent = node.shortDesc;
+
+      // 子階層クイックドリルダウンバー
+      const quickBar = document.getElementById('childQuickBar');
+      const quickBtns = document.getElementById('childQuickButtons');
+      if (node.children && node.children.length > 0) {
+        quickBar.classList.remove('hidden');
+        quickBtns.innerHTML = node.children.map(cid => {
+          const c = NODES[cid];
+          return `
+            <button onclick="selectNode('${c.id}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 text-xs font-medium text-slate-800 shadow-sm transition">
+              <span>${c.name}</span>
+              <span class="text-[10px] text-emerald-600 font-semibold">+${c.metrics.growth}%</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 text-indigo-500"></i>
+            </button>
+          `;
+        }).join('');
+      } else {
+        quickBar.classList.add('hidden');
+      }
+    }
+
+    function renderKPIs() {
+      const node = NODES[state.currentNodeId];
+      const m = node.metrics;
+      const mult = getRangeMultiplier(state.range);
+
+      const vol = Math.round(m.volume30d * mult);
+      const eng = Math.round(m.engagement * mult);
+      const users = Math.round(m.uniqueUsers * Math.min(1.6, Math.sqrt(mult)));
+
+      document.getElementById('kpiVolume').textContent = formatNum(vol) + '件';
+      const growthEl = document.getElementById('kpiGrowth');
+      growthEl.textContent = `${m.growth >= 0 ? '+' : ''}${m.growth}%`;
+      growthEl.className = `text-xs font-semibold px-1.5 py-0.5 rounded ${
+        m.growth >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+      }`;
+
+      const rangeText = state.range === '7d' ? '直近7日間' : state.range === '30d' ? '直近30日間' : '直近90日間';
+      document.getElementById('kpiVolumeSub').textContent = `${rangeText}の日平均: 約${formatNum(Math.round(vol / (state.range === '7d' ? 7 : state.range === '30d' ? 30 : 90)))}件/日`;
+
+      document.getElementById('kpiPositive').textContent = `${m.positive}%`;
+      const net = m.positive - m.negative;
+      document.getElementById('kpiNetSentiment').textContent = `Net +${net}pt (ネガ ${m.negative}%)`;
+
+      document.getElementById('barPos').style.width = `${m.positive}%`;
+      document.getElementById('barNeu').style.width = `${m.neutral}%`;
+      document.getElementById('barNeg').style.width = `${m.negative}%`;
+
+      document.getElementById('kpiEngagement').textContent = formatNum(eng);
+      document.getElementById('kpiEngagementSub').textContent = `1ポストあたり平均 ${(eng / vol).toFixed(1)} エンゲージメント`;
+
+      document.getElementById('kpiBuzz').textContent = m.buzz;
+      const buzzLabel = m.buzz >= 90 ? '急上昇・話題沸騰' : m.buzz >= 80 ? '高注目トレンド' : '安定推移';
+      document.getElementById('kpiBuzzLabel').textContent = buzzLabel;
+      document.getElementById('kpiUniqueUsers').textContent = `推定ユニーク発話者数: 約${formatNum(users)}人`;
+    }
+
+    function renderTrendChart() {
+      const node = NODES[state.currentNodeId];
+      const labels = generateDateLabels(state.range);
+      const raw = state.range === '7d' ? node.trendBase.slice(-7) : node.trendBase;
+      const scale = state.range === '90d' ? 2.8 : 1;
+
+      const totalSeries = raw.map(v => Math.round(v * 1000 * scale));
+      const posRatio = node.metrics.positive / 100;
+      const negRatio = node.metrics.negative / 100;
+
+      const posSeries = totalSeries.map((v, i) => Math.round(v * (posRatio + Math.sin(i) * 0.03)));
+      const negSeries = totalSeries.map((v, i) => Math.round(v * (negRatio + Math.cos(i) * 0.02)));
+      const neuSeries = totalSeries.map((v, i) => Math.max(0, v - posSeries[i] - negSeries[i]));
+
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      if (trendChartInstance) trendChartInstance.destroy();
+
+      let datasets = [];
+      if (state.chartMode === 'total') {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.28)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+        datasets = [{
+          label: '総発話量（ポスト数）',
+          data: totalSeries,
+          borderColor: '#4f46e5',
+          backgroundColor: gradient,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointRadius: state.range === '7d' ? 4 : 2.5,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#4f46e5',
+          pointBorderWidth: 2
+        }];
+      } else {
+        datasets = [
+          {
+            label: 'ポジティブ',
+            data: posSeries,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 1.5
+          },
+          {
+            label: '中立',
+            data: neuSeries,
+            borderColor: '#94a3b8',
+            backgroundColor: 'rgba(148, 163, 184, 0.15)',
+            borderWidth: 1.8,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 1.5
+          },
+          {
+            label: 'ネガティブ',
+            data: negSeries,
+            borderColor: '#f43f5e',
+            backgroundColor: 'rgba(244, 63, 94, 0.18)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 1.5
+          }
+        ];
+      }
+
+      trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              display: state.chartMode === 'sentiment',
+              position: 'top',
+              align: 'end',
+              labels: { boxWidth: 10, usePointStyle: true, font: { size: 11 } }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} 件`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11 }, color: '#64748b', maxTicksLimit: 10 }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: '#f1f5f9' },
+              ticks: {
+                font: { size: 11 },
+                color: '#64748b',
+                callback: (v) => v >= 10000 ? (v / 10000).toFixed(1) + '万' : v.toLocaleString()
+              }
+            }
+          }
+        }
+      });
+
+      // イベント注釈
+      const eventsEl = document.getElementById('peakEvents');
+      eventsEl.innerHTML = node.events.map(ev => `
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs ${
+          ev.type === 'spike' ? 'bg-amber-50 text-amber-800 border border-amber-200/70' : 'bg-indigo-50 text-indigo-800 border border-indigo-200/70'
+        }">
+          <i data-lucide="${ev.type === 'spike' ? 'zap' : 'sparkles'}" class="w-3.5 h-3.5"></i>
+          <span class="font-semibold">${ev.day}:</span>
+          <span>${ev.label}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderBreakdownChart() {
+      const node = NODES[state.currentNodeId];
+      const hasChildren = node.children && node.children.length > 0;
+
+      const titleEl = document.getElementById('breakdownTitle').querySelector('span');
+      const hintEl = document.getElementById('breakdownHint');
+      const subEl = document.getElementById('breakdownSubtitle');
+      const listEl = document.getElementById('breakdownList');
+
+      const palette = ['#4f46e5', '#10b981', '#0ea5e9', '#f59e0b', '#f43f5e'];
+      let labels = [];
+      let values = [];
+      let colors = [];
+      let items = [];
+
+      if (hasChildren) {
+        titleEl.textContent = '下位トピック構成比';
+        hintEl.textContent = 'クリックで深掘り';
+        hintEl.className = 'text-[11px] text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full';
+        subEl.textContent = '発話シェアと前期間比の伸び率';
+
+        const childNodes = node.children.map(cid => NODES[cid]);
+        const childSum = childNodes.reduce((acc, c) => acc + c.metrics.volume30d, 0);
+        const otherVol = Math.max(0, node.metrics.volume30d - childSum);
+
+        childNodes.forEach((c, idx) => {
+          const pct = Math.round((c.metrics.volume30d / node.metrics.volume30d) * 100);
+          labels.push(c.name);
+          values.push(pct);
+          colors.push(palette[idx % palette.length]);
+          items.push({ id: c.id, label: c.name, pct, growth: `+${c.metrics.growth}%`, color: palette[idx % palette.length], clickable: true });
+        });
+
+        if (otherVol > 0 && Math.round((otherVol / node.metrics.volume30d) * 100) > 0) {
+          const otherPct = 100 - values.reduce((a, b) => a + b, 0);
+          if (otherPct > 0) {
+            labels.push('その他関連トピック');
+            values.push(otherPct);
+            colors.push('#cbd5e1');
+            items.push({ id: null, label: 'その他関連トピック', pct: otherPct, growth: '+4.1%', color: '#cbd5e1', clickable: false });
+          }
+        }
+      } else {
+        // 最下層（L4）：発話文脈カテゴリ
+        titleEl.textContent = '発話文脈・トピック内訳';
+        hintEl.textContent = '最下層ミクロ分析';
+        hintEl.className = 'text-[11px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full';
+        subEl.textContent = 'どのような文脈・関心軸で語られているか';
+
+        (node.contextBreakdown || []).forEach(c => {
+          labels.push(c.label);
+          values.push(c.pct);
+          colors.push(c.color);
+          items.push({ id: null, label: c.label, pct: c.pct, growth: c.growth, color: c.color, clickable: false });
+        });
+      }
+
+      const ctx = document.getElementById('breakdownChart').getContext('2d');
+      if (breakdownChartInstance) breakdownChartInstance.destroy();
+
+      breakdownChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#ffffff',
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '64%',
+          onClick: (_, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              if (items[idx] && items[idx].clickable && items[idx].id) {
+                selectNode(items[idx].id);
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: {
+                label: (ctx) => `${ctx.label}: ${ctx.parsed}%`
+              }
+            }
+          }
+        }
+      });
+
+      listEl.innerHTML = items.map(item => `
+        <div ${item.clickable ? `onclick="selectNode('${item.id}')"` : ''}
+          class="flex items-center justify-between p-2 rounded-lg text-xs border border-transparent ${
+            item.clickable ? 'hover:bg-indigo-50/70 hover:border-indigo-100 cursor-pointer transition' : ''
+          }">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${item.color}"></span>
+            <span class="truncate font-medium text-slate-700">${item.label}</span>
+          </div>
+          <div class="flex items-center gap-2.5 flex-shrink-0 ml-2">
+            <span class="text-[11px] font-medium ${item.growth.startsWith('-') ? 'text-rose-600' : 'text-emerald-600'}">${item.growth}</span>
+            <span class="font-bold text-slate-900 w-8 text-right">${item.pct}%</span>
+            ${item.clickable ? '<i data-lucide="chevron-right" class="w-3.5 h-3.5 text-indigo-400"></i>' : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderInsights() {
+      const node = NODES[state.currentNodeId];
+      document.getElementById('insightSummaryBox').textContent = node.summary;
+
+      const styles = {
+        trend: { bg: 'bg-indigo-50/60', border: 'border-indigo-100', icon: 'trending-up', iconColor: 'text-indigo-600', badge: '注目トレンド' },
+        positive: { bg: 'bg-emerald-50/60', border: 'border-emerald-100', icon: 'thumbs-up', iconColor: 'text-emerald-600', badge: 'ポジティブ要因' },
+        negative: { bg: 'bg-rose-50/60', border: 'border-rose-100', icon: 'alert-triangle', iconColor: 'text-rose-600', badge: '懸念・課題' },
+        action: { bg: 'bg-amber-50/60', border: 'border-amber-100', icon: 'compass', iconColor: 'text-amber-600', badge: 'ネクストアクション' }
+      };
+
+      const container = document.getElementById('insightCards');
+      container.innerHTML = node.insights.map(ins => {
+        const s = styles[ins.type];
+        return `
+          <div class="p-3.5 rounded-xl border ${s.bg} ${s.border}">
+            <div class="flex items-center gap-1.5 mb-1.5">
+              <i data-lucide="${s.icon}" class="w-3.5 h-3.5 ${s.iconColor}"></i>
+              <span class="text-[11px] font-semibold ${s.iconColor}">${s.badge}</span>
+            </div>
+            <h4 class="text-xs font-bold text-slate-900 mb-1">${ins.title}</h4>
+            <p class="text-xs text-slate-600 leading-relaxed">${ins.body}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderKeywordsAndPersonas() {
+      const node = NODES[state.currentNodeId];
+      const cloud = document.getElementById('keywordCloud');
+      const clearBtn = document.getElementById('clearKeywordFilter');
+
+      if (state.keywordFilter) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      const maxCount = Math.max(...node.keywords.map(k => k.count));
+      cloud.innerHTML = node.keywords.map(k => {
+        const isSelected = state.keywordFilter === k.text;
+        const sizeClass = k.count > maxCount * 0.7 ? 'text-xs px-3 py-1.5 font-semibold' : 'text-[11px] px-2.5 py-1 font-medium';
+        const colorClass = isSelected
+          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+          : k.sentiment === 'positive'
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+            : k.sentiment === 'negative'
+              ? 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100';
+
+        return `
+          <button onclick="toggleKeyword('${k.text}')" class="inline-flex items-center gap-1.5 rounded-full border transition ${sizeClass} ${colorClass}">
+            <span>#${k.text}</span>
+            <span class="opacity-70 text-[10px]">${formatNum(k.count)}</span>
+          </button>
+        `;
+      }).join('');
+
+      // 発話者セグメント
+      const personaEl = document.getElementById('personaBars');
+      personaEl.innerHTML = node.personas.map(p => `
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="text-slate-700 font-medium">${p.label}</span>
+            <span class="font-bold text-slate-900">${p.pct}%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div class="${p.color} h-full rounded-full transition-all duration-500" style="width: ${p.pct}%"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPosts() {
+      const validIds = getDescendantIds(state.currentNodeId);
+      let posts = DUMMY_POSTS.filter(p => validIds.includes(p.nodeId));
+
+      if (state.sentimentFilter !== 'all') {
+        posts = posts.filter(p => p.sentiment === state.sentimentFilter);
+      }
+
+      if (state.keywordFilter) {
+        posts = posts.filter(p =>
+          p.text.includes(state.keywordFilter) ||
+          p.tags.some(t => t.includes(state.keywordFilter))
+        );
+      }
+
+      if (state.searchQuery.trim() !== '') {
+        const q = state.searchQuery.trim().toLowerCase();
+        posts = posts.filter(p =>
+          p.text.toLowerCase().includes(q) ||
+          p.user.toLowerCase().includes(q) ||
+          p.tags.some(t => t.toLowerCase().includes(q))
+        );
+      }
+
+      if (state.sortBy === 'likes') {
+        posts.sort((a, b) => b.likes - a.likes);
+      } else if (state.sortBy === 'reposts') {
+        posts.sort((a, b) => b.reposts - a.reposts);
+      } else {
+        posts.sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      document.getElementById('postCountBadge').textContent = `${posts.length}件`;
+      const list = document.getElementById('postList');
+
+      if (posts.length === 0) {
+        list.innerHTML = `
+          <div class="p-10 text-center text-slate-400 text-xs">
+            <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+            条件に一致するダミーポストが見つかりませんでした。フィルターを解除してお試しください。
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const sentimentBadge = {
+        positive: '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">ポジティブ</span>',
+        neutral: '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">中立</span>',
+        negative: '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">ネガティブ</span>'
+      };
+
+      list.innerHTML = posts.map(p => {
+        const topicNode = NODES[p.nodeId];
+        return `
+          <article class="p-4 hover:bg-slate-50/80 transition flex gap-3.5">
+            <div class="w-10 h-10 rounded-full ${p.avatarBg} text-white font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-sm">
+              ${p.initials}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="font-bold text-xs text-slate-900 truncate">${p.user}</span>
+                  ${p.verified ? '<i data-lucide="badge-check" class="w-3.5 h-3.5 text-sky-500 flex-shrink-0"></i>' : ''}
+                  <span class="text-xs text-slate-400 truncate">${p.handle}</span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-[11px] text-slate-400">${p.date}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="selectNode('${topicNode.id}')" class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                    ${topicNode.name}
+                  </button>
+                  ${sentimentBadge[p.sentiment]}
+                </div>
+              </div>
+
+              <p class="text-xs sm:text-[13px] text-slate-800 leading-relaxed mb-2.5">${p.text}</p>
+
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-4 text-xs text-slate-500">
+                  <span class="inline-flex items-center gap-1 hover:text-sky-600">
+                    <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+                    ${p.replies.toLocaleString()}
+                  </span>
+                  <span class="inline-flex items-center gap-1 hover:text-emerald-600">
+                    <i data-lucide="repeat-2" class="w-3.5 h-3.5"></i>
+                    ${p.reposts.toLocaleString()}
+                  </span>
+                  <span class="inline-flex items-center gap-1 hover:text-rose-600">
+                    <i data-lucide="heart" class="w-3.5 h-3.5"></i>
+                    ${p.likes.toLocaleString()}
+                  </span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  ${p.tags.slice(0, 3).map(t => `
+                    <button onclick="toggleKeyword('${t}')" class="text-[10px] px-2 py-0.5 rounded bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-600 transition">#${t}</button>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderAll() {
+      renderSidebarTree();
+      renderHeader();
+      renderKPIs();
+      renderTrendChart();
+      renderBreakdownChart();
+      renderInsights();
+      renderKeywordsAndPersonas();
+      renderPosts();
+      lucide.createIcons();
+    }
+
+    // =========================================================================
+    // 6. インタラクション制御
+    // =========================================================================
+    window.selectNode = function(nodeId) {
+      if (!NODES[nodeId]) return;
+      state.currentNodeId = nodeId;
+      state.keywordFilter = '';
+      renderAll();
+
+      // アニメーション再発火
+      const body = document.getElementById('dashboardBody');
+      body.classList.remove('fade-in');
+      void body.offsetWidth;
+      body.classList.add('fade-in');
+    };
+
+    window.toggleKeyword = function(kw) {
+      state.keywordFilter = state.keywordFilter === kw ? '' : kw;
+      renderKeywordsAndPersonas();
+      renderPosts();
+      lucide.createIcons();
+    };
+
+    // イベントリスナー登録
+    document.querySelectorAll('.range-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.range = btn.dataset.range;
+        document.querySelectorAll('.range-btn').forEach(b => {
+          b.className = 'range-btn px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition';
+        });
+        btn.className = 'range-btn px-3 py-1 rounded-md text-xs font-semibold bg-white text-indigo-600 shadow-sm transition';
+        renderSidebarTree();
+        renderKPIs();
+        renderTrendChart();
+      });
+    });
+
+    document.getElementById('modeTotal').addEventListener('click', () => {
+      state.chartMode = 'total';
+      document.getElementById('modeTotal').className = 'chart-mode-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-indigo-600 shadow-sm';
+      document.getElementById('modeSentiment').className = 'chart-mode-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600';
+      renderTrendChart();
+    });
+
+    document.getElementById('modeSentiment').addEventListener('click', () => {
+      state.chartMode = 'sentiment';
+      document.getElementById('modeSentiment').className = 'chart-mode-btn px-2.5 py-1 rounded-md text-xs font-semibold bg-white text-indigo-600 shadow-sm';
+      document.getElementById('modeTotal').className = 'chart-mode-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600';
+      renderTrendChart();
+    });
+
+    document.querySelectorAll('.sent-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.sentimentFilter = btn.dataset.sentiment;
+        document.querySelectorAll('.sent-btn').forEach(b => {
+          b.classList.remove('bg-white', 'shadow-sm', 'font-semibold');
+          b.classList.add('font-medium');
+        });
+        btn.classList.add('bg-white', 'shadow-sm', 'font-semibold');
+        btn.classList.remove('font-medium');
+        renderPosts();
+        lucide.createIcons();
+      });
+    });
+
+    document.getElementById('postSearch').addEventListener('input', (e) => {
+      state.searchQuery = e.target.value;
+      renderPosts();
+      lucide.createIcons();
+    });
+
+    document.getElementById('postSort').addEventListener('change', (e) => {
+      state.sortBy = e.target.value;
+      renderPosts();
+      lucide.createIcons();
+    });
+
+    document.getElementById('clearKeywordFilter').addEventListener('click', () => {
+      state.keywordFilter = '';
+      renderKeywordsAndPersonas();
+      renderPosts();
+      lucide.createIcons();
+    });
+
+    document.getElementById('resetToMicroDemo').addEventListener('click', () => {
+      selectNode('mariokart');
+    });
+
+    // 初期描画
+    renderAll();
+  </script>
+</body>
+</html>
+```
+
+### 体験のおすすめルート
+1. 初期画面では **L1「ゲーム」** 全体のマクロな市場動向が表示されています。
+2. 画面上部のドリルダウンバー、または「下位トピック構成比」のドーナツグラフ／リストをクリックして **「コンシューマーゲーム」→「任天堂スイッチ」→「マリオカートワールド」** へと順に潜ってみてください。
+3. 最下層の **「マリオカートワールド」** に到達すると、右側のグラフが自動的に「発話文脈・トピック内訳（フリーラン期待、ウシ参戦ミーム、価格議論など）」へ切り替わり、タイトル特有のインサイトとXポストを詳細に確認できます。
+4. 頻出キーワード（例：`#ウシ` や `#ソフト価格`）をクリックすると、下部のXポスト一覧がリアルタイムに絞り込まれます。

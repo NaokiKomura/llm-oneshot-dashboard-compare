@@ -1,0 +1,28 @@
+{
+ "model": "gemini-4-neon",
+ "max_tokens": 65536,
+ "effort": "high",
+ "elapsed_s": 284.4,
+ "ttft_s": 19.2,
+ "usage": {
+  "promptTokenCount": 174,
+  "candidatesTokenCount": 31960,
+  "totalTokenCount": 33671,
+  "promptTokensDetails": [
+   {
+    "modality": "TEXT",
+    "tokenCount": 174
+   }
+  ],
+  "candidatesTokensDetails": [
+   {
+    "modality": "TEXT",
+    "tokenCount": 31960
+   }
+  ],
+  "thoughtsTokenCount": 1537,
+  "serviceTier": "standard",
+  "stop_reason": "STOP"
+ },
+ "chars": 85813
+}
